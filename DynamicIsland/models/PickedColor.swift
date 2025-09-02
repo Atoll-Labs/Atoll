@@ -2,7 +2,7 @@
 //  PickedColor.swift
 //  DynamicIsland
 //
-//  Created by GitHub Copilot on 14/08/25.
+//  Created by Ebullioscopic on 14/08/25.
 //
 
 import SwiftUI

@@ -1,10 +1,290 @@
+
+<div align="center">
+   <img src="https://github.com/Ebullioscopic/DynamicIsland/blob/main/DynamicIslandSamples/dynamicislandscreenrecord.gif" alt="DynamicIsland Demo" width="700"/>
+</div>
+
+<div align="center">
+   <img src="https://github.com/Ebullioscopic/DynamicIsland/blob/main/DynamicIslandSamples/logo.png" alt="DynamicIsland Logo" width="120"/>
+</div>
+
 # DynamicIsland
 
 <p align="center">
-  <img src="https://github.com/Ebullioscopic/DynamicIsland/blob/main/dynamic-island.jpeg" alt="DynamicIsland Logo" width="200"/>
+   <b>Transform your MacBook's notch into a powerful, interactive control center.</b><br>
+   <i>Advanced system monitoring, music controls, timers, widgets, and more — all with beautiful animations and intelligent layouts.</i>
 </p>
 
-> **DynamicIsland** transforms your MacBook's notch into a powerful, interactive control center with advanced system monitoring, music controls, timers, and customizable widgets. Experience smooth animations and intelligent vertical expansion for enhanced productivity.
+<p align="center">
+   <a href="https://github.com/Ebullioscopic/DynamicIsland/stargazers"><img src="https://img.shields.io/github/stars/Ebullioscopic/DynamicIsland?style=social"/></a>
+   <a href="https://github.com/Ebullioscopic/DynamicIsland/network/members"><img src="https://img.shields.io/github/forks/Ebullioscopic/DynamicIsland?style=social"/></a>
+   <a href="https://github.com/Ebullioscopic/DynamicIsland/issues"><img src="https://img.shields.io/github/issues/Ebullioscopic/DynamicIsland"/></a>
+   <a href="https://github.com/Ebullioscopic/DynamicIsland/pulls"><img src="https://img.shields.io/github/issues-pr/Ebullioscopic/DynamicIsland"/></a>
+</p>
+
+---
+
+## 📑 Table of Contents
+
+- [🎬 Demo](#-demo)
+- [✨ Features](#-features)
+- [🚀 Getting Started](#-getting-started)
+- [📖 Usage](#-usage)
+- [⚙️ Configuration](#️-configuration)
+- [🚧 Roadmap](#-roadmap)
+- [🔧 Troubleshooting](#-troubleshooting)
+- [🤝 Contributing](#-contributing)
+- [📜 License](#-license)
+- [🏆 Acknowledgments](#-acknowledgments)
+- [👥 Contributors](#-contributors)
+
+---
+
+## 🎬 Demo
+
+<div align="center">
+   <img src="https://github.com/Ebullioscopic/DynamicIsland/blob/main/DynamicIslandSamples/dynamicislandscreenrecord.gif" alt="DynamicIsland Demo" width="700"/>
+</div>
+
+---
+
+## ✨ Features
+
+<div align="center">
+   <img src="https://github.com/Ebullioscopic/DynamicIsland/blob/main/DynamicIslandSamples/statsmonitor.png" alt="Stats Monitor" width="350"/>
+   <img src="https://github.com/Ebullioscopic/DynamicIsland/blob/main/DynamicIslandSamples/media.png" alt="Media Controls" width="350"/>
+</div>
+
+### 🎵 Music & Media Controls
+- **Live Music Activity**: Real-time album art, track info, and playback controls
+- **Audio Visualizer**: Dynamic spectrum visualization with color adaptation
+- **Multi-Platform Support**: Apple Music, Spotify, YouTube Music, and more
+- **Smooth Transitions**: Elegant animations between tracks and states
+
+### 📊 Advanced System Monitoring
+- **CPU, Memory, GPU, Network, Disk**: Real-time stats with live graphs
+- **Dual-Quadrant Graphs**: Network and disk stats show upload/download or read/write
+- **Intelligent Layout**: Vertical expansion, 1-5 graph layouts, perfect centering
+- **Customizable Visibility**: Toggle individual graphs on/off
+- **Smooth Animations**: Debounced updates for fluid transitions
+
+### 🎨 ColorPicker (NEW!)
+<div align="center">
+   <img src="https://github.com/Ebullioscopic/DynamicIsland/blob/main/DynamicIslandSamples/colorpickerpanel.png" alt="ColorPicker Panel" width="350"/>
+   <img src="https://github.com/Ebullioscopic/DynamicIsland/blob/main/DynamicIslandSamples/colorpickerpopover.png" alt="ColorPicker Popover" width="350"/>
+</div>
+- **Screen Color Picking**: Raycast-inspired panel, real-time magnification
+- **Multiple Formats**: HEX, RGB, HSL, SwiftUI, UIColor, and more
+- **History & Quick Copy**: Recent colors, hover info, click to copy
+- **Global Shortcut**: Cmd+Shift+P (customizable)
+- **Settings Integration**: Enable/disable, customize controls
+
+### ⏱️ Timer & Productivity
+- **Multiple Timers**: Create/manage named timers
+- **Live Activities**: Background timer monitoring, notifications
+- **Custom Colors**: Personalize timer appearance
+- **Quick Access**: Direct timer controls from the notch
+
+### 🔋 Battery & System Status
+- **Intelligent Battery Alerts**: Smart notifications for charging states
+- **Power Management**: Low battery warnings, charging status
+- **System Integration**: Native macOS battery monitoring
+
+### 🖥️ Modern UI & Animations
+- **Smooth Transitions**: Professionally animated state changes
+- **Hover Effects**: Interactive feedback, haptic support
+- **Gesture Controls**: Swipe to open/close, tap interactions
+- **Adaptive Sizing**: Dynamic height expansion for complex content
+- **Perfect Alignment**: Maintains center positioning across all states
+
+### 🗂️ Widgets & Panels
+<div align="center">
+   <img src="https://github.com/Ebullioscopic/DynamicIsland/blob/main/DynamicIslandSamples/clipboardpanel.png" alt="Clipboard Panel" width="350"/>
+   <img src="https://github.com/Ebullioscopic/DynamicIsland/blob/main/DynamicIslandSamples/clipboardpopover.png" alt="Clipboard Popover" width="350"/>
+</div>
+- **Clipboard Manager**: Quick access to recent clipboard items
+- **Weather Widget**: Displays current weather (location access required)
+- **App Switcher**: Swipe gestures for fast app switching
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **macOS Sonoma 14.0+** (Optimized for Sequoia 15.0+)
+- **MacBook with Notch** (Pro 14"/16" M1/M2/M3 series)
+- **Xcode 15.0+**, **Swift 5.9+**
+- **Admin privileges** for system monitoring features
+
+### Installation
+```bash
+git clone https://github.com/Ebullioscopic/DynamicIsland.git
+cd DynamicIsland
+open DynamicIsland.xcodeproj
+```
+1. Enable **Accessibility**, **Screen Recording**, and **Full Disk Access** in System Settings
+2. Build and run in Xcode (`Cmd + R`)
+3. The app will appear in your menu bar and activate the notch
+
+---
+
+## 📖 Usage
+
+### Basic Controls
+- **Hover to Activate**: Move cursor near the notch to expand
+- **Click to Open**: Tap the notch area for full controls
+- **Gesture Support**: Swipe down to expand, swipe up to close
+- **Tab Navigation**: Switch between Home, Shelf, Timer, Stats, ColorPicker, and more
+
+### System Monitoring
+- **Stats Tab**: CPU, Memory, GPU, Network, Disk with live graphs
+- **Layout Intelligence**: 1-3 graphs in a row, 4 in 2×2 grid, 5 in 3+2 layout
+- **Smooth Transitions**: Animated layout changes, perfect centering
+
+### ColorPicker
+- **Panel & Popover**: Pick colors anywhere, see recent colors, copy formats
+- **Shortcut**: Cmd+Shift+P to open picker
+
+### Clipboard & Widgets
+- **Clipboard Panel**: Access recent clipboard items
+- **Weather Widget**: Current weather in notch (location access required)
+- **App Switcher**: Swipe to switch apps
+
+### Customization
+- **Preferences Pane**: Long-press notch to open
+- **Themes**: Light, dark, system adaptive
+- **Widget Settings**: Enable/disable, adjust sizes, display preferences
+- **Gestures**: Customize swipe, tap, long-press actions
+
+---
+
+## ⚙️ Configuration
+
+### Settings Categories
+- **Stats**: Enable/disable CPU, Memory, GPU, Network, Disk monitoring
+- **Music & Media**: Visualizer type, color adaptation, media sources
+- **Timer**: Default duration, notification style, colors, auto-start
+- **Appearance & Behavior**: Theme, hover sensitivity, animation speed, corner radius, shadow effects
+- **Multi-Display Support**: Choose main monitor, show on all displays
+- **Keyboard Shortcuts**: Toggle DynamicIsland, open settings, quick stats, timer control
+
+---
+
+## 🚧 Roadmap
+
+### 🔄 Upcoming Features
+- **Enhanced Calendar Integration**: Weekly/monthly views, event details
+- **Weather Widget**: Location-based forecasts, beautiful animations
+- **Custom Shortcuts**: User-defined quick actions, app launchers
+- **Performance Optimizations**: Reduced memory/battery usage
+- **Voice Commands**: Siri integration
+- **Widget Marketplace**: Community custom widgets
+- **Advanced Analytics**: Historical performance data
+- **Cloud Sync**: Settings across devices
+- **AI-Powered Insights**: Intelligent system recommendations
+- **3D Animations**: Enhanced visual effects
+- **Plugin Architecture**: Third-party extensions
+- **Cross-Platform**: iPad/iPhone companion apps
+
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues & Solutions
+- **Permissions**: Enable Accessibility, Screen Recording, Full Disk Access
+- **Stats Not Updating**: Check feature toggles, restart monitoring, verify permissions
+- **Music Controls Not Working**: Ensure media app is playing, check permissions, restart app
+- **Performance Issues**: Reduce update frequency, disable unused features, restart app
+
+### Advanced
+- **Reset to Defaults**:
+   ```bash
+   defaults delete com.ebullioscopic.DynamicIsland
+   ```
+- **Clean Reinstall**:
+   1. Quit DynamicIsland
+   2. Delete app from Applications
+   3. Remove settings: `~/Library/Preferences/com.ebullioscopic.DynamicIsland.plist`
+   4. Reinstall from latest build
+- **Debug Mode**: Hold `⌥` while opening Settings → Advanced → Debug Mode → Enable Verbose Logging
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from developers, designers, and users!
+
+### For Developers
+1. **Fork the repository**
+2. **Clone your fork**
+    ```bash
+    git clone https://github.com/yourusername/DynamicIsland.git
+    cd DynamicIsland
+    ```
+3. **Install dev dependencies**
+    ```bash
+    brew install swiftlint
+    brew install swiftformat
+    ```
+4. **Create a feature branch**
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+5. **Commit & Push**
+    ```bash
+    git commit -m "feat: add new feature"
+    git push origin feature/your-feature-name
+    ```
+6. **Open a Pull Request**
+
+### For Designers
+- UI/UX improvements, icon design, animation concepts
+
+### For Documentation
+- User guides, API docs, translations
+
+---
+
+## 📜 License
+
+This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
+
+---
+
+## 🏆 Acknowledgments
+
+- **Apple's Dynamic Island** — inspiration for this project
+- **NotchNook & HiDock** — early notch customization pioneers
+- **SwiftUI, Combine, AVFoundation, IOKit** — technical foundation
+- **Lottie, SF Symbols, Apple Design Resources** — design & animation
+- **Open Source Contributors, Beta Testers, Community**
+
+---
+
+## 👥 Contributors
+
+<table>
+   <tr>
+      <td align="center">
+         <a href="https://github.com/Ebullioscopic">
+            <img src="https://github.com/Ebullioscopic.png" width="100px;" alt="Ebullioscopic"/>
+            <br />
+            <sub><b>Ebullioscopic</b></sub>
+         </a>
+         <br />
+         <sub>🚀 Creator & Lead Developer</sub>
+         <br />
+         <sub>Core architecture, UI/UX design</sub>
+      </td>
+   </tr>
+</table>
+
+---
+
+<div align="center">
+   <b>⭐ Star this repository if DynamicIsland enhanced your Mac experience!</b>
+   <br><br>
+   <a href="https://github.com/Ebullioscopic/DynamicIsland">🔗 GitHub Project</a>
+</div>
 
 ## 🎬 Preview
 
@@ -445,6 +725,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 **DynamicIsland** exists thanks to the contributions and inspiration from:
 
 ### **🎯 Core Inspiration**
+- **BoringNotch**: The base project on which DynamicIsland is built on
 - **Apple's Dynamic Island**: The innovative hardware feature that inspired this software implementation
 - **NotchNook & HiDock**: Early notch customization pioneers
 - **macOS Design Principles**: Following Apple's human interface guidelines
@@ -488,17 +769,6 @@ Meet the team behind **DynamicIsland**:
       <sub>🚀 Creator & Lead Developer</sub>
       <br />
       <sub>Core architecture, UI/UX design</sub>
-    </td>
-    <td align="center">
-      <a href="https://github.com/contributors">
-        <img src="https://via.placeholder.com/100x100/4A90E2/FFFFFF?text=+" width="100px;" alt="You!"/>
-        <br />
-        <sub><b>Your Name Here</b></sub>
-      </a>
-      <br />
-      <sub>🤝 Future Contributor</sub>
-      <br />
-      <sub>Join the project!</sub>
     </td>
   </tr>
 </table>

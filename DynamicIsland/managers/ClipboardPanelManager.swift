@@ -2,7 +2,7 @@
 //  ClipboardPanelManager.swift
 //  DynamicIsland
 //
-//  Created by GitHub Copilot on 12/08/25.
+//  Created by Ebullioscopic on 12/08/25.
 //
 
 import AppKit

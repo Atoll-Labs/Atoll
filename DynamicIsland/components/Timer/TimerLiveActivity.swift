@@ -2,7 +2,7 @@
 //  TimerLiveActivity.swift
 //  DynamicIsland
 //
-//  Created by GitHub Copilot on 2025-01-13.
+//  Created by Ebullioscopic on 2025-01-13.
 //
 
 import SwiftUI

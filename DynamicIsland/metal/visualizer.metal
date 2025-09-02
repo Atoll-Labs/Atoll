@@ -1,6 +1,6 @@
 //
 //  visualizer.metal
-//  boringNotch
+//  DynamicIsland
 //
 //  Created by Harsh Vardhan  Goswami  on 28/08/24.
 //

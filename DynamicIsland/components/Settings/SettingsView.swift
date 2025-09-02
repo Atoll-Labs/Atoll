@@ -541,7 +541,7 @@ struct Media: View {
 
             Picker(selection: $hideNotchOption, label:
                 HStack {
-                    Text("Hide BoringNotch Options")
+                    Text("Hide DynamicIsland Options")
                     customBadge(text: "Beta")
                 }) {
                     Text("Always hide in fullscreen").tag(HideNotchOption.always)
@@ -653,9 +653,11 @@ struct About: View {
                         NSWorkspace.shared.open(sponsorPage)
                     } label: {
                         VStack(spacing: 5) {
-                            Image(systemName: "cup.and.saucer.fill")
-                                .imageScale(.large)
-                            Text("Support Us")
+                            Image("LinkedIn")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 18)
+                            Text("LinkedIn")
                                 .foregroundStyle(.white)
                         }
                         .contentShape(Rectangle())
@@ -680,7 +682,7 @@ struct About: View {
             }
             VStack(spacing: 0) {
                 Divider()
-                Text("Made with 🫶🏻 by not so boring not.people")
+                Text("Made ❤️ by Ebullioscopic")
                     .foregroundStyle(.secondary)
                     .padding(.top, 5)
                     .padding(.bottom, 7)
@@ -1045,7 +1047,7 @@ struct Appearance: View {
             }
 
             Section {
-                Defaults.Toggle("Enable boring mirror", key: .showMirror)
+                Defaults.Toggle("Enable Dynamic mirror", key: .showMirror)
                     .disabled(!checkVideoInput())
                 Picker("Mirror shape", selection: $mirrorShape) {
                     Text("Circle")

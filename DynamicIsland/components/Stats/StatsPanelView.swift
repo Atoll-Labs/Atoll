@@ -2,7 +2,7 @@
 //  StatsPanelView.swift
 //  DynamicIsland
 //
-//  Created by GitHub Copilot on 13/08/25.
+//  Created by Ebullioscopic on 13/08/25.
 //
 
 import SwiftUI

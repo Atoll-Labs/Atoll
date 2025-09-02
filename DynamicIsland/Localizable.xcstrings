@@ -193,45 +193,12 @@
     "Boost your productivity with Clipboard Manager" : {
 
     },
-    "Boring Controls" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Boring Controls"
-          }
-        }
-      }
-    },
-    "boring.notch" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "boring.notch"
-          }
-        }
-      }
-    },
     "Both" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Both"
-          }
-        }
-      }
-    },
-    "Buy Me a Coffee" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buy Me a Coffee"
           }
         }
       }
@@ -260,17 +227,6 @@
     },
     "Charging on Hold: Desktop Mode" : {
 
-    },
-    "Check for updates" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check for updates"
-          }
-        }
-      }
     },
     "Check for Updates…" : {
 
@@ -639,7 +595,7 @@
     "Graph Visibility" : {
 
     },
-    "Hide BoringNotch Options" : {
+    "Hide DynamicIsland Options" : {
 
     },
     "Hide only when NowPlaying app is in fullscreen" : {
@@ -695,6 +651,9 @@
     "License key" : {
 
     },
+    "LinkedIn" : {
+
+    },
     "Live" : {
 
     },
@@ -713,7 +672,11 @@
     "Low Power Mode" : {
 
     },
+    "Made ❤️ by Ebullioscopic" : {
+
+    },
     "Made with 🫶🏻 by not so boring not.people" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1273,6 +1236,7 @@
 
     },
     "Support Us" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
