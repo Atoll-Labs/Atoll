@@ -10,7 +10,6 @@
 		7E25ECA12E6C6C3800700E72 /* CoreBrightness.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E25ECA02E6C6C3800700E72 /* CoreBrightness.framework */; };
 		7E25ECA32E6C6E2600700E72 /* OSD.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E25ECA22E6C6E2600700E72 /* OSD.framework */; };
 		7E25ECA52E6C6E7800700E72 /* DisplayServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E25ECA42E6C6E7800700E72 /* DisplayServices.framework */; };
-		7E25ECB52E6C8BFB00700E72 /* MediaKeyTap in Frameworks */ = {isa = PBXBuildFile; productRef = 7E25ECB42E6C8BFB00700E72 /* MediaKeyTap */; };
 		7E6118142E24071E0050006C /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = 14D032192C68F32E0096E6A1 /* LaunchAtLogin */; };
 		7E6118152E24071E0050006C /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 14D0321C2C68F3350096E6A1 /* Sparkle */; };
 		7E6118162E24071E0050006C /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = B18654382C6F4990000B926A /* KeyboardShortcuts */; };
@@ -76,7 +75,6 @@
 				7E61181A2E24071E0050006C /* SwiftUIIntrospect in Frameworks */,
 				7E25ECA32E6C6E2600700E72 /* OSD.framework in Frameworks */,
 				7E25ECA52E6C6E7800700E72 /* DisplayServices.framework in Frameworks */,
-				7E25ECB52E6C8BFB00700E72 /* MediaKeyTap in Frameworks */,
 				7E6118192E24071E0050006C /* Defaults in Frameworks */,
 				7E6118182E24071E0050006C /* TheBoringWorkerNotifier in Frameworks */,
 				7E6118172E24071E0050006C /* Collections in Frameworks */,
@@ -159,7 +157,6 @@
 				B1628B912CC260C0003D8DF3 /* SwiftUIIntrospect */,
 				B194240A2CD10017003E5DC2 /* LottieUI */,
 				146BC4362D366E9B0047C66A /* MacroVisionKit */,
-				7E25ECB42E6C8BFB00700E72 /* MediaKeyTap */,
 			);
 			productName = DynamicIsland;
 			productReference = F54406E72CD4987A00C7AFD9 /* DynamicIsland.app */;
@@ -200,7 +197,6 @@
 				B1628B902CC260C0003D8DF3 /* XCRemoteSwiftPackageReference "swiftui-introspect" */,
 				B19424072CD0DB52003E5DC2 /* XCRemoteSwiftPackageReference "LottieUI" */,
 				146BC4352D366E9B0047C66A /* XCRemoteSwiftPackageReference "MacroVisionKit" */,
-				7E25ECB32E6C8BFB00700E72 /* XCRemoteSwiftPackageReference "MediaKeyTap" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F54406E82CD4987A00C7AFD9 /* Products */;
@@ -491,14 +487,6 @@
 				minimumVersion = 2.6.4;
 			};
 		};
-		7E25ECB32E6C8BFB00700E72 /* XCRemoteSwiftPackageReference "MediaKeyTap" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/nhurden/MediaKeyTap";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.3.0;
-			};
-		};
 		9A987A112C73CAA1005CA465 /* XCRemoteSwiftPackageReference "Pow" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/EmergeTools/Pow";
@@ -569,11 +557,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 14D0321B2C68F3350096E6A1 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
-		};
-		7E25ECB42E6C8BFB00700E72 /* MediaKeyTap */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 7E25ECB32E6C8BFB00700E72 /* XCRemoteSwiftPackageReference "MediaKeyTap" */;
-			productName = MediaKeyTap;
 		};
 		9A987A0F2C73CA8D005CA465 /* Collections */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -11,7 +11,7 @@ import SwiftUI
 import IOKit
 import IOKit.ps
 import Darwin
-import Network
+//import Network
 
 class StatsManager: ObservableObject {
     // MARK: - Properties
