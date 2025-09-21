@@ -15,6 +15,40 @@ class ScreenshotSnippingTool: NSObject, ObservableObject {
     @Published var isSnipping = false
     private var completion: ((URL) -> Void)?
     
+    // MARK: - Screenshot Types (Based on ScreenshotApp)
+    enum ScreenshotType {
+        case full
+        case window
+        case area
+        
+        var processArguments: [String] {
+            switch self {
+            case .full:
+                return ["-c"] // -c = clipboard
+            case .window:
+                return ["-cw"] // -c = clipboard, -w = window selection
+            case .area:
+                return ["-cs"] // -c = clipboard, -s = area selection
+            }
+        }
+        
+        var displayName: String {
+            switch self {
+            case .full: return "Full Screen"
+            case .window: return "Window"
+            case .area: return "Area"
+            }
+        }
+        
+        var iconName: String {
+            switch self {
+            case .full: return "rectangle.dashed"
+            case .window: return "macwindow"
+            case .area: return "viewfinder.rectangular"
+            }
+        }
+    }
+    
     enum ScreenshotError: Error {
         case captureFailed
         case noImageInPasteboard
@@ -25,26 +59,39 @@ class ScreenshotSnippingTool: NSObject, ObservableObject {
         super.init()
     }
     
-    // MARK: - Simple API (Based on ScreenshotApp Implementation)
-    func startSnipping(completion: @escaping (URL) -> Void) {
+    // MARK: - Enhanced API (Based on ScreenshotApp Implementation)
+    func startSnipping(type: ScreenshotType = .area, completion: @escaping (URL) -> Void) {
         guard !isSnipping else { return }
         
-        print("🖼️ ScreenshotTool: Starting area screenshot using screencapture tool")
+        print("🖼️ ScreenshotTool: Starting \(type.displayName.lowercased()) screenshot using screencapture tool")
         self.completion = completion
         isSnipping = true
         
         // Use the same approach as ScreenshotApp - direct screencapture command
-        takeAreaScreenshot()
+        takeScreenshot(type: type)
+    }
+    
+    // MARK: - Convenience Methods for Different Types
+    func startAreaScreenshot(completion: @escaping (URL) -> Void) {
+        startSnipping(type: .area, completion: completion)
+    }
+    
+    func startFullScreenshot(completion: @escaping (URL) -> Void) {
+        startSnipping(type: .full, completion: completion)
+    }
+    
+    func startWindowScreenshot(completion: @escaping (URL) -> Void) {
+        startSnipping(type: .window, completion: completion)
     }
     
     // MARK: - ScreenshotApp-Style Implementation
-    private func takeAreaScreenshot() {
+    private func takeScreenshot(type: ScreenshotType) {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-        task.arguments = ["-cs"] // -c = clipboard, -s = area selection
+        task.arguments = type.processArguments
         
         do {
-            print("📸 ScreenshotTool: Running screencapture -cs command")
+            print("📸 ScreenshotTool: Running screencapture \(type.processArguments.joined(separator: " ")) command")
             try task.run()
             task.waitUntilExit()
             

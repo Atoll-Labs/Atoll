@@ -1187,6 +1187,12 @@
     "Screen Assistant:" : {
 
     },
+    "Screenshot options" : {
+
+    },
+    "Screenshot Type" : {
+
+    },
     "Search clipboard..." : {
 
     },
@@ -1418,6 +1424,9 @@
 
     },
     "System Performance Monitor" : {
+
+    },
+    "Take area screenshot" : {
 
     },
     "TheDynamicIsland" : {
