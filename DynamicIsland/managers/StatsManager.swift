@@ -11,6 +11,7 @@ import SwiftUI
 import IOKit
 import IOKit.ps
 import Darwin
+import AppKit
 //import Network
 
 class StatsManager: ObservableObject {
@@ -402,5 +403,62 @@ class StatsManager: ObservableObject {
         networkUploadHistory = Array(repeating: 0.0, count: maxHistoryPoints)
         diskReadHistory = Array(repeating: 0.0, count: maxHistoryPoints)
         diskWriteHistory = Array(repeating: 0.0, count: maxHistoryPoints)
+    }
+    
+    // MARK: - Process Monitoring Methods
+    func getProcessesRankedByCPU() -> [ProcessStats] {
+        return getRunningProcesses().sorted { $0.cpuUsage > $1.cpuUsage }
+    }
+    
+    func getProcessesRankedByMemory() -> [ProcessStats] {
+        return getRunningProcesses().sorted { $0.memoryUsage > $1.memoryUsage }
+    }
+    
+    func getProcessesRankedByGPU() -> [ProcessStats] {
+        // For now, rank by CPU usage as GPU per-process stats are complex to obtain
+        return getRunningProcesses().sorted { $0.cpuUsage > $1.cpuUsage }
+    }
+    
+    private func getRunningProcesses() -> [ProcessStats] {
+        var processes: [ProcessStats] = []
+        
+        // Get all running applications from NSWorkspace
+        let runningApps = NSWorkspace.shared.runningApplications
+        
+        for app in runningApps {
+            // Skip system processes and processes without bundle identifier
+            guard let bundleId = app.bundleIdentifier,
+                  !bundleId.hasPrefix("com.apple.") || bundleId == "com.apple.finder" else {
+                continue
+            }
+            
+            let pid = app.processIdentifier
+            var cpuUsage: Double = 0.0
+            var memoryUsage: UInt64 = 0
+            
+            // Get CPU and memory usage using proc_pidinfo
+            var taskInfo = proc_taskinfo()
+            let result = proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &taskInfo, Int32(MemoryLayout<proc_taskinfo>.size))
+            
+            if result == MemoryLayout<proc_taskinfo>.size {
+                // Calculate CPU usage (basic approximation)
+                cpuUsage = Double(taskInfo.pti_total_user + taskInfo.pti_total_system) / 1000000.0
+                
+                // Get memory usage
+                memoryUsage = taskInfo.pti_resident_size
+            }
+            
+            let processStats = ProcessStats(
+                pid: pid,
+                name: app.localizedName ?? bundleId,
+                cpuUsage: cpuUsage,
+                memoryUsage: memoryUsage,
+                icon: app.icon
+            )
+            
+            processes.append(processStats)
+        }
+        
+        return processes
     }
 }

@@ -30,25 +30,34 @@ struct ContentView: View {
     @Default(.showNetworkGraph) var showNetworkGraph
     @Default(.showDiskGraph) var showDiskGraph
     
+        // Dynamic sizing based on view type and graph count with smooth transitions
     var dynamicNotchSize: CGSize {
-        // Only apply dynamic sizing when on stats tab and stats are enabled
-        guard coordinator.currentView == .stats && enableStatsFeature else {
-            return openNotchSize
+        // Always return the target size for the current view to ensure smooth transitions
+        let targetSize: CGSize
+        
+        if coordinator.currentView == .stats {
+            // Count enabled graphs using the same logic as NotchStatsView
+            var enabledGraphsCount = 0
+            if showCpuGraph { enabledGraphsCount += 1 }
+            if showMemoryGraph { enabledGraphsCount += 1 }
+            if showGpuGraph { enabledGraphsCount += 1 }
+            if showNetworkGraph { enabledGraphsCount += 1 }
+            if showDiskGraph { enabledGraphsCount += 1 }
+            
+            if enabledGraphsCount > 3 {
+                // Expand height for 4+ graphs
+                targetSize = CGSize(
+                    width: openNotchSize.width,
+                    height: openNotchSize.height + 65  // Add extra height for second row
+                )
+            } else {
+                targetSize = openNotchSize
+            }
+        } else {
+            targetSize = openNotchSize
         }
         
-        let enabledGraphsCount = [showCpuGraph, showMemoryGraph, showGpuGraph, showNetworkGraph, showDiskGraph].filter { $0 }.count
-        
-        // Calculate height based on layout: 1-3 graphs = single row, 4+ graphs = two rows
-        var requiredHeight = openNotchSize.height
-        
-        if enabledGraphsCount >= 4 {
-            // Two rows needed - add height for second row plus spacing
-            let extraHeight: CGFloat = 120 + 12 // Graph height + spacing
-            requiredHeight = openNotchSize.height + extraHeight
-        }
-        
-        // Width stays constant - no horizontal expansion
-        return CGSize(width: openNotchSize.width, height: requiredHeight)
+        return targetSize
     }
     
 
@@ -57,6 +66,9 @@ struct ContentView: View {
     @State private var debounceWorkItem: DispatchWorkItem?
     
     @State private var isHoverStateChanging: Bool = false
+    @State private var isStatsTransitioning: Bool = false
+    @State private var isSwitchingToStats: Bool = false
+    @State private var lastHapticTime: Date = Date()
 
     @State private var gestureProgress: CGFloat = .zero
 
@@ -68,7 +80,7 @@ struct ContentView: View {
 
     @Default(.showNotHumanFace) var showNotHumanFace
     @Default(.useModernCloseAnimation) var useModernCloseAnimation
-
+    
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
 
@@ -98,18 +110,22 @@ struct ContentView: View {
                 .conditionalModifier(!useModernCloseAnimation) { view in
                     let hoverAnimationAnimation = Animation.bouncy.speed(1.2)
                     let notchStateAnimation = Animation.spring.speed(1.2)
+                    let viewTransitionAnimation = Animation.easeInOut(duration: 0.4)
                         return view
                             .animation(hoverAnimationAnimation, value: isHovering)
                             .animation(notchStateAnimation, value: vm.notchState)
+                            .animation(viewTransitionAnimation, value: coordinator.currentView)
                             .animation(.smooth, value: gestureProgress)
                             .transition(.blurReplace.animation(.interactiveSpring(dampingFraction: 1.2)))
                         }
                 .conditionalModifier(useModernCloseAnimation) { view in
                     let hoverAnimationAnimation = Animation.bouncy.speed(1.2)
                     let notchStateAnimation = Animation.spring.speed(1.2)
+                    let viewTransitionAnimation = Animation.easeInOut(duration: 0.4)
                     return view
                         .animation(hoverAnimationAnimation, value: isHovering)
                         .animation(notchStateAnimation, value: vm.notchState)
+                        .animation(viewTransitionAnimation, value: coordinator.currentView)
                 }
                 .conditionalModifier(Defaults[.openNotchOnHover]) { view in
                     view.onHover { hovering in
@@ -119,26 +135,11 @@ struct ContentView: View {
                 .conditionalModifier(!Defaults[.openNotchOnHover]) { view in
                     view
                         .onHover { hovering in
-                            withAnimation(vm.animation) {
-                                isHovering = hovering
-                            }
-                            
-                            // Only close if mouse leaves and the notch is open and no popovers are active
-                            if !hovering && vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive {
-                                // Add slight delay for stats tab to prevent accidental closure during layout changes
-                                let delay: Double = (coordinator.currentView == .stats) ? 0.2 : 0.0
-                                
-                                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                                    // Double-check conditions after delay
-                                    if !isHovering && vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive {
-                                        vm.close()
-                                    }
-                                }
-                            }
+                            handleSimpleHover(hovering)
                         }
                         .onTapGesture {
                             if (vm.notchState == .closed) && Defaults[.enableHaptics] {
-                                haptics.toggle()
+                                triggerHapticIfAllowed()
                             }
                             doOpen()
                         }
@@ -180,7 +181,14 @@ struct ContentView: View {
                 }
                 .onChange(of: vm.isBatteryPopoverActive) { _, newPopoverState in
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        if !newPopoverState && !isHovering && vm.notchState == .open {
+                        if !newPopoverState && !isHovering && vm.notchState == .open && !vm.isStatsPopoverActive {
+                            vm.close()
+                        }
+                    }
+                }
+                .onChange(of: vm.isStatsPopoverActive) { _, newPopoverState in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        if !newPopoverState && !isHovering && vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive {
                             vm.close()
                         }
                     }
@@ -188,7 +196,7 @@ struct ContentView: View {
                 .onChange(of: vm.shouldRecheckHover) { _, _ in
                     // Recheck hover state when popovers are closed
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        if vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive && !isHovering {
+                        if vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive && !vm.isStatsPopoverActive && !isHovering {
                             vm.close()
                         }
                     }
@@ -200,6 +208,35 @@ struct ContentView: View {
                             if isHovering && vm.notchState == .closed {
                                 doOpen()
                             }
+                        }
+                    }
+                }
+                .onChange(of: coordinator.currentView) { oldValue, newValue in
+                    // Cancel any pending close actions during view transitions
+                    hoverWorkItem?.cancel()
+                    
+                    // Set flags for transition tracking
+                    isSwitchingToStats = (oldValue != .stats && newValue == .stats)
+                    
+                    // Provide protection when switching to stats tab
+                    if newValue == .stats {
+                        isStatsTransitioning = true
+                        
+                        // Longer delay if stats tab has expanded height (4+ graphs)
+                        let hasExpandedHeight = statsTabHasExpandedHeight()
+                        let protectionDelay: Double = hasExpandedHeight ? 1.5 : 0.8
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + protectionDelay) {
+                            isStatsTransitioning = false
+                            isSwitchingToStats = false
+                        }
+                    }
+                    
+                    // Also provide brief protection when switching FROM stats to prevent premature closure
+                    if oldValue == .stats && newValue != .stats {
+                        isStatsTransitioning = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            isStatsTransitioning = false
                         }
                     }
                 }
@@ -514,7 +551,7 @@ struct ContentView: View {
             
             // Only provide haptic feedback if notch is closed
             if vm.notchState == .closed && Defaults[.enableHaptics] {
-                haptics.toggle()
+                triggerHapticIfAllowed()
             }
             
             // Delay opening the notch
@@ -553,7 +590,9 @@ struct ContentView: View {
                 }
                 
                 // Close the notch if it's open and no popovers are active
-                if vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive {
+                let hasActivePopovers = vm.isBatteryPopoverActive || vm.isClipboardPopoverActive || vm.isColorPickerPopoverActive || vm.isStatsPopoverActive
+                
+                if vm.notchState == .open && !hasActivePopovers {
                     vm.close()
                 }
             }
@@ -562,6 +601,92 @@ struct ContentView: View {
             // Add a small delay to debounce rapid mouse movements
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: debounce)
         }
+    }
+    
+    // Simple hover handler for non-openNotchOnHover mode
+    private func handleSimpleHover(_ hovering: Bool) {
+        // Cancel any existing work items first
+        hoverWorkItem?.cancel()
+        debounceWorkItem?.cancel()
+        
+        if hovering {
+            // Mouse entered - always update visual state immediately
+            withAnimation(vm.animation) {
+                isHovering = true
+            }
+            return
+        }
+        
+        // Mouse exited - always update visual state immediately
+        withAnimation(vm.animation) {
+            isHovering = false
+        }
+        
+        // Apply stronger protection when switching to stats, especially with 4+ graphs
+        if isStatsTransitioning || (isSwitchingToStats && statsTabHasExpandedHeight()) {
+            return // Skip closing during transitions, but allow visual updates
+        }
+        
+        // Check if we should close after a delay
+        let hasPopovers = hasAnyActivePopovers()
+        
+        if vm.notchState == .open && !hasPopovers {
+            let isStatsTab = coordinator.currentView == .stats
+            let hasExpandedHeight = isStatsTab && statsTabHasExpandedHeight()
+            
+            // Longer delays for stats tab, especially when it has expanded height
+            let delay: Double
+            if hasExpandedHeight {
+                delay = 1.0  // Extra long for stats with 4+ graphs
+            } else if isStatsTab {
+                delay = 0.6  // Medium for stats with 1-3 graphs
+            } else {
+                delay = 0.2  // Short for other tabs
+            }
+            
+            let closeTask = DispatchWorkItem {
+                // Triple-check conditions including transition state
+                let stillNotHovering = !isHovering
+                let stillOpen = vm.notchState == .open
+                let stillNoPopovers = !hasAnyActivePopovers()
+                let notTransitioning = !isStatsTransitioning && !isSwitchingToStats
+                
+                if stillNotHovering && stillOpen && stillNoPopovers && notTransitioning {
+                    vm.close()
+                }
+            }
+            
+            hoverWorkItem = closeTask
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: closeTask)
+        }
+    }
+    
+    // Helper function to check if any popovers are active
+    private func hasAnyActivePopovers() -> Bool {
+        return vm.isBatteryPopoverActive || 
+               vm.isClipboardPopoverActive || 
+               vm.isColorPickerPopoverActive || 
+               vm.isStatsPopoverActive
+    }
+    
+    // Helper to prevent rapid haptic feedback
+    private func triggerHapticIfAllowed() {
+        let now = Date()
+        if now.timeIntervalSince(lastHapticTime) > 0.3 { // Minimum 300ms between haptics
+            haptics.toggle()
+            lastHapticTime = now
+        }
+    }
+    
+    // Helper to check if stats tab has 4+ graphs (needs expanded height)
+    private func statsTabHasExpandedHeight() -> Bool {
+        var enabledCount = 0
+        if showCpuGraph { enabledCount += 1 }
+        if showMemoryGraph { enabledCount += 1 }
+        if showGpuGraph { enabledCount += 1 }
+        if showNetworkGraph { enabledCount += 1 }
+        if showDiskGraph { enabledCount += 1 }
+        return enabledCount > 3
     }
     
     // MARK: - Gesture Handling
@@ -581,7 +706,7 @@ struct ContentView: View {
         
         if translation > Defaults[.gestureSensitivity] {
             if Defaults[.enableHaptics] {
-                haptics.toggle()
+                triggerHapticIfAllowed()
             }
             withAnimation(.smooth) {
                 gestureProgress = .zero
@@ -610,7 +735,7 @@ struct ContentView: View {
                 vm.close()
                 
                 if Defaults[.enableHaptics] {
-                    haptics.toggle()
+                    triggerHapticIfAllowed()
                 }
             }
         }
