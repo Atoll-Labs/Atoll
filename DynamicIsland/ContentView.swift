@@ -67,6 +67,7 @@ struct ContentView: View {
     
     @State private var isHoverStateChanging: Bool = false
     @State private var isStatsTransitioning: Bool = false
+    @State private var isSwitchingToStats: Bool = false
     @State private var lastHapticTime: Date = Date()
 
     @State private var gestureProgress: CGFloat = .zero
@@ -210,17 +211,33 @@ struct ContentView: View {
                         }
                     }
                 }
-                .onChange(of: coordinator.currentView) { _, newView in
-                    // Cancel any pending hover actions during view transitions
+                .onChange(of: coordinator.currentView) { oldValue, newValue in
+                    // Cancel any pending close actions during view transitions
                     hoverWorkItem?.cancel()
-                    debounceWorkItem?.cancel()
                     
-                    // Set transition state briefly to prevent immediate closure
-                    isStatsTransitioning = true
-                    let delay = newView == .stats ? 1.0 : 0.5
+                    // Set flags for transition tracking
+                    isSwitchingToStats = (oldValue != .stats && newValue == .stats)
                     
-                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                        isStatsTransitioning = false
+                    // Provide protection when switching to stats tab
+                    if newValue == .stats {
+                        isStatsTransitioning = true
+                        
+                        // Longer delay if stats tab has expanded height (4+ graphs)
+                        let hasExpandedHeight = statsTabHasExpandedHeight()
+                        let protectionDelay: Double = hasExpandedHeight ? 1.5 : 0.8
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + protectionDelay) {
+                            isStatsTransitioning = false
+                            isSwitchingToStats = false
+                        }
+                    }
+                    
+                    // Also provide brief protection when switching FROM stats to prevent premature closure
+                    if oldValue == .stats && newValue != .stats {
+                        isStatsTransitioning = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            isStatsTransitioning = false
+                        }
                     }
                 }
                 .sensoryFeedback(.alignment, trigger: haptics)
@@ -593,41 +610,55 @@ struct ContentView: View {
         debounceWorkItem?.cancel()
         
         if hovering {
-            // Mouse entered
+            // Mouse entered - always update visual state immediately
             withAnimation(vm.animation) {
                 isHovering = true
             }
             return
         }
         
-        // Mouse exited - use debounce to prevent rapid firing
-        let debounce = DispatchWorkItem {
-            withAnimation(vm.animation) {
-                isHovering = false
-            }
-            
-            // Check if we should close after a delay
-            let hasPopovers = hasAnyActivePopovers()
-            
-            if vm.notchState == .open && !hasPopovers {
-                let isStatsTab = coordinator.currentView == .stats
-                let delay: Double = isStatsTab ? 0.8 : 0.2
-                
-                let closeTask = DispatchWorkItem {
-                    if !isHovering && vm.notchState == .open && !hasAnyActivePopovers() {
-                        vm.close()
-                    }
-                }
-                
-                hoverWorkItem = closeTask
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: closeTask)
-            }
+        // Mouse exited - always update visual state immediately
+        withAnimation(vm.animation) {
+            isHovering = false
         }
         
-        debounceWorkItem = debounce
-        // Longer debounce for stats tab to prevent rapid hover events
-        let debounceDelay = coordinator.currentView == .stats ? 0.2 : 0.05
-        DispatchQueue.main.asyncAfter(deadline: .now() + debounceDelay, execute: debounce)
+        // Apply stronger protection when switching to stats, especially with 4+ graphs
+        if isStatsTransitioning || (isSwitchingToStats && statsTabHasExpandedHeight()) {
+            return // Skip closing during transitions, but allow visual updates
+        }
+        
+        // Check if we should close after a delay
+        let hasPopovers = hasAnyActivePopovers()
+        
+        if vm.notchState == .open && !hasPopovers {
+            let isStatsTab = coordinator.currentView == .stats
+            let hasExpandedHeight = isStatsTab && statsTabHasExpandedHeight()
+            
+            // Longer delays for stats tab, especially when it has expanded height
+            let delay: Double
+            if hasExpandedHeight {
+                delay = 1.0  // Extra long for stats with 4+ graphs
+            } else if isStatsTab {
+                delay = 0.6  // Medium for stats with 1-3 graphs
+            } else {
+                delay = 0.2  // Short for other tabs
+            }
+            
+            let closeTask = DispatchWorkItem {
+                // Triple-check conditions including transition state
+                let stillNotHovering = !isHovering
+                let stillOpen = vm.notchState == .open
+                let stillNoPopovers = !hasAnyActivePopovers()
+                let notTransitioning = !isStatsTransitioning && !isSwitchingToStats
+                
+                if stillNotHovering && stillOpen && stillNoPopovers && notTransitioning {
+                    vm.close()
+                }
+            }
+            
+            hoverWorkItem = closeTask
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: closeTask)
+        }
     }
     
     // Helper function to check if any popovers are active
@@ -645,6 +676,17 @@ struct ContentView: View {
             haptics.toggle()
             lastHapticTime = now
         }
+    }
+    
+    // Helper to check if stats tab has 4+ graphs (needs expanded height)
+    private func statsTabHasExpandedHeight() -> Bool {
+        var enabledCount = 0
+        if showCpuGraph { enabledCount += 1 }
+        if showMemoryGraph { enabledCount += 1 }
+        if showGpuGraph { enabledCount += 1 }
+        if showNetworkGraph { enabledCount += 1 }
+        if showDiskGraph { enabledCount += 1 }
+        return enabledCount > 3
     }
     
     // MARK: - Gesture Handling
