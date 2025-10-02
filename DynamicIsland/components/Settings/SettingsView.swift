@@ -1586,11 +1586,10 @@ struct StatsSettings: View {
             Section {
                 Defaults.Toggle("Enable system stats monitoring", key: .enableStatsFeature)
                     .onChange(of: enableStatsFeature) { _, newValue in
-                        if newValue {
-                            statsManager.startMonitoring()
-                        } else {
+                        if !newValue {
                             statsManager.stopMonitoring()
                         }
+                        // Note: Smart monitoring will handle starting when switching to stats tab
                     }
                 
                 if enableStatsFeature {

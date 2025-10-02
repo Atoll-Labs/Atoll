@@ -337,9 +337,7 @@ struct NotchStatsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
-            if enableStatsFeature && Defaults[.autoStartStatsMonitoring] && !statsManager.isMonitoring {
-                statsManager.startMonitoring()
-            }
+            // Note: Smart monitoring will handle starting/stopping based on notch state and current view
             // Protect against hover interference during view transition
             isResizingForStats = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {

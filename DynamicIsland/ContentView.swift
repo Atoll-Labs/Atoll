@@ -68,6 +68,10 @@ struct ContentView: View {
     @State private var isHoverStateChanging: Bool = false
     @State private var isStatsTransitioning: Bool = false
     @State private var isSwitchingToStats: Bool = false
+    @State private var isViewTransitioning: Bool = false
+    @State private var statsTransitionWorkItem: DispatchWorkItem?
+    @State private var viewTransitionWorkItem: DispatchWorkItem?
+    @State private var sizeChangeWorkItem: DispatchWorkItem?
     @State private var lastHapticTime: Date = Date()
 
     @State private var gestureProgress: CGFloat = .zero
@@ -166,6 +170,15 @@ struct ContentView: View {
                     }
                 })
                 .onChange(of: vm.notchState) { _, newState in
+                    // Update smart monitoring based on notch state
+                    if enableStatsFeature {
+                        let currentViewString = coordinator.currentView == .stats ? "stats" : "other"
+                        statsManager.updateMonitoringState(
+                            notchIsOpen: newState == .open,
+                            currentView: currentViewString
+                        )
+                    }
+                    
                     // Reset hover state when notch state changes
                     if newState == .closed && isHovering {
                         // Only reset visually, without triggering the hover logic again
@@ -212,32 +225,89 @@ struct ContentView: View {
                     }
                 }
                 .onChange(of: coordinator.currentView) { oldValue, newValue in
-                    // Cancel any pending close actions during view transitions
+                    // Update smart monitoring based on current view change
+                    if enableStatsFeature {
+                        let currentViewString = newValue == .stats ? "stats" : "other"
+                        statsManager.updateMonitoringState(
+                            notchIsOpen: vm.notchState == .open,
+                            currentView: currentViewString
+                        )
+                    }
+                    
+                    // Cancel any pending close actions and ALL existing transition timers during view transitions
                     hoverWorkItem?.cancel()
+                    statsTransitionWorkItem?.cancel()
+                    viewTransitionWorkItem?.cancel()
+                    sizeChangeWorkItem?.cancel()
+                    
+                    // Reset all transition flags immediately to prevent conflicts
+                    isStatsTransitioning = false
+                    isSwitchingToStats = false
+                    isViewTransitioning = false
+                    
+                    // Check if this transition will cause a size change
+                    let oldSize = oldValue == .stats && statsTabHasExpandedHeight() ? 
+                        CGSize(width: openNotchSize.width, height: openNotchSize.height + 65) : openNotchSize
+                    let newSize = newValue == .stats && statsTabHasExpandedHeight() ? 
+                        CGSize(width: openNotchSize.width, height: openNotchSize.height + 65) : openNotchSize
+                    let sizeWillChange = oldSize != newSize
                     
                     // Set flags for transition tracking
                     isSwitchingToStats = (oldValue != .stats && newValue == .stats)
                     
-                    // Provide protection when switching to stats tab
+                    // Set view transition flag if size will change with proper cleanup
+                    if sizeWillChange {
+                        isViewTransitioning = true
+                        // Clear after animation duration + generous buffer
+                        let workItem = DispatchWorkItem {
+                            isViewTransitioning = false
+                        }
+                        viewTransitionWorkItem = workItem
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: workItem)
+                    }
+                    
+                    // Provide protection when switching to stats tab with proper cleanup
                     if newValue == .stats {
                         isStatsTransitioning = true
                         
-                        // Longer delay if stats tab has expanded height (4+ graphs)
+                        // Much longer delay if stats tab has expanded height (4+ graphs)
                         let hasExpandedHeight = statsTabHasExpandedHeight()
-                        let protectionDelay: Double = hasExpandedHeight ? 1.5 : 0.8
+                        let protectionDelay: Double = hasExpandedHeight ? 4.0 : 2.0 // Much longer delays
                         
-                        DispatchQueue.main.asyncAfter(deadline: .now() + protectionDelay) {
+                        let workItem = DispatchWorkItem {
                             isStatsTransitioning = false
                             isSwitchingToStats = false
                         }
+                        statsTransitionWorkItem = workItem
+                        DispatchQueue.main.asyncAfter(deadline: .now() + protectionDelay, execute: workItem)
                     }
                     
                     // Also provide brief protection when switching FROM stats to prevent premature closure
                     if oldValue == .stats && newValue != .stats {
                         isStatsTransitioning = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        let workItem = DispatchWorkItem {
                             isStatsTransitioning = false
                         }
+                        statsTransitionWorkItem = workItem
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: workItem)
+                    }
+                }
+                .onChange(of: [showCpuGraph, showMemoryGraph, showGpuGraph, showNetworkGraph, showDiskGraph]) { _, _ in
+                    // Protect during graph count changes that might affect size
+                    if coordinator.currentView == .stats {
+                        // Cancel existing transition timers to prevent conflicts
+                        viewTransitionWorkItem?.cancel()
+                        statsTransitionWorkItem?.cancel()
+                        
+                        isViewTransitioning = true
+                        isStatsTransitioning = true
+                        // Clear after animation duration + generous buffer
+                        let workItem = DispatchWorkItem {
+                            isViewTransitioning = false
+                            isStatsTransitioning = false
+                        }
+                        viewTransitionWorkItem = workItem
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: workItem)
                     }
                 }
                 .sensoryFeedback(.alignment, trigger: haptics)
@@ -261,10 +331,32 @@ struct ContentView: View {
         .frame(maxWidth: dynamicNotchSize.width, maxHeight: dynamicNotchSize.height, alignment: .top)
         .animation(.easeInOut(duration: 0.4), value: dynamicNotchSize)
         .animation(.easeInOut(duration: 0.4), value: coordinator.currentView)
+        .onChange(of: dynamicNotchSize) { oldSize, newSize in
+            // Protect against hover interference during frame size changes
+            if oldSize != newSize {
+                // Cancel existing size change timer to prevent conflicts
+                sizeChangeWorkItem?.cancel()
+                
+                isViewTransitioning = true
+                let workItem = DispatchWorkItem {
+                    isViewTransitioning = false
+                }
+                sizeChangeWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: workItem) // Frame animation + buffer
+            }
+        }
         .shadow(color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow]) ? .black.opacity(0.6) : .clear, radius: Defaults[.cornerRadiusScaling] ? 10 : 5)
         .background(dragDetector)
         .environmentObject(vm)
         .environmentObject(webcamManager)
+        .onDisappear {
+            // Clean up all timer work items to prevent memory leaks and conflicts
+            hoverWorkItem?.cancel()
+            debounceWorkItem?.cancel()
+            statsTransitionWorkItem?.cancel()
+            viewTransitionWorkItem?.cancel()
+            sizeChangeWorkItem?.cancel()
+        }
     }
 
     @ViewBuilder
@@ -519,6 +611,7 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Private Methods
     private func doOpen() {
         // Switch to timer tab if timer is active
         if timerManager.isTimerActive {
@@ -623,7 +716,8 @@ struct ContentView: View {
         }
         
         // Apply stronger protection when switching to stats, especially with 4+ graphs
-        if isStatsTransitioning || (isSwitchingToStats && statsTabHasExpandedHeight()) {
+        // Also protect during any size change animations
+        if isStatsTransitioning || (isSwitchingToStats && statsTabHasExpandedHeight()) || isViewTransitioning {
             return // Skip closing during transitions, but allow visual updates
         }
         
@@ -634,12 +728,12 @@ struct ContentView: View {
             let isStatsTab = coordinator.currentView == .stats
             let hasExpandedHeight = isStatsTab && statsTabHasExpandedHeight()
             
-            // Longer delays for stats tab, especially when it has expanded height
+            // Much longer delays for stats tab, especially when it has expanded height
             let delay: Double
             if hasExpandedHeight {
-                delay = 1.0  // Extra long for stats with 4+ graphs
+                delay = 2.0  // Very long for stats with 4+ graphs
             } else if isStatsTab {
-                delay = 0.6  // Medium for stats with 1-3 graphs
+                delay = 1.0  // Long for stats with 1-3 graphs
             } else {
                 delay = 0.2  // Short for other tabs
             }
