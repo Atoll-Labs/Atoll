@@ -587,56 +587,6 @@ struct ContentView: View {
         .frame(height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
     }
     
-    func RecordingLiveActivity() -> some View {
-        HStack {
-            // Left side - Recording icon (EXACT same structure as music album art)
-            HStack {
-                Color.clear
-                    .aspectRatio(1, contentMode: .fit)
-                    .background(
-                        ZStack {
-                            RoundedRectangle(cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
-                                .fill(Color.red.opacity(0.1))
-                            
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 12, height: 12)
-                                .modifier(PulsingModifier())
-                        }
-                    )
-                    .frame(width: max(0, vm.effectiveClosedNotchHeight - 12), height: max(0, vm.effectiveClosedNotchHeight - 12))
-            }
-            .frame(width: max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12) + gestureProgress / 2), 
-                   height: max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12)))
-
-            // Center - Fixed width (SAME as music)
-            Rectangle()
-                .fill(.black)
-                .frame(width: vm.closedNotchSize.width + (isHovering ? 8 : 0))
-            
-            // Right side - Empty space to balance (SAME structure as music visualizer)
-            HStack {
-                // Empty - no content
-            }
-            .frame(width: max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12) + gestureProgress / 2),
-                   height: max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12)), alignment: .center)
-        }
-        .frame(height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
-    }
-    
-    // Helper function to format recording duration
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        let hours = Int(duration) / 3600
-        let minutes = Int(duration) / 60 % 60
-        let seconds = Int(duration) % 60
-        
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        } else {
-            return String(format: "%d:%02d", minutes, seconds)
-        }
-    }
-
     @ViewBuilder
     var dragDetector: some View {
         if Defaults[.dynamicShelf] {
@@ -905,21 +855,5 @@ struct FullScreenDropDelegate: DropDelegate {
         isTargeted = false
         onDrop()
         return true
-    }
-}
-
-// Pulsing animation modifier for recording indicator
-struct PulsingModifier: ViewModifier {
-    @State private var isPulsing = false
-    
-    func body(content: Content) -> some View {
-        content
-            .scaleEffect(isPulsing ? 1.2 : 1.0)
-            .opacity(isPulsing ? 0.7 : 1.0)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-                    isPulsing = true
-                }
-            }
     }
 }
