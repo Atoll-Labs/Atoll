@@ -46,30 +46,7 @@ struct TimerLiveActivity: View {
     private var timerInfoSection: some View {
         Rectangle()
             .fill(.black)
-            .overlay(
-                HStack(alignment: .center) {
-                    if coordinator.expandingView.show && coordinator.expandingView.type == .timer {
-                        // Timer name
-                        MarqueeText(
-                            .constant(timerManager.timerName),
-                            textColor: timerManager.timerColor,
-                            minDuration: 0.4,
-                            frameWidth: 100
-                        )
-                        .opacity((coordinator.expandingView.show && Defaults[.enableSneakPeek] && Defaults[.sneakPeekStyles] == .inline) ? 1 : 0)
-                        
-                        Spacer(minLength: vm.closedNotchSize.width)
-                        
-                        // Timer status
-                        Text(timerManager.isPaused ? "Paused" : "Active")
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .foregroundStyle(timerManager.isOvertime ? .red : timerManager.timerColor)
-                            .opacity((coordinator.expandingView.show && coordinator.expandingView.type == .timer && Defaults[.enableSneakPeek] && Defaults[.sneakPeekStyles] == .inline) ? 1 : 0)
-                    }
-                }
-            )
-            .frame(width: (coordinator.expandingView.show && coordinator.expandingView.type == .timer && Defaults[.enableSneakPeek] && Defaults[.sneakPeekStyles] == .inline) ? 380 : vm.closedNotchSize.width + (isHovering ? 8 : 0))
+            .frame(width: vm.closedNotchSize.width + (isHovering ? 8 : 0))
     }
     
     private var timerCountdownSection: some View {

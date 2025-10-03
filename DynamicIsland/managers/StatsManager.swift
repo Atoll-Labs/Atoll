@@ -38,7 +38,14 @@ class StatsManager: ObservableObject {
     @Published var diskWriteHistory: [Double] = []
     
     private var monitoringTimer: Timer?
+    private var delayedStopTimer: Timer?
+    private var delayedStartTimer: Timer?
     private let maxHistoryPoints = 30
+    
+    // Smart monitoring state
+    private var shouldMonitorForStats: Bool = false
+    private var lastNotchState: String = "closed"
+    private var lastCurrentView: String = "other"
     
     // Network monitoring state
     private var previousNetworkStats: (bytesIn: UInt64, bytesOut: UInt64) = (0, 0)
@@ -70,11 +77,50 @@ class StatsManager: ObservableObject {
     
     deinit {
         stopMonitoring()
+        delayedStartTimer?.invalidate()
+        delayedStopTimer?.invalidate()
     }
     
-    // MARK: - Public Methods
+    // MARK: - Smart Monitoring
+    func updateMonitoringState(notchIsOpen: Bool, currentView: String) {
+        let notchState = notchIsOpen ? "open" : "closed"
+        
+        // Only react to actual state changes
+        guard notchState != lastNotchState || currentView != lastCurrentView else { return }
+        
+        lastNotchState = notchState
+        lastCurrentView = currentView
+        
+        // Cancel any pending timers
+        delayedStartTimer?.invalidate()
+        delayedStopTimer?.invalidate()
+        
+        // Determine if we should be monitoring
+        shouldMonitorForStats = notchIsOpen && (currentView == "stats")
+        
+        if shouldMonitorForStats {
+            // Start monitoring after 3.5 seconds (when notch is open and stats tab is active)
+            delayedStartTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.startMonitoring()
+                }
+            }
+        } else {
+            // Stop monitoring after 3 seconds (when notch is closed or stats tab is not active)
+            let delay = notchIsOpen ? 0.1 : 3.0 // Stop quickly when switching tabs, slowly when closing notch
+            delayedStopTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.stopMonitoring()
+                }
+            }
+        }
+    }
+    
+    // MARK: - Public Monitoring Controls
     func startMonitoring() {
         guard !isMonitoring else { return }
+        
+        print("StatsManager: Starting monitoring...")
         
         // Reset baseline for accurate measurement
         let initialStats = getNetworkStats()
@@ -96,14 +142,21 @@ class StatsManager: ObservableObject {
                 self.updateSystemStats()
             }
         }
+        
+        print("StatsManager: Monitoring started")
     }
     
     func stopMonitoring() {
         guard isMonitoring else { return }
         
+        // Clean up all timers
         monitoringTimer?.invalidate()
         monitoringTimer = nil
+        delayedStartTimer?.invalidate()
+        delayedStopTimer?.invalidate()
+        
         isMonitoring = false
+        print("StatsManager: Monitoring stopped")
     }
     
     // MARK: - Private Methods

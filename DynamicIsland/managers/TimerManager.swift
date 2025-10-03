@@ -129,7 +129,9 @@ class TimerManager: ObservableObject {
         timerInstance?.invalidate()
         
         // Start new timer
-        isTimerActive = true
+        withAnimation(.smooth) {
+            isTimerActive = true
+        }
         isFinished = false
         isOvertime = false
         timerName = name
@@ -191,7 +193,9 @@ class TimerManager: ObservableObject {
         timerInstance?.invalidate()
         timerInstance = nil
         soundPlayer?.stop()
-        isTimerActive = false
+        withAnimation(.smooth) {
+            isTimerActive = false
+        }
         resetTimer()
     }
     
@@ -236,7 +240,9 @@ class TimerManager: ObservableObject {
     }
     
     private func resetTimer() {
-        isTimerActive = false
+        withAnimation(.smooth) {
+            isTimerActive = false
+        }
         timerName = "Timer"
         totalDuration = 0
         remainingTime = 0

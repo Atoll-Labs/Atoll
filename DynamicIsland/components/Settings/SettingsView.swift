@@ -149,6 +149,7 @@ struct GeneralSettings: View {
     @State private var screens: [String] = NSScreen.screens.compactMap { $0.localizedName }
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
+    @ObservedObject var recordingManager = ScreenRecordingManager.shared
 
     @Default(.mirrorShape) var mirrorShape
     @Default(.showEmojis) var showEmojis
@@ -162,6 +163,8 @@ struct GeneralSettings: View {
     @Default(.automaticallySwitchDisplay) var automaticallySwitchDisplay
     @Default(.enableGestures) var enableGestures
     @Default(.openNotchOnHover) var openNotchOnHover
+    @Default(.enableScreenRecordingDetection) var enableScreenRecordingDetection
+    @Default(.showRecordingIndicator) var showRecordingIndicator
 
     var body: some View {
         Form {
@@ -191,6 +194,36 @@ struct GeneralSettings: View {
                 Defaults.Toggle("Hide panels from screenshots & screen recordings", key: .hidePanelsFromScreenCapture)
             } header: {
                 Text("System features")
+            }
+            
+            Section {
+                Defaults.Toggle("Enable Screen Recording Detection", key: .enableScreenRecordingDetection)
+                
+                Defaults.Toggle("Show Recording Indicator", key: .showRecordingIndicator)
+                    .disabled(!enableScreenRecordingDetection)
+                
+                if recordingManager.isMonitoring {
+                    HStack {
+                        Text("Detection Status")
+                        Spacer()
+                        if recordingManager.isRecording {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 8, height: 8)
+                                Text("Recording Detected")
+                                    .foregroundColor(.red)
+                            }
+                        } else {
+                            Text("Active - No Recording")
+                                .foregroundColor(.green)
+                        }
+                    }
+                }
+            } header: {
+                Text("Privacy & Security")
+            } footer: {
+                Text("Screen recording detection shows a red indicator when your screen is being captured. Detection uses minimal system resources and can be disabled at any time.")
             }
 
             Section {
@@ -1586,11 +1619,10 @@ struct StatsSettings: View {
             Section {
                 Defaults.Toggle("Enable system stats monitoring", key: .enableStatsFeature)
                     .onChange(of: enableStatsFeature) { _, newValue in
-                        if newValue {
-                            statsManager.startMonitoring()
-                        } else {
+                        if !newValue {
                             statsManager.stopMonitoring()
                         }
+                        // Note: Smart monitoring will handle starting when switching to stats tab
                     }
                 
                 if enableStatsFeature {

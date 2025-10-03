@@ -155,6 +155,13 @@ struct DynamicIslandHeader: View {
                         }
                         .buttonStyle(PlainButtonStyle())
                     }
+                    
+                    // Screen Recording Indicator
+                    if Defaults[.enableScreenRecordingDetection] && Defaults[.showRecordingIndicator] {
+                        RecordingIndicator()
+                            .frame(width: 30, height: 30) // Same size as other header elements
+                    }
+                    
                     if Defaults[.showBatteryIndicator] {
                         DynamicIslandBatteryView(
                             batteryWidth: 30,

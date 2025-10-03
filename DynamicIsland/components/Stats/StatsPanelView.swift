@@ -130,9 +130,7 @@ struct StatsPanelView: View {
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 10)
         .onAppear {
-            if enableStatsFeature && !statsManager.isMonitoring {
-                statsManager.startMonitoring()
-            }
+            // Note: Smart monitoring will handle starting/stopping based on UI state
         }
     }
 }

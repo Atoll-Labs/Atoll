@@ -384,6 +384,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Setup SystemHUD Manager
         SystemHUDManager.shared.setup(coordinator: coordinator)
         
+        // Setup ScreenRecording Manager
+        if Defaults[.enableScreenRecordingDetection] {
+            ScreenRecordingManager.shared.startMonitoring()
+        }
+        
         // Setup media key monitoring
         setupMediaKeyMonitoring()
         
@@ -415,6 +420,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         Defaults.publisher(.showDiskGraph, options: []).sink { [weak self] _ in
             self?.debouncedUpdateWindowSize()
+        }.store(in: &cancellables)
+        
+        // Observe screen recording settings changes
+        Defaults.publisher(.enableScreenRecordingDetection, options: []).sink { _ in
+            if Defaults[.enableScreenRecordingDetection] {
+                ScreenRecordingManager.shared.startMonitoring()
+            } else {
+                ScreenRecordingManager.shared.stopMonitoring()
+            }
         }.store(in: &cancellables)
 
         NotificationCenter.default.addObserver(
