@@ -19,6 +19,7 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @StateObject var extensionManager = DynamicIslandExtensionManager()
     @State private var selectedTab = "General"
+    @Default(.enableMinimalisticUI) var enableMinimalisticUI
 
     let updaterController: SPUStandardUpdaterController?
 
@@ -38,8 +39,10 @@ struct SettingsView: View {
                 NavigationLink(value: "Media") {
                     Label("Media", systemImage: "play.laptopcomputer")
                 }
-                NavigationLink(value: "Calendar") {
-                    Label("Calendar", systemImage: "calendar")
+                if !enableMinimalisticUI {
+                    NavigationLink(value: "Calendar") {
+                        Label("Calendar", systemImage: "calendar")
+                    }
                 }
                 NavigationLink(value: "HUD") {
                     Label("HUDs", systemImage: "dial.medium.fill")
@@ -47,20 +50,22 @@ struct SettingsView: View {
                 NavigationLink(value: "Battery") {
                     Label("Battery", systemImage: "battery.100.bolt")
                 }
-                NavigationLink(value: "Timer") {
-                    Label("Timer", systemImage: "timer")
-                }
-                NavigationLink(value: "Stats") {
-                    Label("Stats", systemImage: "chart.xyaxis.line")
-                }
-                NavigationLink(value: "Clipboard") {
-                    Label("Clipboard", systemImage: "clipboard")
-                }
-                NavigationLink(value: "ScreenAssistant") {
-                    Label("Screen Assistant", systemImage: "brain.head.profile")
-                }
-                NavigationLink(value: "ColorPicker") {
-                    Label("Color Picker", systemImage: "eyedropper")
+                if !enableMinimalisticUI {
+                    NavigationLink(value: "Timer") {
+                        Label("Timer", systemImage: "timer")
+                    }
+                    NavigationLink(value: "Stats") {
+                        Label("Stats", systemImage: "chart.xyaxis.line")
+                    }
+                    NavigationLink(value: "Clipboard") {
+                        Label("Clipboard", systemImage: "clipboard")
+                    }
+                    NavigationLink(value: "ScreenAssistant") {
+                        Label("Screen Assistant", systemImage: "brain.head.profile")
+                    }
+                    NavigationLink(value: "ColorPicker") {
+                        Label("Color Picker", systemImage: "eyedropper")
+                    }
                 }
                 if extensionManager.installedExtensions
                     .contains(where: { $0.bundleIdentifier == downloadManagerExtension }) {
@@ -68,8 +73,10 @@ struct SettingsView: View {
                         Label("Downloads", systemImage: "square.and.arrow.down")
                     }
                 }
-                NavigationLink(value: "Shelf") {
-                    Label("Shelf", systemImage: "books.vertical")
+                if !enableMinimalisticUI {
+                    NavigationLink(value: "Shelf") {
+                        Label("Shelf", systemImage: "books.vertical")
+                    }
                 }
                 NavigationLink(value: "Shortcuts") {
                     Label("Shortcuts", systemImage: "keyboard")
@@ -165,9 +172,24 @@ struct GeneralSettings: View {
     @Default(.openNotchOnHover) var openNotchOnHover
     @Default(.enableScreenRecordingDetection) var enableScreenRecordingDetection
     @Default(.showRecordingIndicator) var showRecordingIndicator
+    @Default(.enableMinimalisticUI) var enableMinimalisticUI
 
     var body: some View {
         Form {
+            Section {
+                Defaults.Toggle("Enable Minimalistic UI", key: .enableMinimalisticUI)
+                    .onChange(of: enableMinimalisticUI) { _, newValue in
+                        if newValue {
+                            // Auto-enable simpler animation mode
+                            Defaults[.useModernCloseAnimation] = true
+                        }
+                    }
+            } header: {
+                Text("UI Mode")
+            } footer: {
+                Text("Minimalistic mode focuses on media controls and system HUDs, hiding all extra features for a clean, focused experience. Automatically enables simpler animations.")
+            }
+            
             Section {
                 Defaults.Toggle("Menubar icon", key: .menubarIcon)
                 LaunchAtLogin.Toggle("Launch at login")
@@ -563,6 +585,7 @@ struct Media: View {
     @Default(.hideNotchOption) var hideNotchOption
     @Default(.enableSneakPeek) private var enableSneakPeek
     @Default(.sneakPeekStyles) var sneakPeekStyles
+    @Default(.enableMinimalisticUI) var enableMinimalisticUI
 
     var body: some View {
         Form {
@@ -616,7 +639,21 @@ struct Media: View {
                     ForEach(SneakPeekStyle.allCases) { style in
                         Text(style.rawValue).tag(style)
                     }
-                }.disabled(!enableSneakPeek)
+                }
+                .disabled(!enableSneakPeek || enableMinimalisticUI)
+                .onChange(of: enableMinimalisticUI) { _, isMinimalistic in
+                    // Force standard sneak peek style when minimalistic UI is enabled
+                    if isMinimalistic {
+                        sneakPeekStyles = .standard
+                    }
+                }
+                
+                if enableMinimalisticUI {
+                    Text("Sneak peek style is locked to Standard in minimalistic mode")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
                 HStack {
                     Stepper(value: $waitInterval, in: 0...10, step: 1) {
                         HStack {

@@ -349,6 +349,9 @@ extension Defaults.Keys {
     // Polling removed - now uses event-driven private API detection (CGSIsScreenWatcherPresent)
     // static let enableScreenRecordingPolling = Key<Bool>("enableScreenRecordingPolling", default: false)
     
+    // MARK: Minimalistic UI Mode
+    static let enableMinimalisticUI = Key<Bool>("enableMinimalisticUI", default: false)
+    
     // Helper to determine the default media controller based on macOS version
     static var defaultMediaController: MediaControllerType {
         if #available(macOS 15.4, *) {

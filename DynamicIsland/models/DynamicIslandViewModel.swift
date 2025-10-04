@@ -132,9 +132,12 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     }
     
     private func calculateDynamicNotchSize() -> CGSize {
+        // Use minimalistic size if minimalistic UI is enabled
+        let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        
         // Only apply dynamic sizing when on stats tab and stats are enabled
         guard DynamicIslandViewCoordinator.shared.currentView == .stats && Defaults[.enableStatsFeature] else {
-            return openNotchSize
+            return baseSize
         }
         
         let enabledGraphsCount = [
@@ -148,10 +151,10 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
         // If 4+ graphs are enabled, increase width
         if enabledGraphsCount >= 4 {
             let extraWidth: CGFloat = CGFloat(enabledGraphsCount - 3) * 120
-            return CGSize(width: openNotchSize.width + extraWidth, height: openNotchSize.height)
+            return CGSize(width: baseSize.width + extraWidth, height: baseSize.height)
         }
         
-        return openNotchSize
+        return baseSize
     }
 
     func close() {

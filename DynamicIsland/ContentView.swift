@@ -33,6 +33,9 @@ struct ContentView: View {
     
         // Dynamic sizing based on view type and graph count with smooth transitions
     var dynamicNotchSize: CGSize {
+        // Use minimalistic or normal size based on settings
+        let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        
         // Always return the target size for the current view to ensure smooth transitions
         let targetSize: CGSize
         
@@ -48,14 +51,14 @@ struct ContentView: View {
             if enabledGraphsCount > 3 {
                 // Expand height for 4+ graphs
                 targetSize = CGSize(
-                    width: openNotchSize.width,
-                    height: openNotchSize.height + 65  // Add extra height for second row
+                    width: baseSize.width,
+                    height: baseSize.height + 65  // Add extra height for second row
                 )
             } else {
-                targetSize = openNotchSize
+                targetSize = baseSize
             }
         } else {
-            targetSize = openNotchSize
+            targetSize = baseSize
         }
         
         return targetSize
@@ -85,25 +88,35 @@ struct ContentView: View {
 
     @Default(.showNotHumanFace) var showNotHumanFace
     @Default(.useModernCloseAnimation) var useModernCloseAnimation
+    @Default(.enableMinimalisticUI) var enableMinimalisticUI
     
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
+    
+    // Use minimalistic corner radius ONLY when opened, keep normal when closed
+    private var activeCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) {
+        if enableMinimalisticUI {
+            // Keep normal closed corner radius, use minimalistic when opened
+            return (opened: minimalisticCornerRadiusInsets.opened, closed: cornerRadiusInsets.closed)
+        }
+        return cornerRadiusInsets
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
             let mainLayout = NotchLayout()
                 .frame(alignment: .top)
                 .padding(.horizontal, vm.notchState == .open
-                         ? Defaults[.cornerRadiusScaling] ? (cornerRadiusInsets.opened.top - 5) : (cornerRadiusInsets.opened.bottom - 5)
-                         : cornerRadiusInsets.closed.bottom
+                         ? Defaults[.cornerRadiusScaling] ? (activeCornerRadiusInsets.opened.top - 5) : (activeCornerRadiusInsets.opened.bottom - 5)
+                         : activeCornerRadiusInsets.closed.bottom
                 )
                 .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
                 .background(.black)
                 .mask {
                     ((vm.notchState == .open) && Defaults[.cornerRadiusScaling])
-                    ? NotchShape(topCornerRadius: cornerRadiusInsets.opened.top, bottomCornerRadius: cornerRadiusInsets.opened.bottom)
+                    ? NotchShape(topCornerRadius: activeCornerRadiusInsets.opened.top, bottomCornerRadius: activeCornerRadiusInsets.opened.bottom)
                         .drawingGroup()
-                    : NotchShape(topCornerRadius: cornerRadiusInsets.closed.top, bottomCornerRadius: cornerRadiusInsets.closed.bottom)
+                    : NotchShape(topCornerRadius: activeCornerRadiusInsets.closed.top, bottomCornerRadius: activeCornerRadiusInsets.closed.bottom)
                         .drawingGroup()
                 }
                 .padding(.bottom, vm.notchState == .open && Defaults[.extendHoverArea] ? 0 : (vm.effectiveClosedNotchHeight == 0)
@@ -589,7 +602,7 @@ struct ContentView: View {
     
     @ViewBuilder
     var dragDetector: some View {
-        if Defaults[.dynamicShelf] {
+        if Defaults[.dynamicShelf] && !Defaults[.enableMinimalisticUI] {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())

@@ -349,9 +349,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func calculateRequiredNotchSize() -> CGSize {
+        // Check if inline sneak peek is showing and notch is closed
+        let isInlineSneakPeekActive = vm.notchState == .closed && 
+                                      coordinator.expandingView.show && 
+                                      (coordinator.expandingView.type == .music || coordinator.expandingView.type == .timer) && 
+                                      Defaults[.enableSneakPeek] && 
+                                      Defaults[.sneakPeekStyles] == .inline
+        
+        // If inline sneak peek is active, use a wider width to accommodate the expanded content
+        if isInlineSneakPeekActive {
+            // Calculate required width for inline sneak peek:
+            // Album art (~32) + Middle section (380) + Visualizer (~32) + padding = ~450
+            let inlineSneakPeekWidth: CGFloat = 450
+            return CGSize(width: inlineSneakPeekWidth, height: vm.effectiveClosedNotchHeight)
+        }
+        
+        // Use minimalistic or normal size based on settings
+        let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        
         // Only apply dynamic sizing when on stats tab and stats are enabled
         guard coordinator.currentView == .stats && Defaults[.enableStatsFeature] else {
-            return openNotchSize
+            return baseSize
         }
         
         let enabledGraphsCount = [
@@ -363,16 +381,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ].filter { $0 }.count
         
         // Calculate height based on layout: 1-3 graphs = single row, 4+ graphs = two rows
-        var requiredHeight = openNotchSize.height
+        var requiredHeight = baseSize.height
         
         if enabledGraphsCount >= 4 {
             // Two rows needed - add height for second row plus spacing
             let extraHeight: CGFloat = 120 + 12 // Graph height + spacing
-            requiredHeight = openNotchSize.height + extraHeight
+            requiredHeight = baseSize.height + extraHeight
         }
         
         // Width stays constant - no horizontal expansion
-        return CGSize(width: openNotchSize.width, height: requiredHeight)
+        return CGSize(width: baseSize.width, height: requiredHeight)
     }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -420,6 +438,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }.store(in: &cancellables)
         
         Defaults.publisher(.showDiskGraph, options: []).sink { [weak self] _ in
+            self?.debouncedUpdateWindowSize()
+        }.store(in: &cancellables)
+        
+        // Observe minimalistic UI setting changes - trigger window resize
+        Defaults.publisher(.enableMinimalisticUI, options: []).sink { [weak self] change in
+            // Force sneak peek to standard mode when minimalistic UI is enabled
+            if change.newValue == true && Defaults[.sneakPeekStyles] != .standard {
+                Defaults[.sneakPeekStyles] = .standard
+            }
             self?.debouncedUpdateWindowSize()
         }.store(in: &cancellables)
         
