@@ -252,6 +252,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         window.orderFrontRegardless()
         NotchSpaceManager.shared.notchSpace.windows.insert(window)
+        
         return window
     }
 
@@ -430,6 +431,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 ScreenRecordingManager.shared.stopMonitoring()
             }
         }.store(in: &cancellables)
+        
+        // Note: Polling setting removed - now uses event-driven private API detection only
 
         NotificationCenter.default.addObserver(
             self,

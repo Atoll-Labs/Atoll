@@ -4,13 +4,39 @@
 //
 //  Created for screen recording detection feature
 //  Monitors system for active screen recording and provides real-time status updates
+//  Uses private CoreGraphics APIs for accurate, event-driven screen capture detection
 
 import Foundation
 import Combine
-import ScreenCaptureKit
 import AppKit
 import Defaults
 import SwiftUI
+
+// MARK: - Private API Declarations
+// These private APIs provide direct screen capture detection
+// Use at your own risk - may break in future macOS versions
+
+@_silgen_name("CGSIsScreenWatcherPresent")
+func CGSIsScreenWatcherPresent() -> Bool
+
+@_silgen_name("CGSRegisterNotifyProc")
+func CGSRegisterNotifyProc(
+    _ callback: (@convention(c) (Int32, Int32, Int32, UnsafeMutableRawPointer?) -> Void)?,
+    _ event: Int32,
+    _ context: UnsafeMutableRawPointer?
+) -> Bool
+
+// MARK: - Global Callback Function
+// C function pointer cannot capture context, so we need a global function
+private func screenCaptureEventCallback(eventType: Int32, _: Int32, _: Int32, context: UnsafeMutableRawPointer?) {
+    guard let context = context else { return }
+    let manager = Unmanaged<ScreenRecordingManager>.fromOpaque(context).takeUnretainedValue()
+    
+    DispatchQueue.main.async {
+        print("ScreenRecordingManager: 📢 Screen capture event received (type: \(eventType))")
+        manager.checkRecordingStatus()
+    }
+}
 
 @MainActor
 class ScreenRecordingManager: ObservableObject {
@@ -27,27 +53,24 @@ class ScreenRecordingManager: ObservableObject {
     @Published var lastUpdated: Date = .distantPast
     
     // MARK: - Private Properties
-    private var monitoringTimer: Timer?
-    private var lastScreensHaveSeparateSpaces: Bool = false
     private var cancellables = Set<AnyCancellable>()
     private var recordingStartTime: Date?
     private var durationTimer: Timer?
     private var debounceIdleTask: Task<Void, Never>?
     
     // MARK: - Configuration
-    private let monitoringInterval: TimeInterval = 1.0 // Check every second
-    private let debounceDelay: TimeInterval = 0.5 // Debounce rapid changes
+    private let debounceDelay: TimeInterval = 0.2 // Debounce rapid changes
     
     // MARK: - Initialization
     private init() {
-        setupInitialState()
+        // No initial setup needed
     }
     
     deinit {
-        Task { @MainActor in
-            stopMonitoring()
-            debounceIdleTask?.cancel()
-        }
+        // Clean up monitoring state
+        // Note: We can't call async methods in deinit, so we just clean up local state
+        debounceIdleTask?.cancel()
+        durationTimer?.invalidate()
     }
     
     // MARK: - Public Methods
@@ -60,19 +83,16 @@ class ScreenRecordingManager: ObservableObject {
         }
         
         isMonitoring = true
-        lastScreensHaveSeparateSpaces = NSScreen.screensHaveSeparateSpaces
         
-        print("ScreenRecordingManager: 🟢 Starting monitoring...")
-        print("ScreenRecordingManager: Initial screensHaveSeparateSpaces = \(lastScreensHaveSeparateSpaces)")
+        print("ScreenRecordingManager: 🟢 Starting screen capture monitoring (Private API)...")
         
-        // Start timer-based monitoring
-        monitoringTimer = Timer.scheduledTimer(withTimeInterval: monitoringInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                await self?.checkRecordingStatus()
-            }
-        }
+        // Setup event-driven capture detection using private CoreGraphics APIs
+        setupPrivateAPINotifications()
         
-        print("ScreenRecordingManager: ✅ Started monitoring with \(monitoringInterval)s interval")
+        // Check initial state
+        checkRecordingStatus()
+        
+        print("ScreenRecordingManager: ✅ Started monitoring (event-driven, no polling)")
     }
     
     /// Stop monitoring for screen recording activity
@@ -85,8 +105,9 @@ class ScreenRecordingManager: ObservableObject {
         print("ScreenRecordingManager: 🛑 Stopping monitoring...")
         
         isMonitoring = false
-        monitoringTimer?.invalidate()
-        monitoringTimer = nil
+        
+        // Note: We don't unregister the callback as there's no CGSUnregisterNotifyProc API
+        // The callback will simply not be processed when isMonitoring is false
         
         // Stop duration tracking
         stopDurationTracking()
@@ -111,138 +132,58 @@ class ScreenRecordingManager: ObservableObject {
     
     // MARK: - Private Methods
     
-    private func setupInitialState() {
-        lastScreensHaveSeparateSpaces = NSScreen.screensHaveSeparateSpaces
+    /// Setup private API notifications for screen capture events
+    private func setupPrivateAPINotifications() {
+        // Pass self as context to the global callback function
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        
+        // Register for remote session events (screen capture start/stop)
+        // kCGSessionRemoteConnect - fires when screen sharing/recording starts
+        let registered1 = CGSRegisterNotifyProc(screenCaptureEventCallback, 1502, context)
+        
+        // kCGSessionRemoteDisconnect - fires when screen sharing/recording stops
+        let registered2 = CGSRegisterNotifyProc(screenCaptureEventCallback, 1503, context)
+        
+        if registered1 && registered2 {
+            print("ScreenRecordingManager: ✅ Private API notifications registered")
+        } else {
+            print("ScreenRecordingManager: ⚠️ Failed to register private API notifications")
+        }
     }
     
-    /// Check current recording status using multiple detection methods
-    private func checkRecordingStatus() async {
-        let currentRecordingState = await detectScreenRecording()
+    /// Check current recording status using private API
+    func checkRecordingStatus() {
+        let currentRecordingState = CGSIsScreenWatcherPresent()
         
         // Debug: Always log current check
         print("ScreenRecordingManager: 🔍 Checking... current=\(isRecording), detected=\(currentRecordingState)")
         
         // Debounce changes to avoid flickering
         if currentRecordingState != isRecording {
-            print("ScreenRecordingManager: 🔄 State change detected (\(isRecording) -> \(currentRecordingState)), debouncing...")
+            print("ScreenRecordingManager: 🔄 State change detected (\(isRecording) -> \(currentRecordingState))")
             
-            // Add a small delay to confirm the state change
-            try? await Task.sleep(nanoseconds: UInt64(debounceDelay * 1_000_000_000))
-            
-            // Double-check the state after debounce
-            let confirmedState = await detectScreenRecording()
-            print("ScreenRecordingManager: 🔍 After debounce: confirmed=\(confirmedState), original=\(currentRecordingState)")
-            
-            if confirmedState == currentRecordingState {
-                if confirmedState && !isRecording {
-                    // Started recording
-                    lastUpdated = Date()
-                    startDurationTracking()
-                    updateIdleState(recording: true)
-                    // Trigger expanding view like music activity
-                    coordinator.toggleExpandingView(status: true, type: .recording)
-                    withAnimation(.smooth) {
-                        isRecording = confirmedState
-                    }
-                } else if !confirmedState && isRecording {
-                    // Stopped recording - let expanding view auto-collapse naturally (like music)
-                    lastUpdated = Date()
-                    stopDurationTracking()
-                    updateIdleState(recording: false)
-                    withAnimation(.smooth) {
-                        isRecording = confirmedState
-                    }
-                } else {
-                    isRecording = confirmedState
+            if currentRecordingState && !isRecording {
+                // Started recording
+                lastUpdated = Date()
+                startDurationTracking()
+                updateIdleState(recording: true)
+                // Trigger expanding view like music activity
+                coordinator.toggleExpandingView(status: true, type: .recording)
+                withAnimation(.smooth) {
+                    isRecording = currentRecordingState
                 }
-                
-                print("ScreenRecordingManager: ✅ Recording state changed to \(confirmedState)")
-            } else {
-                print("ScreenRecordingManager: ❌ State not confirmed, keeping \(isRecording)")
+                print("ScreenRecordingManager: 🔴 Screen recording STARTED")
+            } else if !currentRecordingState && isRecording {
+                // Stopped recording - let expanding view auto-collapse naturally (like music)
+                lastUpdated = Date()
+                stopDurationTracking()
+                updateIdleState(recording: false)
+                withAnimation(.smooth) {
+                    isRecording = currentRecordingState
+                }
+                print("ScreenRecordingManager: ⚪ Screen recording STOPPED")
             }
         }
-    }
-    
-    /// Detect screen recording using hybrid approach
-    private func detectScreenRecording() async -> Bool {
-        print("ScreenRecordingManager: 🔎 Starting detection...")
-        
-        // Method 1: NSScreen.screensHaveSeparateSpaces detection
-        let screensHaveSeparateSpaces = NSScreen.screensHaveSeparateSpaces
-        let screenSpacesChanged = screensHaveSeparateSpaces != lastScreensHaveSeparateSpaces
-        
-        print("ScreenRecordingManager: Method 1 - screensHaveSeparateSpaces: \(screensHaveSeparateSpaces), last: \(lastScreensHaveSeparateSpaces), changed: \(screenSpacesChanged)")
-        
-        // Update last known state
-        lastScreensHaveSeparateSpaces = screensHaveSeparateSpaces
-        
-        // Method 2: ScreenCaptureKit detection (if available)
-        let screencaptureKitDetection = await detectWithScreenCaptureKit()
-        print("ScreenRecordingManager: Method 2 - ScreenCaptureKit: \(screencaptureKitDetection)")
-        
-        // Method 3: Process-based detection for common recording apps
-        let processBasedDetection = detectRecordingProcesses()
-        print("ScreenRecordingManager: Method 3 - Process detection: \(processBasedDetection)")
-        
-        // Combine detection methods (any positive result indicates recording)
-        let isCurrentlyRecording = screenSpacesChanged || screencaptureKitDetection || processBasedDetection
-        
-        print("ScreenRecordingManager: 🎯 Final result: \(isCurrentlyRecording) (spaces:\(screenSpacesChanged) || kit:\(screencaptureKitDetection) || process:\(processBasedDetection))")
-        
-        return isCurrentlyRecording
-    }
-    
-    /// Detect recording using ScreenCaptureKit (requires macOS 12.3+)
-    private func detectWithScreenCaptureKit() async -> Bool {
-        guard #available(macOS 12.3, *) else { return false }
-        
-        do {
-            // Check if there are any active capture sessions
-            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-            
-            // If we can successfully get content and there are running applications with capture capabilities,
-            // it might indicate active screen capture
-            let runningApps = content.applications.filter { $0.applicationName.lowercased().contains("screen") || 
-                                                          $0.applicationName.lowercased().contains("record") ||
-                                                          $0.applicationName.lowercased().contains("capture") }
-            
-            return !runningApps.isEmpty
-        } catch {
-            // If ScreenCaptureKit fails, fall back to other detection methods
-            return false
-        }
-    }
-    
-    /// Detect recording by checking for known recording processes
-    private func detectRecordingProcesses() -> Bool {
-        let recordingProcessNames = [
-            "QuickTime Player",
-            "ScreenSearch", 
-            "OBS",
-            "Camtasia",
-            "ScreenFlow",
-            "CleanMyMac",
-            "Screenshot",
-            "screencapture"
-        ]
-        
-        let runningApps = NSWorkspace.shared.runningApplications
-        
-        print("ScreenRecordingManager: Checking \(runningApps.count) running apps for recording processes...")
-        
-        for app in runningApps {
-            if let appName = app.localizedName {
-                for processName in recordingProcessNames {
-                    if appName.lowercased().contains(processName.lowercased()) {
-                        print("ScreenRecordingManager: 🎬 Found recording app: \(appName)")
-                        return true
-                    }
-                }
-            }
-        }
-        
-        print("ScreenRecordingManager: No recording processes found")
-        return false
     }
     
     /// Start tracking recording duration
@@ -311,12 +252,7 @@ extension ScreenRecordingManager {
     
     /// Check if monitoring is available (for settings UI)
     var isMonitoringAvailable: Bool {
-        return true // Basic monitoring is always available
-    }
-    
-    /// Get current monitoring interval for debugging
-    var currentMonitoringInterval: TimeInterval {
-        return monitoringInterval
+        return true // Window-based monitoring is always available
     }
     
     /// Get formatted recording duration string

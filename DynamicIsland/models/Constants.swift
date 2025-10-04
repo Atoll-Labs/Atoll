@@ -346,6 +346,8 @@ extension Defaults.Keys {
     // MARK: Screen Recording Detection Feature
     static let enableScreenRecordingDetection = Key<Bool>("enableScreenRecordingDetection", default: true)
     static let showRecordingIndicator = Key<Bool>("showRecordingIndicator", default: true)
+    // Polling removed - now uses event-driven private API detection (CGSIsScreenWatcherPresent)
+    // static let enableScreenRecordingPolling = Key<Bool>("enableScreenRecordingPolling", default: false)
     
     // Helper to determine the default media controller based on macOS version
     static var defaultMediaController: MediaControllerType {

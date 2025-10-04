@@ -202,6 +202,8 @@ struct GeneralSettings: View {
                 Defaults.Toggle("Show Recording Indicator", key: .showRecordingIndicator)
                     .disabled(!enableScreenRecordingDetection)
                 
+                // Note: Polling removed - now uses event-driven private API detection
+                
                 if recordingManager.isMonitoring {
                     HStack {
                         Text("Detection Status")
