@@ -11,20 +11,19 @@ import Foundation
 
 final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     // Stub for now to conform with ControllerProtocol
-    func updatePlaybackInfo() {}
+    func updatePlaybackInfo() async {}
 
     // MARK: - Properties
     @Published private(set) var playbackState: PlaybackState = .init(
         bundleIdentifier: "com.apple.Music"
     )
-    private var isResourcesAvailable = false
 
     var playbackStatePublisher: AnyPublisher<PlaybackState, Never> {
         $playbackState.eraseToAnyPublisher()
     }
     
     var isWorking: Bool {
-        return isResourcesAvailable
+        return process != nil && process?.isRunning == true
     }
     private var lastMusicItem:
         (title: String, artist: String, album: String, duration: TimeInterval, artworkData: Data?)?
@@ -37,8 +36,8 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     private let MRMediaRemoteSetRepeatModeFunction: @convention(c) (Int) -> Void
 
     private var process: Process?
-    private var pipe: Pipe?
-    private var buffer = ""
+    private var pipeHandler: JSONLinesPipeHandler?
+    private var streamTask: Task<Void, Never>?
 
     // MARK: - Initialization
     init?() {
@@ -67,11 +66,17 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         MRMediaRemoteSetRepeatModeFunction = unsafeBitCast(
             MRMediaRemoteSetRepeatModePointer, to: (@convention(c) (Int) -> Void).self)
 
-        setupNowPlayingObserver()
-        updatePlaybackInfo()
+        Task { await setupNowPlayingObserver() }
     }
 
     deinit {
+        streamTask?.cancel()
+        
+        if let pipeHandler = self.pipeHandler {
+            Task { await pipeHandler.close()
+            }
+        }
+        
         if let process = self.process {
             if process.isRunning {
                 process.terminate()
@@ -79,13 +84,8 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             }
         }
 
-        if let pipe = self.pipe {
-            pipe.fileHandleForReading.closeFile()
-            pipe.fileHandleForWriting.closeFile()
-        }
-
         self.process = nil
-        self.pipe = nil
+        self.pipeHandler = nil
     }
 
     // MARK: - Protocol Implementation
@@ -119,7 +119,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     
     func toggleShuffle() async {
         // MRMediaRemoteSendCommandFunction(6, nil)
-        MRMediaRemoteSetShuffleModeFunction(playbackState.isShuffled ? 3 : 1)
+        MRMediaRemoteSetShuffleModeFunction(playbackState.isShuffled ? 1 : 3)
         playbackState.isShuffled.toggle()
     }
     
@@ -131,78 +131,86 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     }
     
     // MARK: - Setup Methods
-    private func setupNowPlayingObserver() {
+    private func setupNowPlayingObserver() async {
         let process = Process()
         guard
-            let scriptURL = Bundle.main.url(forResource: "mediaremote-adapter", withExtension: "pl")
+            let scriptURL = Bundle.main.url(forResource: "mediaremote-adapter", withExtension: "pl"),
+            let frameworkPath = Bundle.main.privateFrameworksPath?.appending("/MediaRemoteAdapter.framework")
         else {
-            print("⚠️ Could not find mediaremote-adapter.pl script - NowPlaying controller disabled")
-            isResourcesAvailable = false
+            assertionFailure("Could not find mediaremote-adapter.pl script or framework path")
             return
         }
         
-        let bundlePath = Bundle.main.bundlePath
-        let frameworkPath = bundlePath + "/Contents/Frameworks/MediaRemoteAdapter.framework"
-        
-        isResourcesAvailable = true
         process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
         process.arguments = [scriptURL.path, frameworkPath, "stream"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
+        
+        let pipeHandler = JSONLinesPipeHandler()
+        process.standardOutput = await pipeHandler.getPipe()
+        
         self.process = process
-        self.pipe = pipe
-
-        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            if let chunk = String(data: data, encoding: .utf8) {
-                self?.buffer.append(chunk)
-                while let range = self?.buffer.range(of: "\n") {
-                    let line = String(self?.buffer[..<range.lowerBound] ?? "")
-                    self?.buffer = String(self?.buffer[range.upperBound...] ?? "")
-                    if !line.isEmpty {
-                        self?.handleAdapterUpdate(line)
-                    }
-                }
-            }
-        }
+        self.pipeHandler = pipeHandler
 
         do {
             try process.run()
+            streamTask = Task { [weak self] in
+                await self?.processJSONStream()
+            }
         } catch {
-            print("⚠️ Failed to launch mediaremote-adapter.pl: \(error)")
+            assertionFailure("Failed to launch mediaremote-adapter.pl: \(error)")
+        }
+    }
+
+    // MARK: - Async Stream Processing
+    private func processJSONStream() async {
+        guard let pipeHandler = self.pipeHandler else { return }
+        
+        await pipeHandler.readJSONLines(as: NowPlayingUpdate.self) { [weak self] update in
+            await self?.handleAdapterUpdate(update)
         }
     }
 
     // MARK: - Update Methods
-    private func handleAdapterUpdate(_ jsonLine: String) {
-        guard let data = jsonLine.data(using: .utf8),
-            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let payload = object["payload"] as? [String: Any]
-        else { return }
-
-        let diff = object["diff"] as? Bool ?? false
+    private func handleAdapterUpdate(_ update: NowPlayingUpdate) async {
+        let payload = update.payload
+        let diff = update.diff ?? false
 
         var newPlaybackState = PlaybackState(bundleIdentifier: playbackState.bundleIdentifier)
         
-        newPlaybackState.title = payload["title"] as? String ?? (diff ? self.playbackState.title : "")
-        newPlaybackState.artist = payload["artist"] as? String ?? (diff ? self.playbackState.artist : "")
-        newPlaybackState.album = payload["album"] as? String ?? (diff ? self.playbackState.album : "")
-        newPlaybackState.duration = payload["duration"] as? Double ?? (diff ? self.playbackState.duration : 0)
-        newPlaybackState.currentTime = payload["elapsedTime"] as? Double ?? (diff ? self.playbackState.currentTime : 0)
+        newPlaybackState.title = payload.title ?? (diff ? self.playbackState.title : "")
+        newPlaybackState.artist = payload.artist ?? (diff ? self.playbackState.artist : "")
+        newPlaybackState.album = payload.album ?? (diff ? self.playbackState.album : "")
+        newPlaybackState.duration = payload.duration ?? (diff ? self.playbackState.duration : 0)
         
-        if let shuffleMode = payload["shuffleMode"] as? Int {
+        if let elapsedTime = payload.elapsedTime {
+            newPlaybackState.currentTime = elapsedTime
+        } else if diff {
+            if payload.playing == false {
+                let timeSinceLastUpdate = Date().timeIntervalSince(self.playbackState.lastUpdated)
+                newPlaybackState.currentTime = self.playbackState.currentTime + (self.playbackState.playbackRate * timeSinceLastUpdate)
+            } else {
+                newPlaybackState.currentTime = self.playbackState.currentTime
+            }
+        } else {
+            newPlaybackState.currentTime = 0
+        }
+
+        
+        if let shuffleMode = payload.shuffleMode {
             newPlaybackState.isShuffled = shuffleMode != 1
         } else if !diff {
             newPlaybackState.isShuffled = false
+        } else {
+            newPlaybackState.isShuffled = self.playbackState.isShuffled
         }
-        if let repeatModeValue = payload["repeatMode"] as? Int {
+        if let repeatModeValue = payload.repeatMode {
             newPlaybackState.repeatMode = RepeatMode(rawValue: repeatModeValue) ?? .off
         } else if !diff {
             newPlaybackState.repeatMode = .off
+        } else {
+            newPlaybackState.repeatMode = self.playbackState.repeatMode
         }
 
-        if let artworkDataString = payload["artworkData"] as? String {
+        if let artworkDataString = payload.artworkData {
             newPlaybackState.artwork = Data(
                 base64Encoded: artworkDataString.trimmingCharacters(in: .whitespacesAndNewlines)
             )
@@ -210,19 +218,122 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             newPlaybackState.artwork = nil
         }
 
-        if let dateString = payload["timestamp"] as? String,
+        if let dateString = payload.timestamp,
            let date = ISO8601DateFormatter().date(from: dateString) {
             newPlaybackState.lastUpdated = date
+        } else if !diff {
+            newPlaybackState.lastUpdated = Date()
+        } else {
+            newPlaybackState.lastUpdated = self.playbackState.lastUpdated
         }
 
-        newPlaybackState.playbackRate = payload["playbackRate"] as? Double ?? (diff ? self.playbackState.playbackRate : 1.0)
-        newPlaybackState.isPlaying = payload["playing"] as? Bool ?? (diff ? self.playbackState.isPlaying : false)
+        newPlaybackState.playbackRate = payload.playbackRate ?? (diff ? self.playbackState.playbackRate : 1.0)
+        newPlaybackState.isPlaying = payload.playing ?? (diff ? self.playbackState.isPlaying : false)
         newPlaybackState.bundleIdentifier = (
-            payload["parentApplicationBundleIdentifier"] as? String ??
-            payload["bundleIdentifier"] as? String ??
+            payload.parentApplicationBundleIdentifier ??
+            payload.bundleIdentifier ??
             (diff ? self.playbackState.bundleIdentifier : "")
         )
         
         self.playbackState = newPlaybackState
+    }
+}
+
+struct NowPlayingUpdate: Codable {
+    let payload: NowPlayingPayload
+    let diff: Bool?
+}
+
+struct NowPlayingPayload: Codable {
+    let title: String?
+    let artist: String?
+    let album: String?
+    let duration: Double?
+    let elapsedTime: Double?
+    let shuffleMode: Int?
+    let repeatMode: Int?
+    let artworkData: String?
+    let timestamp: String?
+    let playbackRate: Double?
+    let playing: Bool?
+    let parentApplicationBundleIdentifier: String?
+    let bundleIdentifier: String?
+}
+
+actor JSONLinesPipeHandler {
+    private let pipe: Pipe
+    private let fileHandle: FileHandle
+    private var buffer = ""
+    
+    init() {
+        self.pipe = Pipe()
+        self.fileHandle = pipe.fileHandleForReading
+    }
+    
+    func getPipe() -> Pipe {
+        return pipe
+    }
+    
+    func readJSONLines<T: Decodable>(as type: T.Type, onLine: @escaping (T) async -> Void) async {
+        do {
+            try await self.processLines(as: type) { decodedObject in
+                await onLine(decodedObject)
+            }
+        } catch {
+            print("Error processing JSON stream: \(error)")
+        }
+    }
+    
+    private func processLines<T: Decodable>(as type: T.Type, onLine: @escaping (T) async -> Void) async throws {
+        while true {
+            let data = try await readData()
+            guard !data.isEmpty else { break }
+            
+            if let chunk = String(data: data, encoding: .utf8) {
+                buffer.append(chunk)
+                
+                while let range = buffer.range(of: "\n") {
+                    let line = String(buffer[..<range.lowerBound])
+                    buffer = String(buffer[range.upperBound...])
+                    
+                    if !line.isEmpty {
+                        await processJSONLine(line, as: type, onLine: onLine)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func processJSONLine<T: Decodable>(_ line: String, as type: T.Type, onLine: @escaping (T) async -> Void) async {
+        guard let data = line.data(using: .utf8) else {
+            return
+        }
+        do {
+            let decodedObject = try JSONDecoder().decode(T.self, from: data)
+            await onLine(decodedObject)
+        } catch {
+            // Ignore lines that can't be decoded
+        }
+    }
+    
+    private func readData() async throws -> Data {
+        return try await withCheckedThrowingContinuation { continuation in
+            
+            fileHandle.readabilityHandler = { handle in
+                let data = handle.availableData
+                handle.readabilityHandler = nil
+                continuation.resume(returning: data)
+            }
+        }
+    }
+    
+    func close() async {
+        do {
+            fileHandle.readabilityHandler = nil
+            try fileHandle.close()
+            try pipe.fileHandleForWriting.close()
+        } catch {
+            print("Error closing pipe handler: \(error)")
+        }
     }
 }
