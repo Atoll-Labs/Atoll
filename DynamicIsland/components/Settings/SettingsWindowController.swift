@@ -71,35 +71,28 @@ class SettingsWindowController: NSWindowController {
     }
     
     func showWindow() {
-        // Set app to regular mode first
-        NSApp.setActivationPolicy(.regular)
+        // Ensure window exists
+        _ = window
         
         // If window is already visible, bring it to front properly
         if window?.isVisible == true {
-            forceWindowToFront()
+            NSApp.activate(ignoringOtherApps: true)
+            window?.orderFrontRegardless()
+            window?.makeKeyAndOrderFront(nil)
             return
         }
         
         // Show the window with proper ordering
-        window?.center()
-        forceWindowToFront()
-    }
-    
-    private func forceWindowToFront() {
-        // Multi-step approach to ensure window gets focus
         window?.orderFrontRegardless()
         window?.makeKeyAndOrderFront(nil)
+        window?.center()
         
-        // Activate the app with maximum priority
+        // Activate the app and ensure window gets focus
         NSApp.activate(ignoringOtherApps: true)
         
-        // Double-check after a brief delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let window = self?.window else { return }
-            if !window.isKeyWindow {
-                window.makeKeyAndOrderFront(nil)
-                NSApp.activate(ignoringOtherApps: true)
-            }
+        // Force window to front after activation
+        DispatchQueue.main.async { [weak self] in
+            self?.window?.makeKeyAndOrderFront(nil)
         }
     }
     
