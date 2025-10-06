@@ -23,7 +23,7 @@ class SystemHUDManager {
     }
     
     private func setupSettingsObserver() {
-        // Use Defaults publisher instead of @Default property wrapper
+        // Observe master toggle
         Defaults.publisher(.enableSystemHUD, options: []).sink { [weak self] change in
             guard let self = self, self.isSetupComplete else {
                 return
@@ -36,9 +36,31 @@ class SystemHUDManager {
                 }
             }
         }.store(in: &cancellables)
+        
+        // Observe individual HUD toggles
+        Defaults.publisher(.enableVolumeHUD, options: []).sink { [weak self] change in
+            guard let self = self, self.isSetupComplete, Defaults[.enableSystemHUD] else {
+                return
+            }
+            // When volume HUD is enabled, ensure OSD is disabled
+            if change.newValue {
+                self.disableSystemHUD()
+            }
+        }.store(in: &cancellables)
+        
+        Defaults.publisher(.enableBrightnessHUD, options: []).sink { [weak self] change in
+            guard let self = self, self.isSetupComplete, Defaults[.enableSystemHUD] else {
+                return
+            }
+            // When brightness HUD is enabled, ensure OSD is disabled
+            if change.newValue {
+                self.disableSystemHUD()
+            }
+        }.store(in: &cancellables)
     }
     
     private var cancellables = Set<AnyCancellable>()
+    private var osdMonitorTimer: Timer?
     
     /// Public property to check if system operations are in progress
     var isOperationInProgress: Bool {
@@ -71,6 +93,9 @@ class SystemHUDManager {
         // Disable system HUD if possible
         disableSystemHUD()
         
+        // Start periodic monitoring to ensure OSD stays disabled
+        startOSDMonitoring()
+        
         print("System HUD replacement started")
         isSystemOperationInProgress = false
     }
@@ -82,6 +107,9 @@ class SystemHUDManager {
         isSystemOperationInProgress = true
         changesObserver?.stopObserving()
         changesObserver = nil
+        
+        // Stop OSD monitoring
+        stopOSDMonitoring()
         
         // Re-enable system HUD
         enableOriginalSystemHUD()
@@ -119,6 +147,43 @@ class SystemHUDManager {
     /// Handle brightness key press events from MediaKeyApplication
     public func handleBrightnessKeyEvent() {
         changesObserver?.handleBrightnessKeyEvent()
+    }
+    
+    // MARK: - OSD Monitoring
+    
+    /// Start periodic monitoring to ensure OSD stays disabled
+    @MainActor
+    private func startOSDMonitoring() {
+        stopOSDMonitoring() // Stop any existing timer
+        
+        osdMonitorTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            
+            // Check if any HUD is enabled
+            let anyHUDEnabled = Defaults[.enableVolumeHUD] || Defaults[.enableBrightnessHUD]
+            guard anyHUDEnabled else { return }
+            
+            // Check if OSD is running when it shouldn't be
+            Task.detached(priority: .background) {
+                let isRunning = await SystemOSDManager.isOSDUIHelperRunningAsync()
+                if isRunning {
+                    await MainActor.run {
+                        print("⚠️ OSDUIHelper detected running while HUDs are enabled - re-disabling")
+                        self.disableSystemHUD()
+                    }
+                }
+            }
+        }
+        
+        print("✅ OSD monitoring started (checks every 5 seconds)")
+    }
+    
+    /// Stop OSD monitoring
+    @MainActor
+    private func stopOSDMonitoring() {
+        osdMonitorTimer?.invalidate()
+        osdMonitorTimer = nil
+        print("🛑 OSD monitoring stopped")
     }
     
     deinit {
