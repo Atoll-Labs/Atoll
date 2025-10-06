@@ -236,6 +236,8 @@ extension Defaults.Keys {
     static let showNotHumanFace = Key<Bool>("showNotHumanFace", default: false)
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
     static let showCalendar = Key<Bool>("showCalendar", default: false)
+    static let hideCompletedReminders = Key<Bool>("hideCompletedReminders", default: true)
+    static let hideAllDayEvents = Key<Bool>("hideAllDayEvents", default: false)
     static let sliderColor = Key<SliderColorEnum>(
         "sliderUseAlbumArtColor",
         default: SliderColorEnum.white
@@ -348,6 +350,9 @@ extension Defaults.Keys {
     static let showRecordingIndicator = Key<Bool>("showRecordingIndicator", default: true)
     // Polling removed - now uses event-driven private API detection (CGSIsScreenWatcherPresent)
     // static let enableScreenRecordingPolling = Key<Bool>("enableScreenRecordingPolling", default: false)
+    
+    // MARK: ImageService
+    static let didClearLegacyURLCacheV1 = Key<Bool>("didClearLegacyURLCacheV1", default: false)
     
     // MARK: Minimalistic UI Mode
     static let enableMinimalisticUI = Key<Bool>("enableMinimalisticUI", default: false)

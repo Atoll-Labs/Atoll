@@ -15,11 +15,12 @@ import SwiftUI
 struct MusicPlayerView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     let albumArtNamespace: Namespace.ID
+    let showShuffleAndRepeat: Bool
 
     var body: some View {
         HStack {
-            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace)
-            MusicControlsView().drawingGroup().compositingGroup()
+            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 5)
+            MusicControlsView(showShuffleAndRepeat: showShuffleAndRepeat).drawingGroup().compositingGroup()
         }
     }
 }
@@ -39,47 +40,59 @@ struct AlbumArtView: View {
     }
 
     private var albumArtBackground: some View {
-        Color.clear
-            .aspectRatio(1, contentMode: .fit)
-            .background(
-                Image(nsImage: musicManager.albumArt)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            )
+        Image(nsImage: musicManager.albumArt)
+            .resizable()
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: Defaults[.cornerRadiusScaling] ? MusicPlayerImageSizes.cornerRadiusInset.opened : MusicPlayerImageSizes.cornerRadiusInset.closed))
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: Defaults[.cornerRadiusScaling]
+                        ? MusicPlayerImageSizes.cornerRadiusInset.opened
+                        : MusicPlayerImageSizes.cornerRadiusInset.closed)
+            )
+            .aspectRatio(1, contentMode: .fit)
             .scaleEffect(x: 1.3, y: 1.4)
             .rotationEffect(.degrees(92))
-            .blur(radius: 35)
-            .opacity(min(0.6, 1 - max(musicManager.albumArt.getBrightness(), 0.3)))
+            .blur(radius: 40)
+            .opacity(musicManager.isPlaying ? 0.5 : 0)
     }
 
     private var albumArtButton: some View {
-        Button {
-            musicManager.openMusicApp()
-        } label: {
-            ZStack(alignment: .bottomTrailing) {
-                albumArtImage
-                appIconOverlay
+        ZStack {
+            Button {
+                musicManager.openMusicApp()
+            } label: {
+                ZStack(alignment:.bottomTrailing) {
+                    albumArtImage
+                    appIconOverlay
+                }
             }
+            .buttonStyle(PlainButtonStyle())
+            .scaleEffect(musicManager.isPlaying ? 1 : 0.85)
+            
+            albumArtDarkOverlay
         }
-        .buttonStyle(PlainButtonStyle())
-        .opacity(musicManager.isPlaying ? 1 : 0.4)
-        .scaleEffect(musicManager.isPlaying ? 1 : 0.85)
+    }
+
+    private var albumArtDarkOverlay: some View {
+        Rectangle()
+            .aspectRatio(1, contentMode: .fit)
+            .foregroundColor(Color.black)
+            .opacity(musicManager.isPlaying ? 0 : 0.8)
+            .blur(radius: 50)
     }
 
     private var albumArtImage: some View {
-        Color.clear
+        Image(nsImage: musicManager.albumArt)
+            .resizable()
             .aspectRatio(1, contentMode: .fit)
-            .background(
-                Image(nsImage: musicManager.albumArt)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: musicManager.isFlipping)
-            )
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: Defaults[.cornerRadiusScaling] ? MusicPlayerImageSizes.cornerRadiusInset.opened : MusicPlayerImageSizes.cornerRadiusInset.closed))
             .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
+        .clipped()
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: Defaults[.cornerRadiusScaling]
+                    ? MusicPlayerImageSizes.cornerRadiusInset.opened
+                    : MusicPlayerImageSizes.cornerRadiusInset.closed)
+        )
     }
 
     @ViewBuilder
@@ -91,34 +104,24 @@ struct AlbumArtView: View {
                 .frame(width: 30, height: 30)
                 .offset(x: 10, y: 10)
                 .transition(.scale.combined(with: .opacity).animation(.bouncy.delay(0.3)))
+                .zIndex(2)
         }
     }
 }
 
 struct MusicControlsView: View {
     @ObservedObject var musicManager = MusicManager.shared
-    @EnvironmentObject var vm: DynamicIslandViewModel
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
-    
+    let showShuffleAndRepeat: Bool
+
     var body: some View {
         VStack(alignment: .leading) {
             songInfoAndSlider
             playbackControls
         }
         .buttonStyle(PlainButtonStyle())
-        .frame(minWidth: Defaults[.showMirror] && Defaults[.showCalendar] ? 140 : 180)
-        .onAppear {
-            // Initialize slider value when view appears
-            sliderValue = musicManager.elapsedTime
-        }
-        .onChange(of: vm.notchState) { _, newState in
-            // Reset slider value when notch opens to prevent stuck state
-            if newState == .open && !dragging {
-                sliderValue = musicManager.elapsedTime
-            }
-        }
     }
 
     private var songInfoAndSlider: some View {
@@ -148,7 +151,7 @@ struct MusicControlsView: View {
     }
 
     private var musicSlider: some View {
-        TimelineView(.animation(minimumInterval: 0.05)) { timeline in
+        TimelineView(.animation(minimumInterval: musicManager.playbackRate > 0 ? 0.1 : nil)) { timeline in
             MusicSliderView(
                 sliderValue: $sliderValue,
                 duration: $musicManager.songDuration,
@@ -156,8 +159,6 @@ struct MusicControlsView: View {
                 color: musicManager.avgColor,
                 dragging: $dragging,
                 currentDate: timeline.date,
-                lastUpdated: musicManager.lastUpdated,
-                ignoreLastUpdated: musicManager.ignoreLastUpdated,
                 timestampDate: musicManager.timestampDate,
                 elapsedTime: musicManager.elapsedTime,
                 playbackRate: musicManager.playbackRate,
@@ -172,33 +173,26 @@ struct MusicControlsView: View {
 
     private var playbackControls: some View {
         HStack(spacing: 8) {
-            if Defaults[.showShuffleAndRepeat] {
-                HoverButton(icon: "shuffle", iconColor: musicManager.isShuffled ? .red : .white, scale: .medium) {
-                    Task {
-                        await MusicManager.shared.toggleShuffle()
-                    }
+            if showShuffleAndRepeat {
+                HoverButton(
+                    icon: "shuffle", iconColor: musicManager.isShuffled ? .red : .white,
+                    scale: .medium
+                ) {
+                    MusicManager.shared.toggleShuffle()
                 }
             }
             HoverButton(icon: "backward.fill", scale: .medium) {
-                Task {
-                    await MusicManager.shared.previousTrack()
-                }
+                MusicManager.shared.previousTrack()
             }
             HoverButton(icon: musicManager.isPlaying ? "pause.fill" : "play.fill", scale: .large) {
-                Task {
-                    await MusicManager.shared.togglePlay()
-                }
+                MusicManager.shared.togglePlay()
             }
             HoverButton(icon: "forward.fill", scale: .medium) {
-                Task {
-                    await MusicManager.shared.nextTrack()
-                }
+                MusicManager.shared.nextTrack()
             }
-            if Defaults[.showShuffleAndRepeat] {
+            if showShuffleAndRepeat {
                 HoverButton(icon: repeatIcon, iconColor: repeatIconColor, scale: .medium) {
-                    Task {
-                        await MusicManager.shared.toggleRepeat()
-                    }
+                    MusicManager.shared.toggleRepeat()
                 }
             }
         }
@@ -251,7 +245,7 @@ struct NotchHomeView: View {
                 MinimalisticMusicPlayerView(albumArtNamespace: albumArtNamespace)
             } else {
                 // Normal mode: Show full music player with optional calendar and webcam
-                MusicPlayerView(albumArtNamespace: albumArtNamespace)
+                MusicPlayerView(albumArtNamespace: albumArtNamespace, showShuffleAndRepeat: Defaults[.showShuffleAndRepeat])
                 
                 if Defaults[.showCalendar] {
                     CalendarView()
@@ -285,21 +279,12 @@ struct MusicSliderView: View {
     var color: NSColor
     @Binding var dragging: Bool
     let currentDate: Date
-    let lastUpdated: Date
-    let ignoreLastUpdated: Bool
     let timestampDate: Date
     let elapsedTime: Double
     let playbackRate: Double
     let isPlaying: Bool
     var onValueChange: (Double) -> Void
 
-    var currentElapsedTime: Double {
-        // A small buffer is needed to ensure a meaningful difference between the two dates
-        guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return sliderValue }
-        let timeDifference = isPlaying ? currentDate.timeIntervalSince(timestampDate) : 0
-        let elapsed = elapsedTime + (timeDifference * playbackRate)
-        return min(elapsed, duration)
-    }
 
     var body: some View {
         VStack {
@@ -324,8 +309,9 @@ struct MusicSliderView: View {
                 .ensureMinimumBrightness(factor: 0.6) : .gray)
             .font(.caption)
         }
-        .onChange(of: currentDate) {
-            sliderValue = currentElapsedTime
+        .onChange(of: currentDate) { newDate in
+            guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
+            sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: newDate)
         }
     }
 
@@ -358,7 +344,8 @@ struct CustomSlider: View {
             let height = CGFloat(dragging ? 9 : 5)
             let rangeSpan = range.upperBound - range.lowerBound
 
-            let filledTrackWidth = min(rangeSpan == .zero ? 0 : ((value - range.lowerBound) / rangeSpan) * width, width)
+            let progress = rangeSpan == .zero ? 0 : (value - range.lowerBound) / rangeSpan
+            let filledTrackWidth = min(max(progress, 0), 1) * width
 
             ZStack(alignment: .leading) {
                 // Background track

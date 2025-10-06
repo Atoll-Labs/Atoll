@@ -700,7 +700,7 @@ struct CalendarSettings: View {
 
     var body: some View {
         Form {
-            if calendarManager.authorizationStatus != .fullAccess {
+            if calendarManager.calendarAuthorizationStatus != .fullAccess {
                 Text("Calendar access is denied. Please enable it in System Settings.")
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)

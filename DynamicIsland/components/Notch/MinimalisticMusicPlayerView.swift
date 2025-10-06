@@ -79,15 +79,17 @@ struct MinimalisticMusicPlayerView: View {
     @State private var lastDragged: Date = .distantPast
     
     private var progressBar: some View {
-        HStack(spacing: 8) {
-            // Elapsed time - left
-            Text(formatTime(dragging ? sliderValue : musicManager.elapsedTime))
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundColor(.white.opacity(0.7))
-                .frame(width: 42, alignment: .leading)
+        TimelineView(.animation(minimumInterval: musicManager.playbackRate > 0 ? 0.1 : nil)) { timeline in
+            let currentElapsed = currentSliderValue(timeline.date)
             
-            // Progress bar
-            TimelineView(.animation(minimumInterval: 0.05)) { timeline in
+            HStack(spacing: 8) {
+                // Elapsed time - left
+                Text(formatTime(dragging ? sliderValue : currentElapsed))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 42, alignment: .leading)
+                
+                // Progress bar
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         // Background track
@@ -114,14 +116,14 @@ struct MinimalisticMusicPlayerView: View {
                             }
                     )
                 }
+                .frame(height: 6)
+                
+                // Time remaining - right
+                Text("-\(formatTime(musicManager.songDuration - (dragging ? sliderValue : currentElapsed)))")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 48, alignment: .trailing)
             }
-            .frame(height: 6)
-            
-            // Time remaining - right
-            Text("-\(formatTime(musicManager.songDuration - (dragging ? sliderValue : musicManager.elapsedTime)))")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundColor(.white.opacity(0.7))
-                .frame(width: 48, alignment: .trailing)
         }
         .onAppear {
             sliderValue = musicManager.elapsedTime
@@ -135,7 +137,7 @@ struct MinimalisticMusicPlayerView: View {
         
         // Update slider value based on playback
         if musicManager.isPlaying {
-            let timeSinceLastUpdate = date.timeIntervalSince(musicManager.lastUpdated)
+            let timeSinceLastUpdate = date.timeIntervalSince(musicManager.timestampDate)
             let estimatedElapsed = musicManager.elapsedTime + (timeSinceLastUpdate * musicManager.playbackRate)
             return min(estimatedElapsed, musicManager.songDuration)
         }

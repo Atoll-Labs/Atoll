@@ -77,3 +77,8 @@ boring.notch
 referenceimages
 
 PrivateWorks
+
+*.py 
+*.sh
+comparison_report.json
+*.txt

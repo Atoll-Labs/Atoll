@@ -11,7 +11,6 @@ enum ActivityType {
     case mediaPlayback
     case charging
     case download
-    case recording
 }
 
 struct LiveActivityModifier<Left: View, Right: View>: ViewModifier {

@@ -13,6 +13,7 @@ import KeyboardShortcuts
 import SwiftUI
 import SwiftUIIntrospect
 
+@MainActor
 struct ContentView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     @EnvironmentObject var webcamManager: WebcamManager
@@ -65,9 +66,10 @@ struct ContentView: View {
     }
     
 
+    @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
-    @State private var hoverWorkItem: DispatchWorkItem?
-    @State private var debounceWorkItem: DispatchWorkItem?
+    @State private var hoverWorkItem: DispatchWorkItem?  // Used by handleSimpleHover for stats closing logic
+    @State private var debounceWorkItem: DispatchWorkItem?  // Used by handleSimpleHover
     
     @State private var isHoverStateChanging: Bool = false
     @State private var isStatsTransitioning: Bool = false
@@ -643,72 +645,48 @@ struct ContentView: View {
     
     /// Handle hover state changes with debouncing
     private func handleHover(_ hovering: Bool) {
-        // Don't process events if we're already transitioning
-        if isHoverStateChanging { return }
-        
-        // Cancel any pending tasks
-        hoverWorkItem?.cancel()
-        hoverWorkItem = nil
-        debounceWorkItem?.cancel()
-        debounceWorkItem = nil
+        hoverTask?.cancel()
         
         if hovering {
-            // Handle mouse enter
             withAnimation(.bouncy.speed(1.2)) {
                 isHovering = true
             }
             
-            // Only provide haptic feedback if notch is closed
             if vm.notchState == .closed && Defaults[.enableHaptics] {
                 triggerHapticIfAllowed()
             }
             
-            // Delay opening the notch
-            let task = DispatchWorkItem {
-                // ContentView is a struct, so we don't use weak self here
-                guard vm.notchState == .closed, isHovering else { return }
-                
-                // Additional check: don't open if a sneak peek just started showing
-                // to avoid conflicts during system HUD display
-                if coordinator.sneakPeek.show {
-                    // Schedule a retry after the sneak peek should be gone (default duration + small buffer)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-                        if isHovering && vm.notchState == .closed && !coordinator.sneakPeek.show {
-                            doOpen()
-                        }
-                    }
-                    return
-                }
-                
-                doOpen()
-            }
+            guard vm.notchState == .closed,
+                  !coordinator.sneakPeek.show,
+                  Defaults[.openNotchOnHover] else { return }
             
-            hoverWorkItem = task
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + Defaults[.minimumHoverDuration],
-                execute: task
-            )
+            hoverTask = Task {
+                try? await Task.sleep(for: .seconds(Defaults[.minimumHoverDuration]))
+                guard !Task.isCancelled else { return }
+                
+                await MainActor.run {
+                    guard self.vm.notchState == .closed,
+                          self.isHovering,
+                          !self.coordinator.sneakPeek.show else { return }
+                    
+                    self.doOpen()
+                }
+            }
         } else {
-            // Handle mouse exit with debounce to prevent flickering
-            let debounce = DispatchWorkItem {
-                // ContentView is a struct, so we don't use weak self here
+            hoverTask = Task {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !Task.isCancelled else { return }
                 
-                // Update visual state
-                withAnimation(.bouncy.speed(1.2)) {
-                    isHovering = false
-                }
-                
-                // Close the notch if it's open and no popovers are active
-                let hasActivePopovers = vm.isBatteryPopoverActive || vm.isClipboardPopoverActive || vm.isColorPickerPopoverActive || vm.isStatsPopoverActive
-                
-                if vm.notchState == .open && !hasActivePopovers {
-                    vm.close()
+                await MainActor.run {
+                    withAnimation(.bouncy.speed(1.2)) {
+                        self.isHovering = false
+                    }
+                    
+                    if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive {
+                        self.vm.close()
+                    }
                 }
             }
-            
-            debounceWorkItem = debounce
-            // Add a small delay to debounce rapid mouse movements
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: debounce)
         }
     }
     

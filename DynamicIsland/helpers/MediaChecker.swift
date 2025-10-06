@@ -9,8 +9,6 @@ import Foundation
 
 @MainActor
 final class MediaChecker: Sendable {
-    private(set) var isNowPlayingDeprecated: Bool = false
-
     enum MediaCheckerError: Error {
         case missingResources
         case processExecutionFailed
@@ -19,7 +17,7 @@ final class MediaChecker: Sendable {
 
     func checkDeprecationStatus() async throws -> Bool {
         guard let scriptURL = Bundle.main.url(forResource: "mediaremote-adapter", withExtension: "pl"),
-              let nowPlayingTestClientPath = Bundle.main.url(forResource: "NowPlayingTestClient", withExtension: nil)?.path,
+              let nowPlayingTestClientPath = Bundle.main.url(forResource: "MediaRemoteAdapterTestClient", withExtension: nil)?.path,
               let frameworkPath = Bundle.main.privateFrameworksPath?.appending("/MediaRemoteAdapter.framework")
         else {
             throw MediaCheckerError.missingResources
@@ -28,8 +26,6 @@ final class MediaChecker: Sendable {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
         process.arguments = [scriptURL.path, frameworkPath, nowPlayingTestClientPath, "test"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
 
         do {
             try process.run()
@@ -38,30 +34,32 @@ final class MediaChecker: Sendable {
         }
 
         // Timeout after 10 seconds
-        let result: String = try await withThrowingTaskGroup(of: String?.self) { group in
+        let didExit: Bool = try await withThrowingTaskGroup(of: Bool.self) { group in
             group.addTask {
                 process.waitUntilExit()
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                return String(data: data, encoding: .utf8)
+                return true
             }
             group.addTask {
                 try await Task.sleep(for: .seconds(10))
                 if process.isRunning {
                     process.terminate()
                 }
-                return "0" // Default value if process takes too long
+                return false
             }
-            for try await output in group {
-                if let output = output {
+            for try await exited in group {
+                if exited {
                     group.cancelAll()
-                    return output
+                    return true
                 }
             }
             throw MediaCheckerError.timeout
         }
 
-        let isDeprecated = result.trimmingCharacters(in: .whitespacesAndNewlines).last == "1"
-        self.isNowPlayingDeprecated = isDeprecated
+        if !didExit {
+            throw MediaCheckerError.timeout
+        }
+
+        let isDeprecated = process.terminationStatus == 1
         return isDeprecated
     }
 }
