@@ -20,6 +20,7 @@ enum SneakContentType {
     case download
     case timer
     case recording
+    case bluetoothAudio
 }
 
 struct sneakPeek {

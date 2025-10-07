@@ -372,9 +372,12 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DynamicIsland/Info.plist;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Need for Spotify and Apple Music";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Dynamic Island uses AppleScripts to control Spotify and Apple Music";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Show calender events inside the notch";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Need for Calendar Mode";
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need your camera for Mirror mode";
+				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Dynamic Island needs access to save screenshots to your desktop.";
+				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "Dynamic Island needs access to save and read AI assistant files.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -415,9 +418,12 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DynamicIsland/Info.plist;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Need for Spotify and Apple Music";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Dynamic Island uses AppleScripts to control Spotify and Apple Music";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Show calender events inside the notch";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Need for Calendar Mode";
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need your camera for Mirror mode";
+				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Dynamic Island needs access to save screenshots to your desktop.";
+				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "Dynamic Island needs access to save and read AI assistant files.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

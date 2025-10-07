@@ -75,11 +75,21 @@ struct MarqueeText: View {
                     self.textSize = CGSize(width: size.width / 2, height: NSFont.preferredFont(forTextStyle: nsFont).pointSize)
                     self.animate = false
                     self.offset = 0
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.01){
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.02){
                         if needsScrolling {
                             self.animate = true
-                            self.offset = -(textSize.width + 10)
-                            
+                            self.offset = -(textSize.width + 20)
+                        }
+                    }
+                }
+                .onChange(of: text) { _, _ in
+                    // Reset animation when text changes
+                    self.animate = false
+                    self.offset = 0
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.02){
+                        if needsScrolling {
+                            self.animate = true
+                            self.offset = -(textSize.width + 20)
                         }
                     }
                 }
