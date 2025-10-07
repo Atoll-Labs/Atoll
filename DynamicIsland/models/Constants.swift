@@ -298,6 +298,12 @@ extension Defaults.Keys {
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: defaultMediaController)
     
+    // MARK: Bluetooth Audio Devices
+    static let showBluetoothDeviceConnections = Key<Bool>("showBluetoothDeviceConnections", default: true)
+    static let useColorCodedBatteryDisplay = Key<Bool>("useColorCodedBatteryDisplay", default: true)
+    static let useColorCodedVolumeDisplay = Key<Bool>("useColorCodedVolumeDisplay", default: false)
+    static let useSmoothColorGradient = Key<Bool>("useSmoothColorGradient", default: true)
+    
     // MARK: Stats Feature
     static let enableStatsFeature = Key<Bool>("enableStatsFeature", default: false)
     static let autoStartStatsMonitoring = Key<Bool>("autoStartStatsMonitoring", default: true)

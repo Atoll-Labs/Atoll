@@ -43,14 +43,14 @@ struct MinimalisticMusicPlayerView: View {
             
             // Compact progress bar
             progressBar
-                .padding(.top, 4)
+                .padding(.top, 6)
             
             // Compact playback controls
             playbackControls
                 .padding(.top, 4)
         }
         .padding(.horizontal, 12)
-        .padding(.top, -20)
+        .padding(.top, -15)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity)
     }
@@ -246,7 +246,7 @@ struct MinimalisticAlbumArtView: View {
                     .aspectRatio(contentMode: .fill)
             )
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             .scaleEffect(x: 1.3, y: 1.4)
             .rotationEffect(.degrees(92))
             .blur(radius: 35)
@@ -266,7 +266,7 @@ struct MinimalisticAlbumArtView: View {
                         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: musicManager.isFlipping)
                 )
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
                 .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
         }
         .buttonStyle(PlainButtonStyle())

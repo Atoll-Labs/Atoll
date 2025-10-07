@@ -82,6 +82,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var timer: Timer?
     let calendarManager = CalendarManager.shared
     let webcamManager = WebcamManager.shared
+    let dndManager = DoNotDisturbManager.shared  // NEW: DND detection
+    let bluetoothAudioManager = BluetoothAudioManager.shared  // NEW: Bluetooth audio detection
     var closeNotchWorkItem: DispatchWorkItem?
     private var previousScreens: [NSScreen]?
     private var onboardingWindowController: NSWindowController?

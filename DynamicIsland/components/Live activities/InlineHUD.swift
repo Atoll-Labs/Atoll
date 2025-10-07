@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Defaults
 
 struct InlineHUD: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
@@ -14,6 +15,15 @@ struct InlineHUD: View {
     @Binding var icon: String
     @Binding var hoverAnimation: Bool
     @Binding var gestureProgress: CGFloat
+    
+    @Default(.useColorCodedBatteryDisplay) var useColorCodedBatteryDisplay
+    @Default(.useColorCodedVolumeDisplay) var useColorCodedVolumeDisplay
+    @Default(.useSmoothColorGradient) var useSmoothColorGradient
+    @Default(.progressBarStyle) var progressBarStyle
+    @ObservedObject var bluetoothManager = BluetoothAudioManager.shared
+    
+    @State private var displayName: String = ""
+    
     var body: some View {
         HStack {
             HStack(spacing: 5) {
@@ -21,7 +31,9 @@ struct InlineHUD: View {
                     switch (type) {
                         case .volume:
                             if icon.isEmpty {
-                                Image(systemName: SpeakerSymbol(value))
+                                // Show headphone icon if Bluetooth audio is connected, otherwise speaker
+                                let baseIcon = bluetoothManager.isBluetoothAudioConnected ? "headphones" : SpeakerSymbol(value)
+                                Image(systemName: baseIcon)
                                     .contentTransition(.interpolate)
                                     .symbolVariant(value > 0 ? .none : .slash)
                                     .frame(width: 20, height: 15, alignment: .leading)
@@ -51,6 +63,11 @@ struct InlineHUD: View {
                                 .symbolRenderingMode(.hierarchical)
                                 .contentTransition(.interpolate)
                                 .frame(width: 20, height: 15, alignment: .center)
+                        case .bluetoothAudio:
+                            Image(systemName: icon.isEmpty ? "bluetooth" : icon)
+                                .symbolRenderingMode(.hierarchical)
+                                .contentTransition(.interpolate)
+                                .frame(width: 20, height: 15, alignment: .center)
                         default:
                             EmptyView()
                     }
@@ -58,12 +75,33 @@ struct InlineHUD: View {
                 .foregroundStyle(.white)
                 .symbolVariant(.fill)
                 
-                Text(Type2Name(type))
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                    .allowsTightening(true)
-                    .contentTransition(.numericText())
+                // Use marquee text for device names to handle long names
+                if type == .bluetoothAudio {
+                    MarqueeText(
+                        $displayName,
+                        font: .system(size: 13, weight: .medium),
+                        nsFont: .body,
+                        textColor: .white,
+                        minDuration: 0.5,
+                        frameWidth: 85 - (hoverAnimation ? 0 : 12) + gestureProgress / 2
+                    )
+                    .onAppear {
+                        displayName = Type2Name(type)
+                    }
+                    .onChange(of: type) { _, _ in
+                        displayName = Type2Name(type)
+                    }
+                    .onChange(of: bluetoothManager.lastConnectedDevice?.name) { _, _ in
+                        displayName = Type2Name(type)
+                    }
+                } else {
+                    Text(Type2Name(type))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                        .allowsTightening(true)
+                        .contentTransition(.numericText())
+                }
             }
             .frame(width: 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2, height: vm.notchSize.height - (hoverAnimation ? 0 : 12), alignment: .leading)
             
@@ -88,9 +126,45 @@ struct InlineHUD: View {
                         .multilineTextAlignment(.trailing)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .contentTransition(.interpolate)
+                } else if (type == .bluetoothAudio) {
+                    // Bluetooth device battery display
+                    HStack(spacing: 4) {
+                        if value > 0 {
+                            // Show color-coded battery bar if battery info available
+                            // Color-coding disabled for segmented or hierarchical mode
+                            if useColorCodedBatteryDisplay && progressBarStyle == .gradient {
+                                ColorCodedProgressBar.battery(value: value, width: 60, height: 4, smoothGradient: useSmoothColorGradient)
+                            } else {
+                                DraggableProgressBar(value: .constant(value))
+                                    .frame(width: 60)
+                            }
+                            Text("\(Int(value * 100))%")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                        } else {
+                            // No battery info available
+                            Text("Connected")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.gray)
+                                .lineLimit(1)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 } else {
+                    // Volume and brightness displays
                     HStack {
-                        DraggableProgressBar(value: $value)
+                        // Color-coding only available in gradient mode, not hierarchical or segmented
+                        if type == .volume && useColorCodedVolumeDisplay && progressBarStyle == .gradient {
+                            // Color-coded volume (reversed: red at high, green at low)
+                            ColorCodedProgressBar.volume(value: value, width: 70, height: 4, smoothGradient: useSmoothColorGradient)
+                        } else {
+                            // Default draggable progress bar
+                            DraggableProgressBar(value: $value)
+                        }
+                        
                         if (type == .volume && value.isZero) {
                             Text("muted")
                                 .font(.caption)
@@ -145,6 +219,8 @@ struct InlineHUD: View {
                 return "Backlight"
             case .mic:
                 return "Mic"
+            case .bluetoothAudio:
+                return BluetoothAudioManager.shared.lastConnectedDevice?.name ?? "Bluetooth"
             default:
                 return ""
         }

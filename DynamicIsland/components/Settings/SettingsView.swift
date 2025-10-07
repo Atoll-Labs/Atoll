@@ -544,6 +544,43 @@ struct HUD: View {
             }
             
             Section {
+                Defaults.Toggle("Show Bluetooth device connections", key: .showBluetoothDeviceConnections)
+            } header: {
+                Text("Bluetooth Audio Devices")
+            } footer: {
+                Text("Displays a HUD notification when Bluetooth audio devices (headphones, AirPods, speakers) connect, showing device name and battery level.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+            
+            Section {
+                Defaults.Toggle("Color-coded battery display", key: .useColorCodedBatteryDisplay)
+                    .disabled(progressBarStyle != .gradient)
+                Defaults.Toggle("Color-coded volume display", key: .useColorCodedVolumeDisplay)
+                    .disabled(progressBarStyle != .gradient)
+                
+                if progressBarStyle == .gradient && (Defaults[.useColorCodedBatteryDisplay] || Defaults[.useColorCodedVolumeDisplay]) {
+                    Defaults.Toggle("Smooth color transitions", key: .useSmoothColorGradient)
+                }
+            } header: {
+                Text("Color-Coded Progress Bars")
+            } footer: {
+                if progressBarStyle != .gradient {
+                    Text("Color-coded displays are only available in Gradient mode. Switch Progressbar style to Gradient to enable this feature.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } else if Defaults[.useSmoothColorGradient] {
+                    Text("Smooth: Battery/Volume gradually transitions through all colors\nBattery: Green (high) → Yellow-Green → Yellow → Orange → Red (low)\nVolume: Green (quiet) → Yellow → Orange → Red (loud)")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } else {
+                    Text("Discrete: Battery/Volume uses 3 distinct colors only\nBattery: Green (high), Yellow (medium), Red (low)\nVolume: Green (quiet), Yellow (medium), Red (loud)")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+            }
+            
+            Section {
                 Picker("HUD style", selection: $inlineHUD) {
                     Text("Default")
                         .tag(false)

@@ -361,6 +361,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"DynamicIsland/Preview Content\"";
 				DEVELOPMENT_TEAM = 9Y64TRM77N;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -371,9 +372,12 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DynamicIsland/Info.plist;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Need for Spotify and Apple Music";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Dynamic Island uses AppleScripts to control Spotify and Apple Music";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Show calender events inside the notch";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Need for Calendar Mode";
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need your camera for Mirror mode";
+				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Dynamic Island needs access to save screenshots to your desktop.";
+				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "Dynamic Island needs access to save and read AI assistant files.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -403,6 +407,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"DynamicIsland/Preview Content\"";
 				DEVELOPMENT_TEAM = 9Y64TRM77N;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -413,9 +418,12 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DynamicIsland/Info.plist;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Need for Spotify and Apple Music";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Dynamic Island uses AppleScripts to control Spotify and Apple Music";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Show calender events inside the notch";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Need for Calendar Mode";
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need your camera for Mirror mode";
+				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Dynamic Island needs access to save screenshots to your desktop.";
+				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "Dynamic Island needs access to save and read AI assistant files.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
