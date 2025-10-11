@@ -13,12 +13,13 @@ import Defaults
 
 struct IdleAnimationView: View {
     @Default(.selectedIdleAnimation) var selectedAnimation
+    @Default(.animationTransformOverrides) var overrides
     
     var body: some View {
         Group {
             if let animation = selectedAnimation {
                 AnimationContentView(animation: animation)
-                    .id("\(animation.id)-\(animation.hashValue)")  // Force complete recreation when ANY property changes
+                    .id("\(animation.id)-\(overrides[animation.id.uuidString]?.hashValue ?? 0)")  // Force recreation when override changes
             } else {
                 // Fallback to original face if nothing selected
                 MinimalFaceFeatures(height: 20, width: 30)
@@ -32,7 +33,11 @@ private struct AnimationContentView: View {
     let animation: CustomIdleAnimation
     
     var body: some View {
-        let config = animation.transformConfig
+        let config = animation.getTransformConfig()
+        
+        // Debug logging
+        let _ = print("🎨 [IdleAnimationView] Rendering animation: \(animation.name)")
+        let _ = print("🎨 [IdleAnimationView] Config: scale=\(config.scale), offset=(\(config.offsetX), \(config.offsetY)), opacity=\(config.opacity)")
         
         switch animation.source {
         case .lottieFile(let url):
@@ -72,7 +77,18 @@ private struct AnimationContentView: View {
             .clipped()
             
         case .builtInFace:
+            // Apply transforms to built-in face too!
             MinimalFaceFeatures(height: 20, width: 30)
+                .frame(
+                    width: config.cropWidth * config.scale,
+                    height: config.cropHeight * config.scale
+                )
+                .offset(x: config.offsetX, y: config.offsetY)
+                .rotationEffect(.degrees(config.rotation))
+                .opacity(config.opacity)
+                .padding(.bottom, config.paddingBottom)
+                .frame(width: config.expandWithAnimation ? nil : 30, height: 20)
+                .clipped()
         }
     }
 }

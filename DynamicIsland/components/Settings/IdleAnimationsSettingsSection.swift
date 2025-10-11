@@ -51,15 +51,30 @@ struct IdleAnimationsSettingsSection: View {
                                     selectedForDeletion = animation
                                     showingDeleteAlert = true
                                 },
-                                onEdit: animation.isBuiltIn ? nil : {
+                                onEdit: {
+                                    print("🔧 [Edit] Attempting to edit animation: \(animation.name)")
+                                    print("🔧 [Edit] Animation source: \(animation.source)")
                                     editingExistingAnimation = animation
-                                    if case .lottieFile(let url) = animation.source {
+                                    
+                                    switch animation.source {
+                                    case .lottieFile(let url):
+                                        print("🔧 [Edit] Lottie file URL: \(url)")
+                                        print("🔧 [Edit] File exists: \(FileManager.default.fileExists(atPath: url.path))")
                                         editorSourceURL = url
                                         editorIsRemote = false
                                         showingEditor = true
-                                    } else if case .lottieURL(let url) = animation.source {
+                                        
+                                    case .lottieURL(let url):
+                                        print("🔧 [Edit] Lottie URL: \(url)")
                                         editorSourceURL = url
                                         editorIsRemote = true
+                                        showingEditor = true
+                                        
+                                    case .builtInFace:
+                                        print("🔧 [Edit] Built-in face - using dummy URL")
+                                        // Use a dummy URL for built-in face (editor only needs URL for preview)
+                                        editorSourceURL = URL(string: "builtin://face")!
+                                        editorIsRemote = false
                                         showingEditor = true
                                     }
                                 }

@@ -48,7 +48,9 @@ struct AnimationEditorView: View {
         if let existing = existingAnimation {
             _name = State(initialValue: existing.name)
             _speed = State(initialValue: existing.speed)
-            let config = existing.transformConfig
+            
+            // Load from overrides if they exist
+            let config = Defaults[.animationTransformOverrides][existing.id.uuidString] ?? .default
             _scale = State(initialValue: config.scale)
             _offsetX = State(initialValue: config.offsetX)
             _offsetY = State(initialValue: config.offsetY)
@@ -106,17 +108,30 @@ struct AnimationEditorView: View {
                             .frame(width: 30 * previewScale, height: 20 * previewScale)
                         
                         // Animation preview with transformations
-                        LottieView(state: LUStateData(
-                            type: .loadedFrom(sourceURL),
-                            speed: speed,
-                            loopMode: loopMode.lottieLoopMode
-                        ))
-                        .frame(width: cropWidth * scale * previewScale, height: cropHeight * scale * previewScale)
-                        .offset(x: offsetX * previewScale, y: offsetY * previewScale)
-                        .rotationEffect(.degrees(rotation))
-                        .opacity(opacity)
-                        .padding(.bottom, paddingBottom * previewScale)
-                        .clipped()
+                        if let existing = existingAnimation, case .builtInFace = existing.source {
+                            // Show built-in face
+                            MinimalFaceFeatures(height: 20, width: 30)
+                                .scaleEffect(previewScale)
+                                .frame(width: cropWidth * scale * previewScale, height: cropHeight * scale * previewScale)
+                                .offset(x: offsetX * previewScale, y: offsetY * previewScale)
+                                .rotationEffect(.degrees(rotation))
+                                .opacity(opacity)
+                                .padding(.bottom, paddingBottom * previewScale)
+                                .clipped()
+                        } else {
+                            // Show Lottie animation
+                            LottieView(state: LUStateData(
+                                type: .loadedFrom(sourceURL),
+                                speed: speed,
+                                loopMode: loopMode.lottieLoopMode
+                            ))
+                            .frame(width: cropWidth * scale * previewScale, height: cropHeight * scale * previewScale)
+                            .offset(x: offsetX * previewScale, y: offsetY * previewScale)
+                            .rotationEffect(.degrees(rotation))
+                            .opacity(opacity)
+                            .padding(.bottom, paddingBottom * previewScale)
+                            .clipped()
+                        }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding()
@@ -475,18 +490,26 @@ struct AnimationEditorView: View {
             loopMode: loopMode
         )
         
-        // If editing existing animation, create a NEW animation object with updated values
+        // If editing existing animation, save transform config to overrides
         if let existing = existingAnimation {
-            // Create completely new animation to force view refresh
-            let updatedAnimation = CustomIdleAnimation(
-                id: existing.id,  // Keep same ID so it replaces the right one
-                name: name,
-                source: existing.source,
-                speed: speed,
-                isBuiltIn: existing.isBuiltIn,
-                transformConfig: config
-            )
-            animation = updatedAnimation
+            // Store only the transform config override
+            var overrides = Defaults[.animationTransformOverrides]
+            overrides[existing.id.uuidString] = config
+            Defaults[.animationTransformOverrides] = overrides
+            
+            print("✅ [AnimationEditor] Saved transform override for: \(existing.name)")
+            print("✅ [AnimationEditor] Override: \(config)")
+            
+            // Force view refresh by updating selectedIdleAnimation if this is the selected one
+            if Defaults[.selectedIdleAnimation]?.id == existing.id {
+                // Trigger refresh by re-setting the same animation
+                let current = Defaults[.selectedIdleAnimation]
+                Defaults[.selectedIdleAnimation] = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    Defaults[.selectedIdleAnimation] = current
+                }
+            }
+            
             dismiss()
             return
         }
@@ -495,8 +518,7 @@ struct AnimationEditorView: View {
         let result = IdleAnimationManager.shared.importLottieFile(
             from: sourceURL,
             name: name,
-            speed: speed,
-            transformConfig: config
+            speed: speed
         )
         
         switch result {

@@ -77,39 +77,34 @@ class IdleAnimationManager {
     
     /// Load animations from the LottieAnimations folder in the bundle
     private func loadBundledAnimations() -> [CustomIdleAnimation]? {
-        guard let bundlePath = Bundle.main.resourcePath else {
-            print("⚠️ [IdleAnimationManager] Could not find bundle resource path")
-            return nil
-        }
+        print("📦 [IdleAnimationManager] Loading bundled animations...")
         
-        let lottieFolder = URL(fileURLWithPath: bundlePath).appendingPathComponent("LottieAnimations")
+        // The JSON files are added as individual resources, not in a folder
+        let bundledFiles = ["Dog waiting", "Moody Dog", "Orange Cat Peeping"]
+        var animations: [CustomIdleAnimation] = []
         
-        guard FileManager.default.fileExists(atPath: lottieFolder.path) else {
-            print("⚠️ [IdleAnimationManager] LottieAnimations folder not found at: \(lottieFolder.path)")
-            return nil
-        }
-        
-        do {
-            let files = try FileManager.default.contentsOfDirectory(at: lottieFolder, includingPropertiesForKeys: nil)
-            let jsonFiles = files.filter { $0.pathExtension.lowercased() == "json" }
-            
-            let animations = jsonFiles.map { url -> CustomIdleAnimation in
-                let name = url.deletingPathExtension().lastPathComponent
-                return CustomIdleAnimation(
-                    name: name,
+        for filename in bundledFiles {
+            if let url = Bundle.main.url(forResource: filename, withExtension: "json") {
+                let animation = CustomIdleAnimation(
+                    name: filename,
                     source: .lottieFile(url),
                     speed: 1.0,
                     isBuiltIn: true
                 )
+                animations.append(animation)
+                print("✅ [IdleAnimationManager] Loaded bundled animation: \(filename)")
+            } else {
+                print("⚠️ [IdleAnimationManager] Could not find bundled animation: \(filename).json")
             }
-            
-            print("📦 [IdleAnimationManager] Loaded \(animations.count) bundled animations")
-            return animations
-            
-        } catch {
-            print("❌ [IdleAnimationManager] Error loading bundled animations: \(error)")
+        }
+        
+        guard !animations.isEmpty else {
+            print("⚠️ [IdleAnimationManager] No bundled animations found")
             return nil
         }
+        
+        print("📦 [IdleAnimationManager] Loaded \(animations.count) bundled animations")
+        return animations
     }
     
     // MARK: - User Animations
@@ -144,20 +139,20 @@ class IdleAnimationManager {
     // MARK: - Import & Export
     
     /// Import a Lottie JSON file from URL (either local file or download from remote)
-    func importLottieFile(from url: URL, name: String? = nil, speed: CGFloat = 1.0, transformConfig: AnimationTransformConfig = .default) -> Result<CustomIdleAnimation, Error> {
+    func importLottieFile(from url: URL, name: String? = nil, speed: CGFloat = 1.0) -> Result<CustomIdleAnimation, Error> {
         let fileName = name ?? url.deletingPathExtension().lastPathComponent
         
         // If it's a remote URL, download it first
         if url.scheme == "http" || url.scheme == "https" {
-            return importRemoteAnimation(from: url, name: fileName, speed: speed, transformConfig: transformConfig)
+            return importRemoteAnimation(from: url, name: fileName, speed: speed)
         }
         
         // Local file import
-        return importLocalFile(from: url, name: fileName, speed: speed, transformConfig: transformConfig)
+        return importLocalFile(from: url, name: fileName, speed: speed)
     }
     
     /// Import a local Lottie JSON file
-    private func importLocalFile(from sourceURL: URL, name: String, speed: CGFloat, transformConfig: AnimationTransformConfig) -> Result<CustomIdleAnimation, Error> {
+    private func importLocalFile(from sourceURL: URL, name: String, speed: CGFloat) -> Result<CustomIdleAnimation, Error> {
         do {
             // Validate it's a JSON file
             guard sourceURL.pathExtension.lowercased() == "json" else {
@@ -177,13 +172,12 @@ class IdleAnimationManager {
             // Copy file to storage
             try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
             
-            // Create animation object
+            // Create animation object (transforms will be stored separately)
             let animation = CustomIdleAnimation(
                 name: name,
                 source: .lottieFile(destinationURL),
                 speed: speed,
-                isBuiltIn: false,
-                transformConfig: transformConfig
+                isBuiltIn: false
             )
             
             // Add to defaults
@@ -201,7 +195,7 @@ class IdleAnimationManager {
     }
     
     /// Import animation from remote URL
-    private func importRemoteAnimation(from url: URL, name: String, speed: CGFloat, transformConfig: AnimationTransformConfig) -> Result<CustomIdleAnimation, Error> {
+    private func importRemoteAnimation(from url: URL, name: String, speed: CGFloat) -> Result<CustomIdleAnimation, Error> {
         // For remote URLs, we store the URL directly (no download)
         // The LottieView will handle downloading when needed
         
@@ -209,8 +203,7 @@ class IdleAnimationManager {
             name: name,
             source: .lottieURL(url),
             speed: speed,
-            isBuiltIn: false,
-            transformConfig: transformConfig
+            isBuiltIn: false
         )
         
         // Add to defaults
