@@ -157,6 +157,7 @@ struct GeneralSettings: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject var recordingManager = ScreenRecordingManager.shared
+    @ObservedObject var privacyManager = PrivacyIndicatorManager.shared
 
     @Default(.mirrorShape) var mirrorShape
     @Default(.showEmojis) var showEmojis
@@ -245,9 +246,54 @@ struct GeneralSettings: View {
                     }
                 }
             } header: {
-                Text("Privacy & Security")
+                Text("Screen Recording Detection")
             } footer: {
-                Text("Screen recording detection shows a red indicator when your screen is being captured. Detection uses minimal system resources and can be disabled at any time.")
+                Text("Uses event-driven private API for real-time screen recording detection")
+            }
+            
+            Section {
+                Defaults.Toggle("Enable Camera Detection", key: .enableCameraDetection)
+                Defaults.Toggle("Enable Microphone Detection", key: .enableMicrophoneDetection)
+                
+                if privacyManager.isMonitoring {
+                    HStack {
+                        Text("Camera Status")
+                        Spacer()
+                        if privacyManager.cameraActive {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 8, height: 8)
+                                Text("Camera Active")
+                                    .foregroundColor(.green)
+                            }
+                        } else {
+                            Text("Inactive")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    HStack {
+                        Text("Microphone Status")
+                        Spacer()
+                        if privacyManager.microphoneActive {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.yellow)
+                                    .frame(width: 8, height: 8)
+                                Text("Microphone Active")
+                                    .foregroundColor(.yellow)
+                            }
+                        } else {
+                            Text("Inactive")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            } header: {
+                Text("Privacy Indicators")
+            } footer: {
+                Text("Shows green camera icon and yellow microphone icon when in use. Uses event-driven CoreAudio and CoreMediaIO APIs.")
             }
 
             Section {

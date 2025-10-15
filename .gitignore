@@ -72,7 +72,7 @@ segmentedhud.swift.ref
 gemini-apireference.md
 
 ScreenshotApp-main
-stats
+/stats/
 boring.notch
 referenceimages
 
@@ -83,3 +83,6 @@ PrivateWorks
 comparison_report.json
 *.txt
 ANIMATION_DEBUG_GUIDE.md
+MIGRATION_SUMMARY.md
+ONBOARDING_ENHANCEMENT.md
+SHEET_PRESENTATION_FIX.md

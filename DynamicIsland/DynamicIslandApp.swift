@@ -414,6 +414,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ScreenRecordingManager.shared.startMonitoring()
         }
         
+        // Setup Privacy Indicator Manager (camera and microphone monitoring)
+        PrivacyIndicatorManager.shared.startMonitoring()
+        
         // Setup media key monitoring
         setupMediaKeyMonitoring()
         

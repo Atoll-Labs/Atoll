@@ -432,6 +432,10 @@ extension Defaults.Keys {
     // Polling removed - now uses event-driven private API detection (CGSIsScreenWatcherPresent)
     // static let enableScreenRecordingPolling = Key<Bool>("enableScreenRecordingPolling", default: false)
     
+    // MARK: Privacy Indicators (Camera & Microphone Detection)
+    static let enableCameraDetection = Key<Bool>("enableCameraDetection", default: true)
+    static let enableMicrophoneDetection = Key<Bool>("enableMicrophoneDetection", default: true)
+    
     // MARK: ImageService
     static let didClearLegacyURLCacheV1 = Key<Bool>("didClearLegacyURLCacheV1", default: false)
     
