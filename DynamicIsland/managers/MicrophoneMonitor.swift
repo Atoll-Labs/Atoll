@@ -55,9 +55,9 @@ class MicrophoneMonitor: ObservableObject {
         // Remove property listener
         if isListenerRegistered, defaultInputDevice != 0 {
             var address = AudioObjectPropertyAddress(
-                mSelector: kAudioDevicePropertyDeviceIsRunning,
-                mScope: kAudioDevicePropertyScopeInput,
-                mElement: kAudioObjectPropertyElementMain
+                mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMaster
             )
             
             let context = Unmanaged.passUnretained(self).toOpaque()
@@ -150,7 +150,7 @@ class MicrophoneMonitor: ObservableObject {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
+            mElement: kAudioObjectPropertyElementMaster
         )
         
         let status = AudioObjectGetPropertyData(
@@ -175,9 +175,9 @@ class MicrophoneMonitor: ObservableObject {
         guard defaultInputDevice != 0 else { return false }
         
         var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyDeviceIsRunning,
-            mScope: kAudioDevicePropertyScopeInput,
-            mElement: kAudioObjectPropertyElementMain
+            mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMaster
         )
         
         let hasProperty = AudioObjectHasProperty(defaultInputDevice, &address)
@@ -190,11 +190,11 @@ class MicrophoneMonitor: ObservableObject {
     private func setupPropertyListener() {
         guard defaultInputDevice != 0 else { return }
         
-        // Try kAudioDevicePropertyDeviceIsRunning (simpler, more reliable for input devices)
+        // Use kAudioDevicePropertyDeviceIsRunningSomewhere (tracks when device is in use anywhere)
         var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyDeviceIsRunning,
-            mScope: kAudioDevicePropertyScopeInput,
-            mElement: kAudioObjectPropertyElementMain
+            mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMaster
         )
         
         // Pass self as context
@@ -220,9 +220,9 @@ class MicrophoneMonitor: ObservableObject {
         guard defaultInputDevice != 0, isListenerRegistered else { return }
         
         var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyDeviceIsRunning,
-            mScope: kAudioDevicePropertyScopeInput,
-            mElement: kAudioObjectPropertyElementMain
+            mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMaster
         )
         
         let context = Unmanaged.passUnretained(self).toOpaque()
@@ -273,9 +273,9 @@ class MicrophoneMonitor: ObservableObject {
     /// Check if audio device is running
     private func isDeviceRunning(_ deviceID: AudioDeviceID) -> Bool {
         var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyDeviceIsRunning,
-            mScope: kAudioDevicePropertyScopeInput,
-            mElement: kAudioObjectPropertyElementMain
+            mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMaster
         )
         
         var isRunning: UInt32 = 0

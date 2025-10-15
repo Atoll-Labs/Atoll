@@ -65,7 +65,7 @@ struct PrivacyLiveActivity: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
                     }
                 }
-                .frame(width: isExpanded ? max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12) + gestureProgress / 2) : 0, height: vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
+                .frame(width: isExpanded ? max(0, vm.effectiveClosedNotchHeight + 30 + gestureProgress / 2) : 0, height: vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
         }
         .frame(height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0))
         .onAppear {
