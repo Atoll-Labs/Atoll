@@ -12,9 +12,14 @@ enum LockLiveActivityState: Equatable {
     case unlocking
 }
 
+final class LockScreenLiveActivityOverlayViewModel: ObservableObject {
+    @Published var expansion: CGFloat = 1
+}
+
 struct LockScreenLiveActivityOverlay: View {
     let state: LockLiveActivityState
     let notchSize: CGSize
+    @ObservedObject var viewModel: LockScreenLiveActivityOverlayViewModel
 
     private var indicatorSize: CGFloat {
         max(0, notchSize.height - 12)
@@ -65,15 +70,19 @@ struct LockScreenLiveActivityOverlay: View {
             )
         )
         .frame(width: totalWidth, height: notchSize.height)
+        .scaleEffect(x: max(0.05, viewModel.expansion), y: 1, anchor: .center)
+        .opacity(min(1, max(0.2, viewModel.expansion * 5)))
         .animation(.spring(response: 0.45, dampingFraction: 0.85), value: state)
+        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: viewModel.expansion)
         .drawingGroup()
     }
 }
 
 #Preview {
-    VStack(spacing: 24) {
-        LockScreenLiveActivityOverlay(state: .locked, notchSize: CGSize(width: 220, height: 32))
-        LockScreenLiveActivityOverlay(state: .unlocking, notchSize: CGSize(width: 220, height: 32))
+    let model = LockScreenLiveActivityOverlayViewModel()
+    return VStack(spacing: 24) {
+        LockScreenLiveActivityOverlay(state: .locked, notchSize: CGSize(width: 220, height: 32), viewModel: model)
+        LockScreenLiveActivityOverlay(state: .unlocking, notchSize: CGSize(width: 220, height: 32), viewModel: model)
     }
     .padding()
     .background(Color.gray.opacity(0.2))

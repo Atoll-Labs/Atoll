@@ -18,6 +18,7 @@ class LockScreenLiveActivityWindowManager {
     private var hasDelegated = false
     private var hideTask: Task<Void, Never>?
     private var hostingView: NSHostingView<LockScreenLiveActivityOverlay>?
+    private let overlayModel = LockScreenLiveActivityOverlayViewModel()
 
     private init() {}
 
@@ -82,7 +83,7 @@ class LockScreenLiveActivityWindowManager {
         let targetFrame = frame(for: notchSize, on: screen)
         window.setFrame(targetFrame, display: true)
 
-        let overlay = LockScreenLiveActivityOverlay(state: state, notchSize: notchSize)
+        let overlay = LockScreenLiveActivityOverlay(state: state, notchSize: notchSize, viewModel: overlayModel)
 
         if let hostingView {
             hostingView.rootView = overlay
@@ -106,6 +107,15 @@ class LockScreenLiveActivityWindowManager {
         }
 
         window.orderFrontRegardless()
+
+        if state == .locked {
+            overlayModel.expansion = 0.2
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
+                overlayModel.expansion = 1
+            }
+        } else {
+            overlayModel.expansion = 1
+        }
 
         if window.alphaValue < 1 {
             NSAnimationContext.runAnimationGroup { context in
@@ -140,6 +150,10 @@ class LockScreenLiveActivityWindowManager {
         hideTask = nil
 
         guard let window else { return }
+
+        withAnimation(.easeOut(duration: 0.1)) {
+            overlayModel.expansion = 0.2
+        }
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.1
