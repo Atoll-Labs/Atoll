@@ -10,7 +10,7 @@ import Defaults
 
 struct LockScreenMusicPanel: View {
     static let collapsedSize = CGSize(width: 420, height: 180)
-    static let expandedSize = CGSize(width: 660, height: 310)
+    static let expandedSize = CGSize(width: 720, height: 340)
 
     @ObservedObject var musicManager = MusicManager.shared
     @State private var sliderValue: Double = 0
@@ -19,12 +19,22 @@ struct LockScreenMusicPanel: View {
     @State private var isExpanded = false
     @State private var collapseWorkItem: DispatchWorkItem?
     @Default(.lockScreenGlassStyle) var lockScreenGlassStyle
+    @Default(.lockScreenShowAppIcon) var showAppIcon
+    @Default(.lockScreenPanelShowsBorder) var showPanelBorder
+    @Default(.lockScreenPanelUsesBlur) var enableBlur
     
-    private let cornerRadius: CGFloat = 28
+    private let collapsedPanelCornerRadius: CGFloat = 28
+    private let expandedPanelCornerRadius: CGFloat = 44
+    private let collapsedAlbumArtCornerRadius: CGFloat = 16
+    private let expandedAlbumArtCornerRadius: CGFloat = 52
     private let collapseTimeout: TimeInterval = 5
 
     private var currentSize: CGSize {
         isExpanded ? Self.expandedSize : Self.collapsedSize
+    }
+
+    private var panelCornerRadius: CGFloat {
+        isExpanded ? expandedPanelCornerRadius : collapsedPanelCornerRadius
     }
 
     private var usesLiquidGlass: Bool {
@@ -57,7 +67,7 @@ struct LockScreenMusicPanel: View {
                 isActive = false
                 cancelCollapseTimer()
             }
-            .onChange(of: isExpanded) { expanded in
+            .onChange(of: isExpanded) { _, expanded in
                 LockScreenPanelManager.shared.updatePanelSize(expanded: expanded)
             }
     }
@@ -75,13 +85,15 @@ struct LockScreenMusicPanel: View {
         .padding(.vertical, isExpanded ? 22 : 16)
         .frame(width: currentSize.width, height: currentSize.height, alignment: .topLeading)
         .background(panelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .stroke(Color.white.opacity(0.35), lineWidth: 1.4)
+            if showPanelBorder {
+                RoundedRectangle(cornerRadius: panelCornerRadius)
+                    .stroke(Color.white.opacity(0.35), lineWidth: 1.4)
+            }
         }
         .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)
-        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
     }
 
     private var collapsedLayout: some View {
@@ -96,9 +108,9 @@ struct LockScreenMusicPanel: View {
     }
 
     private var expandedLayout: some View {
-        HStack(alignment: .center, spacing: 28) {
-            albumArtButton(size: 220, cornerRadius: cornerRadius)
-                .frame(width: 220, height: 220)
+        HStack(alignment: .center, spacing: 32) {
+            albumArtButton(size: 230, cornerRadius: expandedAlbumArtCornerRadius)
+                .frame(width: 230, height: 230)
 
             VStack(alignment: .leading, spacing: 20) {
                 expandedHeader
@@ -114,7 +126,7 @@ struct LockScreenMusicPanel: View {
 
     private var collapsedHeader: some View {
         HStack(alignment: .center, spacing: 16) {
-            albumArtButton(size: 60, cornerRadius: 16)
+            albumArtButton(size: 60, cornerRadius: collapsedAlbumArtCornerRadius)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(musicManager.songTitle.isEmpty ? "No Music Playing" : musicManager.songTitle)
@@ -157,11 +169,29 @@ struct LockScreenMusicPanel: View {
 
     private func albumArtButton(size: CGFloat, cornerRadius: CGFloat) -> some View {
         Button(action: toggleExpanded) {
-            Image(nsImage: musicManager.albumArt)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: size, height: size)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            ZStack(alignment: .bottomTrailing) {
+                albumArtImage(size: size, cornerRadius: cornerRadius)
+                if showAppIcon, let icon = lockScreenAppIcon {
+                    RoundedRectangle(cornerRadius: appIconCornerRadius, style: .continuous)
+                        .fill(Color.black.opacity(0.45))
+                        .frame(width: appIconSize, height: appIconSize)
+                        .overlay {
+                            icon
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .clipShape(RoundedRectangle(cornerRadius: appIconCornerRadius, style: .continuous))
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: appIconCornerRadius, style: .continuous)
+                                .stroke(Color.white.opacity(0.4), lineWidth: 1)
+                        }
+                        .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 4)
+                        .offset(x: appIconOffset, y: appIconOffset)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .frame(width: size, height: size)
+            .background(albumArtBackground(cornerRadius: cornerRadius))
         }
         .buttonStyle(PlainButtonStyle())
         .opacity(musicManager.isPlaying ? 1 : 0.4)
@@ -311,22 +341,22 @@ struct LockScreenMusicPanel: View {
         return HStack(spacing: spacing) {
             // Always show shuffle on lock screen
             controlButton(icon: "shuffle", isActive: musicManager.isShuffled) {
-                Task { await musicManager.toggleShuffle() }
+                musicManager.toggleShuffle()
             }
             
             controlButton(icon: "backward.fill", size: 18) {
-                Task { await musicManager.previousTrack() }
+                musicManager.previousTrack()
             }
             
             playPauseButton
             
             controlButton(icon: "forward.fill", size: 18) {
-                Task { await musicManager.nextTrack() }
+                musicManager.nextTrack()
             }
             
             // Always show repeat on lock screen
             controlButton(icon: repeatIcon, isActive: musicManager.repeatMode != .off) {
-                Task { await musicManager.toggleRepeat() }
+                musicManager.toggleRepeat()
             }
         }
         .frame(maxWidth: .infinity, alignment: alignment)
@@ -334,14 +364,15 @@ struct LockScreenMusicPanel: View {
     }
     
     private var playPauseButton: some View {
-        let frameSize: CGFloat = isExpanded ? 60 : 48
+        let frameSize: CGFloat = isExpanded ? 72 : 48
+        let symbolSize: CGFloat = isExpanded ? 30 : 24
 
         return Button(action: {
             registerInteraction()
-            Task { await musicManager.togglePlay() }
+            musicManager.togglePlay()
         }) {
             Image(systemName: musicManager.isPlaying ? "pause.fill" : "play.fill")
-                .font(.system(size: 24, weight: .semibold))
+                .font(.system(size: symbolSize, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(width: frameSize, height: frameSize)
                 .contentShape(Rectangle())
@@ -350,8 +381,8 @@ struct LockScreenMusicPanel: View {
     }
     
     private func controlButton(icon: String, size: CGFloat = 18, isActive: Bool = false, action: @escaping () -> Void) -> some View {
-        let frameSize: CGFloat = isExpanded ? 44 : 32
-        let iconSize: CGFloat = isExpanded ? max(size, 20) : size
+        let frameSize: CGFloat = isExpanded ? 56 : 32
+        let iconSize: CGFloat = isExpanded ? max(size, 24) : size
 
         return Button(action: {
             registerInteraction()
@@ -376,29 +407,86 @@ struct LockScreenMusicPanel: View {
 
     @ViewBuilder
     private var panelBackground: some View {
-        if usesLiquidGlass {
-            liquidPanelBackground
+        if enableBlur {
+            if usesLiquidGlass {
+                liquidPanelBackground
+            } else {
+                frostedPanelBackground
+            }
         } else {
-            frostedPanelBackground
+            RoundedRectangle(cornerRadius: panelCornerRadius)
+                .fill(Color.black.opacity(0.45))
         }
     }
 
     @ViewBuilder
     private var liquidPanelBackground: some View {
         if #available(macOS 26.0, *) {
-            RoundedRectangle(cornerRadius: cornerRadius)
+            RoundedRectangle(cornerRadius: panelCornerRadius)
                 .glassEffect(
                     .regular
                         .tint(Color.white.opacity(0.12))
                         .interactive(),
-                    in: .rect(cornerRadius: cornerRadius)
+                    in: .rect(cornerRadius: panelCornerRadius)
                 )
         }
     }
 
     private var frostedPanelBackground: some View {
-        RoundedRectangle(cornerRadius: cornerRadius)
+        RoundedRectangle(cornerRadius: panelCornerRadius)
             .fill(.ultraThinMaterial)
+    }
+
+    private func albumArtImage(size: CGFloat, cornerRadius: CGFloat) -> some View {
+        Image(nsImage: musicManager.albumArt)
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func albumArtBackground(cornerRadius: CGFloat) -> some View {
+        if enableBlur {
+            if usesLiquidGlass {
+                if #available(macOS 26.0, *) {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .glassEffect(
+                            .regular
+                                .tint(Color.white.opacity(0.16))
+                                .interactive(),
+                            in: .rect(cornerRadius: cornerRadius)
+                        )
+                } else {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(.ultraThinMaterial)
+                }
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(.ultraThinMaterial)
+            }
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(Color.black.opacity(0.35))
+        }
+    }
+
+    private var lockScreenAppIcon: Image? {
+        guard showAppIcon, !musicManager.usingAppIconForArtwork else { return nil }
+        let bundleIdentifier = musicManager.bundleIdentifier ?? "com.apple.Music"
+        return AppIcon(for: bundleIdentifier)
+    }
+
+    private var appIconSize: CGFloat {
+        isExpanded ? 54 : 32
+    }
+
+    private var appIconCornerRadius: CGFloat {
+        isExpanded ? 18 : 10
+    }
+
+    private var appIconOffset: CGFloat {
+        isExpanded ? 16 : 10
     }
 
     private func logPanelAppearance(event: String = "✅ View appeared") {

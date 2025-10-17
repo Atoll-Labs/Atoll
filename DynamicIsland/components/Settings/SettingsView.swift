@@ -175,6 +175,9 @@ struct GeneralSettings: View {
     @Default(.showRecordingIndicator) var showRecordingIndicator
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
     @Default(.lockScreenGlassStyle) var lockScreenGlassStyle
+    @Default(.lockScreenShowAppIcon) var lockScreenShowAppIcon
+    @Default(.lockScreenPanelShowsBorder) var lockScreenPanelShowsBorder
+    @Default(.lockScreenPanelUsesBlur) var lockScreenPanelUsesBlur
 
     var body: some View {
         Form {
@@ -316,6 +319,9 @@ struct GeneralSettings: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                Defaults.Toggle("Show media app icon", key: .lockScreenShowAppIcon)
+                Defaults.Toggle("Show panel border", key: .lockScreenPanelShowsBorder)
+                Defaults.Toggle("Enable blur", key: .lockScreenPanelUsesBlur)
                 
                 Button("Copy Latest Crash Report") {
                     copyLatestCrashReport()
