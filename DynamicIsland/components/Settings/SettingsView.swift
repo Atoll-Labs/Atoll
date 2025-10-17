@@ -867,13 +867,42 @@ struct CalendarSettings: View {
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
                     .padding()
-                Button("Open System Settings") {
-                    if let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
-                        NSWorkspace.shared.open(settingsURL)
+                
+                HStack {
+                    Button("Request Access") {
+                        Task {
+                            await calendarManager.checkCalendarAuthorization()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    
+                    Button("Open System Settings") {
+                        if let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
+                            NSWorkspace.shared.open(settingsURL)
+                        }
                     }
                 }
             } else {
+                // Permissions status
+                Section {
+                    HStack {
+                        Text("Calendars")
+                        Spacer()
+                        Text(statusText(for: calendarManager.calendarAuthorizationStatus))
+                            .foregroundColor(color(for: calendarManager.calendarAuthorizationStatus))
+                    }
+                    HStack {
+                        Text("Reminders")
+                        Spacer()
+                        Text(statusText(for: calendarManager.reminderAuthorizationStatus))
+                            .foregroundColor(color(for: calendarManager.reminderAuthorizationStatus))
+                    }
+                } header: {
+                    Text("Permissions")
+                }
+                
                 Defaults.Toggle("Show calendar", key: .showCalendar)
+                
                 Section(header: Text("Select Calendars")) {
                     List {
                         ForEach(calendarManager.allCalendars, id: \.id) { calendar in
@@ -898,8 +927,28 @@ struct CalendarSettings: View {
                 await calendarManager.checkCalendarAuthorization()
             }
         }
-        // Add navigation title if it's missing or adjust as needed
         .navigationTitle("Calendar")
+    }
+    
+    private func statusText(for status: EKAuthorizationStatus) -> String {
+        switch status {
+        case .fullAccess: return "Full Access"
+        case .writeOnly: return "Write Only"
+        case .denied: return "Denied"
+        case .restricted: return "Restricted"
+        case .notDetermined: return "Not Determined"
+        @unknown default: return "Unknown"
+        }
+    }
+    
+    private func color(for status: EKAuthorizationStatus) -> Color {
+        switch status {
+        case .fullAccess: return .green
+        case .writeOnly: return .yellow
+        case .denied, .restricted: return .red
+        case .notDetermined: return .secondary
+        @unknown default: return .secondary
+        }
     }
 }
 
