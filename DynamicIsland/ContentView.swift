@@ -25,6 +25,7 @@ struct ContentView: View {
     @ObservedObject var statsManager = StatsManager.shared
     @ObservedObject var recordingManager = ScreenRecordingManager.shared
     @ObservedObject var privacyManager = PrivacyIndicatorManager.shared
+    @ObservedObject var lockScreenManager = LockScreenManager.shared
     
     @Default(.enableStatsFeature) var enableStatsFeature
     @Default(.showCpuGraph) var showCpuGraph
@@ -33,7 +34,7 @@ struct ContentView: View {
     @Default(.showNetworkGraph) var showNetworkGraph
     @Default(.showDiskGraph) var showDiskGraph
     
-        // Dynamic sizing based on view type and graph count with smooth transitions
+    // Dynamic sizing based on view type and graph count with smooth transitions
     var dynamicNotchSize: CGSize {
         // Use minimalistic or normal size based on settings
         let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
@@ -106,6 +107,8 @@ struct ContentView: View {
     }
 
     var body: some View {
+        let interactionsEnabled = !lockScreenManager.isLocked
+
         ZStack(alignment: .top) {
             let mainLayout = NotchLayout()
                 .frame(alignment: .top)
@@ -148,12 +151,12 @@ struct ContentView: View {
                         .animation(notchStateAnimation, value: vm.notchState)
                         .animation(viewTransitionAnimation, value: coordinator.currentView)
                 }
-                .conditionalModifier(Defaults[.openNotchOnHover]) { view in
+                .conditionalModifier(Defaults[.openNotchOnHover] && interactionsEnabled) { view in
                     view.onHover { hovering in
                         handleHover(hovering)
                     }
                 }
-                .conditionalModifier(!Defaults[.openNotchOnHover]) { view in
+                .conditionalModifier(!Defaults[.openNotchOnHover] && interactionsEnabled) { view in
                     view
                         .onHover { hovering in
                             handleSimpleHover(hovering)
@@ -164,14 +167,14 @@ struct ContentView: View {
                             }
                             doOpen()
                         }
-                        .conditionalModifier(Defaults[.enableGestures]) { view in
+                        .conditionalModifier(Defaults[.enableGestures] && interactionsEnabled) { view in
                             view
                                 .panGesture(direction: .down) { translation, phase in
                                     handleDownGesture(translation: translation, phase: phase)
                                 }
                         }
                 }
-                .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures]) { view in
+                .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures] && interactionsEnabled) { view in
                     view
                         .panGesture(direction: .up) { translation, phase in
                             handleUpGesture(translation: translation, phase: phase)
@@ -416,12 +419,14 @@ struct ContentView: View {
                       } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.opacity)
-                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
+                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed && !lockScreenManager.isLocked {
                           MusicLiveActivity()
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .timer) && vm.notchState == .closed && timerManager.isTimerActive && coordinator.timerLiveActivityEnabled && !vm.hideOnClosed {
                           TimerLiveActivity()
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .recording) && vm.notchState == .closed && (recordingManager.isRecording || !recordingManager.isRecorderIdle) && Defaults[.enableScreenRecordingDetection] && !vm.hideOnClosed {
                           RecordingLiveActivity()
+                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .lockScreen) && vm.notchState == .closed && (lockScreenManager.isLocked || !lockScreenManager.isLockIdle) && Defaults[.enableLockScreenLiveActivity] && !vm.hideOnClosed {
+                          LockScreenLiveActivity()
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .privacy) && vm.notchState == .closed && privacyManager.hasAnyIndicator && (Defaults[.enableCameraDetection] || Defaults[.enableMicrophoneDetection]) && !vm.hideOnClosed {
                           PrivacyLiveActivity()
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
@@ -539,6 +544,7 @@ struct ContentView: View {
                     .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed))
                     .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
+                    .albumArtFlip(angle: musicManager.flipAngle)
                     .frame(width: max(0, vm.effectiveClosedNotchHeight - 12), height: max(0, vm.effectiveClosedNotchHeight - 12))
             }
             .frame(width: max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12) + gestureProgress / 2), height: max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12)))
@@ -608,7 +614,9 @@ struct ContentView: View {
     
     @ViewBuilder
     var dragDetector: some View {
-        if Defaults[.dynamicShelf] && !Defaults[.enableMinimalisticUI] {
+        if lockScreenManager.isLocked {
+            EmptyView()
+        } else if Defaults[.dynamicShelf] && !Defaults[.enableMinimalisticUI] {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())

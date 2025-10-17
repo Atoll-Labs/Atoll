@@ -174,6 +174,15 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
         }
     }
 
+    func closeForLockScreen() {
+        let targetSize = getClosedNotchSize(screen: screen)
+        withAnimation(.none) {
+            notchSize = targetSize
+            closedNotchSize = targetSize
+            notchState = .closed
+        }
+    }
+
     func closeHello() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { [weak self] in
             self?.coordinator.firstLaunch = false

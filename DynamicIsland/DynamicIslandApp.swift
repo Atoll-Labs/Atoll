@@ -11,6 +11,7 @@ import Defaults
 import KeyboardShortcuts
 import Sparkle
 import SwiftUI
+import SkyLightWindow
 
 @main
 struct DynamicNotchApp: App {
@@ -85,10 +86,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let dndManager = DoNotDisturbManager.shared  // NEW: DND detection
     let bluetoothAudioManager = BluetoothAudioManager.shared  // NEW: Bluetooth audio detection
     let idleAnimationManager = IdleAnimationManager.shared  // NEW: Custom idle animations
+    let lockScreenPanelManager = LockScreenPanelManager.shared  // NEW: Lock screen music panel
     var closeNotchWorkItem: DispatchWorkItem?
     private var previousScreens: [NSScreen]?
     private var onboardingWindowController: NSWindowController?
     private var cancellables = Set<AnyCancellable>()
+    private var windowsHiddenForLock = false
     
     // Media key monitoring
     private var globalEventMonitor: Any?
@@ -207,14 +210,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc func onScreenLocked(_: Notification) {
         print("Screen locked")
-        cleanupWindows()
+        hideWindowsForLock()
     }
-    
+
     @objc func onScreenUnlocked(_: Notification) {
         print("Screen unlocked")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.cleanupWindows()
-            self?.adjustWindowPosition(changeAlpha: true)
+            guard let self = self else { return }
+            self.restoreWindowsAfterLock()
+            self.adjustWindowPosition(changeAlpha: true)
+        }
+    }
+
+    private func hideWindowsForLock() {
+        guard !windowsHiddenForLock else { return }
+        windowsHiddenForLock = true
+
+        if Defaults[.showOnAllDisplays] {
+            for window in windows.values {
+                window.alphaValue = 0
+                window.orderOut(nil)
+            }
+        } else if let window = window {
+            window.alphaValue = 0
+            window.orderOut(nil)
+        }
+    }
+
+    private func restoreWindowsAfterLock() {
+        guard windowsHiddenForLock else { return }
+        windowsHiddenForLock = false
+
+        if Defaults[.showOnAllDisplays] {
+            for window in windows.values {
+                window.orderFrontRegardless()
+                window.alphaValue = 1
+            }
+        } else if let window = window {
+            window.orderFrontRegardless()
+            window.alphaValue = 1
         }
     }
     
@@ -251,11 +285,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             rootView: ContentView()
                 .environmentObject(viewModel)
                 .environmentObject(webcamManager)
+                //.moveToSky()
         )
         
         window.orderFrontRegardless()
         NotchSpaceManager.shared.notchSpace.windows.insert(window)
-        
+        //SkyLightOperator.shared.delegateWindow(window)
         return window
     }
 
@@ -399,6 +434,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
 
         coordinator.setupWorkersNotificationObservers()
+        LockScreenLiveActivityWindowManager.shared.configure(viewModel: vm)
+        LockScreenManager.shared.configure(viewModel: vm)
         
         // Migrate legacy progress bar settings
         Defaults.Keys.migrateProgressBarStyle()

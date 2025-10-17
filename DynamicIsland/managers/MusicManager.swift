@@ -55,8 +55,8 @@ class MusicManager: ObservableObject {
     private var lastArtworkAlbum: String = "Self Love"
     private var lastArtworkBundleIdentifier: String? = nil
 
-    @Published var isFlipping: Bool = false
-    private var flipWorkItem: DispatchWorkItem?
+    @Published var flipAngle: Double = 0
+    private let flipAnimationDuration: TimeInterval = 0.45
 
     @Published var isTransitioning: Bool = false
     private var transitionWorkItem: DispatchWorkItem?
@@ -93,7 +93,6 @@ class MusicManager: ObservableObject {
         debounceIdleTask?.cancel()
         cancellables.removeAll()
         controllerCancellables.removeAll()
-        flipWorkItem?.cancel()
         transitionWorkItem?.cancel()
 
         // Release active controller
@@ -159,9 +158,6 @@ class MusicManager: ObservableObject {
     }
 
     private func setActiveController(_ controller: any MediaControllerProtocol) {
-        // Cancel any existing flip animation
-        flipWorkItem?.cancel()
-
         // Set new active controller
         activeController = controller
 
@@ -270,19 +266,9 @@ class MusicManager: ObservableObject {
     }
 
     private func triggerFlipAnimation() {
-        // Cancel any existing animation
-        flipWorkItem?.cancel()
-
-        // Create a new animation
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.isFlipping = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                self?.isFlipping = false
-            }
+        withAnimation(.easeInOut(duration: flipAnimationDuration)) {
+            flipAngle += 180
         }
-
-        flipWorkItem = workItem
-        DispatchQueue.main.async(execute: workItem)
     }
 
     private func updateArtwork(_ artworkData: Data) {
@@ -445,5 +431,37 @@ class MusicManager: ObservableObject {
                 }
             }
         }
+    }
+}
+
+// MARK: - Album Art Flip Helper
+
+private struct AlbumArtFlipModifier: ViewModifier {
+    let angle: Double
+
+    private var normalizedAngle: Double {
+        var value = angle.truncatingRemainder(dividingBy: 360)
+        if value < 0 { value += 360 }
+        return value
+    }
+
+    private var mirrorScale: CGFloat {
+        (normalizedAngle > 90 && normalizedAngle < 270) ? -1 : 1
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .rotation3DEffect(
+                .degrees(angle),
+                axis: (x: 0, y: 1, z: 0),
+                perspective: 0.65
+            )
+            .scaleEffect(x: mirrorScale, y: 1)
+    }
+}
+
+extension View {
+    func albumArtFlip(angle: Double) -> some View {
+        modifier(AlbumArtFlipModifier(angle: angle))
     }
 }

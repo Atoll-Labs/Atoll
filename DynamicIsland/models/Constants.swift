@@ -334,6 +334,12 @@ extension Defaults.Keys {
     static let enableFullscreenMediaDetection = Key<Bool>("enableFullscreenMediaDetection", default: true)
     static let waitInterval = Key<Double>("waitInterval", default: 3)
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: false)
+    // Enable lock screen media widget (shows the standalone panel when screen is locked)
+    static let enableLockScreenMediaWidget = Key<Bool>("enableLockScreenMediaWidget", default: true)
+    static let lockScreenGlassStyle = Key<LockScreenGlassStyle>("lockScreenGlassStyle", default: .liquid)
+    static let lockScreenShowAppIcon = Key<Bool>("lockScreenShowAppIcon", default: false)
+    static let lockScreenPanelShowsBorder = Key<Bool>("lockScreenPanelShowsBorder", default: true)
+    static let lockScreenPanelUsesBlur = Key<Bool>("lockScreenPanelUsesBlur", default: true)
     
         // MARK: Battery
     static let showPowerStatusNotifications = Key<Bool>("showPowerStatusNotifications", default: true)
@@ -435,6 +441,9 @@ extension Defaults.Keys {
     // MARK: Privacy Indicators (Camera & Microphone Detection)
     static let enableCameraDetection = Key<Bool>("enableCameraDetection", default: true)
     static let enableMicrophoneDetection = Key<Bool>("enableMicrophoneDetection", default: true)
+    
+    // MARK: Lock Screen Features
+    static let enableLockScreenLiveActivity = Key<Bool>("enableLockScreenLiveActivity", default: true)
     
     // MARK: ImageService
     static let didClearLegacyURLCacheV1 = Key<Bool>("didClearLegacyURLCacheV1", default: false)

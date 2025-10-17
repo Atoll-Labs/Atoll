@@ -65,6 +65,7 @@ struct AlbumArtView: View {
                     albumArtImage
                     appIconOverlay
                 }
+                .albumArtFlip(angle: musicManager.flipAngle)
             }
             .buttonStyle(PlainButtonStyle())
             .scaleEffect(musicManager.isPlaying ? 1 : 0.85)

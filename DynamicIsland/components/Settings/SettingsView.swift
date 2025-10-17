@@ -174,6 +174,10 @@ struct GeneralSettings: View {
     @Default(.enableScreenRecordingDetection) var enableScreenRecordingDetection
     @Default(.showRecordingIndicator) var showRecordingIndicator
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
+    @Default(.lockScreenGlassStyle) var lockScreenGlassStyle
+    @Default(.lockScreenShowAppIcon) var lockScreenShowAppIcon
+    @Default(.lockScreenPanelShowsBorder) var lockScreenPanelShowsBorder
+    @Default(.lockScreenPanelUsesBlur) var lockScreenPanelUsesBlur
 
     var body: some View {
         Form {
@@ -295,6 +299,38 @@ struct GeneralSettings: View {
             } footer: {
                 Text("Shows green camera icon and yellow microphone icon when in use. Uses event-driven CoreAudio and CoreMediaIO APIs.")
             }
+            
+            Section {
+                Defaults.Toggle("Enable Lock Screen Live Activity", key: .enableLockScreenLiveActivity)
+                if #available(macOS 26.0, *) {
+                    Picker("Lock screen material", selection: $lockScreenGlassStyle) {
+                        ForEach(LockScreenGlassStyle.allCases) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                } else {
+                    Picker("Lock screen material", selection: $lockScreenGlassStyle) {
+                        ForEach(LockScreenGlassStyle.allCases) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                    .disabled(true)
+                    Text("Liquid Glass requires macOS 26 or later.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Defaults.Toggle("Show media app icon", key: .lockScreenShowAppIcon)
+                Defaults.Toggle("Show panel border", key: .lockScreenPanelShowsBorder)
+                Defaults.Toggle("Enable blur", key: .lockScreenPanelUsesBlur)
+                
+                Button("Copy Latest Crash Report") {
+                    copyLatestCrashReport()
+                }
+            } header: {
+                Text("Lock Screen")
+            } footer: {
+                Text("Shows a lock icon in the Dynamic Island when the screen is locked. The lock screen music panel can be toggled separately in Media settings.")
+            }
 
             Section {
                 Picker(selection: $notchHeightMode, label:
@@ -371,6 +407,43 @@ struct GeneralSettings: View {
             if !openNotchOnHover {
                 enableGestures = true
             }
+        }
+    }
+    
+    private func copyLatestCrashReport() {
+        let crashReportsPath = NSString(string: "~/Library/Logs/DiagnosticReports").expandingTildeInPath
+        let fileManager = FileManager.default
+        
+        do {
+            let files = try fileManager.contentsOfDirectory(atPath: crashReportsPath)
+            let crashFiles = files.filter { $0.contains("DynamicIsland") && $0.hasSuffix(".crash") }
+            
+            guard let latestCrash = crashFiles.sorted(by: >).first else {
+                let alert = NSAlert()
+                alert.messageText = "No Crash Reports Found"
+                alert.informativeText = "No crash reports found for DynamicIsland"
+                alert.alertStyle = .informational
+                alert.runModal()
+                return
+            }
+            
+            let crashPath = (crashReportsPath as NSString).appendingPathComponent(latestCrash)
+            let crashContent = try String(contentsOfFile: crashPath, encoding: .utf8)
+            
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(crashContent, forType: .string)
+            
+            let alert = NSAlert()
+            alert.messageText = "Crash Report Copied"
+            alert.informativeText = "Crash report '\(latestCrash)' has been copied to clipboard"
+            alert.alertStyle = .informational
+            alert.runModal()
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Error"
+            alert.informativeText = "Failed to read crash reports: \(error.localizedDescription)"
+            alert.alertStyle = .warning
+            alert.runModal()
         }
     }
 
@@ -707,6 +780,12 @@ struct Media: View {
                     HStack {
                         Text("Show shuffle and repeat buttons")
                         customBadge(text: "Beta")
+                    }
+                }
+                // Enable/disable the lock screen media widget
+                Defaults.Toggle(key: .enableLockScreenMediaWidget) {
+                    HStack {
+                        Text("Enable lock screen media widget")
                     }
                 }
             } header: {

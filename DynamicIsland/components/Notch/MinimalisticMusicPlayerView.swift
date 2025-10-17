@@ -192,24 +192,29 @@ struct MinimalisticMusicPlayerView: View {
     }
     
     private var playPauseButton: some View {
-        Button(action: {
-            Task { await musicManager.togglePlay() }
-        }) {
-            Image(systemName: musicManager.isPlaying ? "pause.fill" : "play.fill")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 50, height: 50)
-        }
-        .buttonStyle(PlainButtonStyle())
+        MinimalisticSquircircleButton(
+            icon: musicManager.isPlaying ? "pause.fill" : "play.fill",
+            fontSize: 24,
+            fontWeight: .semibold,
+            frameSize: CGSize(width: 54, height: 54),
+            cornerRadius: 20,
+            foregroundColor: .white,
+            action: {
+                Task { await musicManager.togglePlay() }
+            }
+        )
     }
     
     private func controlButton(icon: String, size: CGFloat = 18, isActive: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: size, weight: .medium))
-                .foregroundColor(isActive ? .red : .white.opacity(0.8))
-        }
-        .buttonStyle(PlainButtonStyle())
+        MinimalisticSquircircleButton(
+            icon: icon,
+            fontSize: size,
+            fontWeight: .medium,
+            frameSize: CGSize(width: 40, height: 40),
+            cornerRadius: 16,
+            foregroundColor: isActive ? .red : .white.opacity(0.85),
+            action: action
+        )
     }
     
     private var repeatIcon: String {
@@ -263,14 +268,48 @@ struct MinimalisticAlbumArtView: View {
                     Image(nsImage: musicManager.albumArt)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: musicManager.isFlipping)
                 )
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
+                .albumArtFlip(angle: musicManager.flipAngle)
         }
         .buttonStyle(PlainButtonStyle())
         .opacity(musicManager.isPlaying ? 1 : 0.4)
         .scaleEffect(musicManager.isPlaying ? 1 : 0.85)
+    }
+}
+
+// MARK: - Hover-highlighted control button
+
+private struct MinimalisticSquircircleButton: View {
+    let icon: String
+    let fontSize: CGFloat
+    let fontWeight: Font.Weight
+    let frameSize: CGSize
+    let cornerRadius: CGFloat
+    let foregroundColor: Color
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: fontSize, weight: fontWeight))
+                .foregroundColor(foregroundColor)
+                .frame(width: frameSize.width, height: frameSize.height)
+                .background(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(isHovering ? Color.white.opacity(0.18) : .clear)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.18)) {
+                isHovering = hovering
+            }
+        }
     }
 }
