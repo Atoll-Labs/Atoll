@@ -11,6 +11,7 @@ import Defaults
 import KeyboardShortcuts
 import Sparkle
 import SwiftUI
+import SkyLightWindow
 
 @main
 struct DynamicNotchApp: App {
@@ -85,6 +86,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let dndManager = DoNotDisturbManager.shared  // NEW: DND detection
     let bluetoothAudioManager = BluetoothAudioManager.shared  // NEW: Bluetooth audio detection
     let idleAnimationManager = IdleAnimationManager.shared  // NEW: Custom idle animations
+    let lockScreenPanelManager = LockScreenPanelManager.shared  // NEW: Lock screen music panel
     var closeNotchWorkItem: DispatchWorkItem?
     private var previousScreens: [NSScreen]?
     private var onboardingWindowController: NSWindowController?
@@ -251,11 +253,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             rootView: ContentView()
                 .environmentObject(viewModel)
                 .environmentObject(webcamManager)
+                //.moveToSky()
         )
         
         window.orderFrontRegardless()
         NotchSpaceManager.shared.notchSpace.windows.insert(window)
-        
+        //SkyLightOperator.shared.delegateWindow(window)
         return window
     }
 

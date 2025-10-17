@@ -25,6 +25,7 @@ struct ContentView: View {
     @ObservedObject var statsManager = StatsManager.shared
     @ObservedObject var recordingManager = ScreenRecordingManager.shared
     @ObservedObject var privacyManager = PrivacyIndicatorManager.shared
+    @ObservedObject var lockScreenManager = LockScreenManager.shared
     
     @Default(.enableStatsFeature) var enableStatsFeature
     @Default(.showCpuGraph) var showCpuGraph
@@ -422,6 +423,8 @@ struct ContentView: View {
                           TimerLiveActivity()
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .recording) && vm.notchState == .closed && (recordingManager.isRecording || !recordingManager.isRecorderIdle) && Defaults[.enableScreenRecordingDetection] && !vm.hideOnClosed {
                           RecordingLiveActivity()
+                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .lockScreen) && vm.notchState == .closed && (lockScreenManager.isLocked || !lockScreenManager.isLockIdle) && Defaults[.enableLockScreenLiveActivity] && !vm.hideOnClosed {
+                          LockScreenLiveActivity()
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .privacy) && vm.notchState == .closed && privacyManager.hasAnyIndicator && (Defaults[.enableCameraDetection] || Defaults[.enableMicrophoneDetection]) && !vm.hideOnClosed {
                           PrivacyLiveActivity()
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
