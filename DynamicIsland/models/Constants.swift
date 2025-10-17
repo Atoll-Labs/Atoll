@@ -336,6 +336,7 @@ extension Defaults.Keys {
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: false)
     // Enable lock screen media widget (shows the standalone panel when screen is locked)
     static let enableLockScreenMediaWidget = Key<Bool>("enableLockScreenMediaWidget", default: true)
+    static let lockScreenGlassStyle = Key<LockScreenGlassStyle>("lockScreenGlassStyle", default: .liquid)
     
         // MARK: Battery
     static let showPowerStatusNotifications = Key<Bool>("showPowerStatusNotifications", default: true)

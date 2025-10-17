@@ -9,15 +9,24 @@ import SwiftUI
 import Defaults
 
 struct LockScreenMusicPanel: View {
+    static let defaultSize = CGSize(width: 420, height: 180)
+
     @ObservedObject var musicManager = MusicManager.shared
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
     @State private var isActive = true
+    @Default(.lockScreenGlassStyle) var lockScreenGlassStyle
     
-    private let panelWidth: CGFloat = 460
-    private let panelHeight: CGFloat = 180
     private let cornerRadius: CGFloat = 28
+    private var panelSize: CGSize { Self.defaultSize }
+
+    private var usesLiquidGlass: Bool {
+        if #available(macOS 26.0, *) {
+            return lockScreenGlassStyle == .liquid
+        }
+        return false
+    }
     
     var body: some View {
         if isActive {
@@ -27,7 +36,7 @@ struct LockScreenMusicPanel: View {
                 }
         } else {
             Color.clear
-                .frame(width: panelWidth, height: panelHeight)
+                .frame(width: panelSize.width, height: panelSize.height)
         }
     }
     
@@ -87,26 +96,8 @@ struct LockScreenMusicPanel: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .frame(width: panelWidth, height: panelHeight)
-        .background {
-            if #available(macOS 26.0, *) {
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .glassEffect(in: .rect(cornerRadius: cornerRadius))
-                    .onAppear {
-                        let formatter = DateFormatter()
-                        formatter.dateFormat = "HH:mm:ss.SSS"
-                        print("[\(formatter.string(from: Date()))] LockScreenMusicPanel: ✨ Using macOS 26.0+ Liquid Glass effect")
-                    }
-            } else {
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(.ultraThinMaterial)
-                    .onAppear {
-                        let formatter = DateFormatter()
-                        formatter.dateFormat = "HH:mm:ss.SSS"
-                        print("[\(formatter.string(from: Date()))] LockScreenMusicPanel: 🪟 Using ultraThinMaterial fallback (macOS < 26.0)")
-                    }
-            }
-        }
+        .frame(width: panelSize.width, height: panelSize.height)
+        .background(panelBackground)
         .overlay {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .stroke(Color.white.opacity(0.35), lineWidth: 1.4)
@@ -115,9 +106,7 @@ struct LockScreenMusicPanel: View {
         .onAppear {
             sliderValue = musicManager.elapsedTime
             isActive = true
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm:ss.SSS"
-            print("[\(formatter.string(from: Date()))] LockScreenMusicPanel: ✅ View appeared")
+            logPanelAppearance()
         }
     }
     
@@ -241,9 +230,8 @@ struct LockScreenMusicPanel: View {
             Image(systemName: musicManager.isPlaying ? "pause.fill" : "play.fill")
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundColor(.white)
-                .frame(width: 54, height: 54)
-                .background(Color.white.opacity(0.15))
-                .clipShape(Circle())
+                .frame(width: 48, height: 48)
+                .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -253,6 +241,8 @@ struct LockScreenMusicPanel: View {
             Image(systemName: icon)
                 .font(.system(size: size, weight: .medium))
                 .foregroundColor(isActive ? .red : .white.opacity(0.8))
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -263,5 +253,39 @@ struct LockScreenMusicPanel: View {
         case .all: return "repeat"
         case .one: return "repeat.1"
         }
+    }
+
+    @ViewBuilder
+    private var panelBackground: some View {
+        if usesLiquidGlass {
+            liquidPanelBackground
+        } else {
+            frostedPanelBackground
+        }
+    }
+
+    @ViewBuilder
+    private var liquidPanelBackground: some View {
+        if #available(macOS 26.0, *) {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .glassEffect(
+                    .regular
+                        .tint(Color.white.opacity(0.12))
+                        .interactive(),
+                    in: .rect(cornerRadius: cornerRadius)
+                )
+        }
+    }
+
+    private var frostedPanelBackground: some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .fill(.ultraThinMaterial)
+    }
+
+    private func logPanelAppearance(event: String = "✅ View appeared") {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss.SSS"
+        let styleDescriptor = usesLiquidGlass ? "Liquid Glass" : "Frosted"
+        print("[\(formatter.string(from: Date()))] LockScreenMusicPanel: \(event) – \(styleDescriptor)")
     }
 }

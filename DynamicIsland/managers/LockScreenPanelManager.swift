@@ -41,12 +41,11 @@ class LockScreenPanelManager {
             return
         }
 
-        let panelWidth: CGFloat = 460
-        let panelHeight: CGFloat = 180
+        let panelSize = LockScreenMusicPanel.defaultSize
         let screenFrame = screen.frame
-        let originX = screenFrame.origin.x + (screenFrame.width / 2) - (panelWidth / 2)
-        let originY = screenFrame.origin.y + (screenFrame.height / 2) - panelHeight - 32
-        let targetFrame = NSRect(x: originX, y: originY, width: panelWidth, height: panelHeight)
+        let originX = screenFrame.origin.x + (screenFrame.width / 2) - (panelSize.width / 2)
+        let originY = screenFrame.origin.y + (screenFrame.height / 2) - panelSize.height - 32
+        let targetFrame = NSRect(x: originX, y: originY, width: panelSize.width, height: panelSize.height)
 
         let window: NSWindow
 

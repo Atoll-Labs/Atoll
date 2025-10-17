@@ -174,6 +174,7 @@ struct GeneralSettings: View {
     @Default(.enableScreenRecordingDetection) var enableScreenRecordingDetection
     @Default(.showRecordingIndicator) var showRecordingIndicator
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
+    @Default(.lockScreenGlassStyle) var lockScreenGlassStyle
 
     var body: some View {
         Form {
@@ -298,6 +299,23 @@ struct GeneralSettings: View {
             
             Section {
                 Defaults.Toggle("Enable Lock Screen Live Activity", key: .enableLockScreenLiveActivity)
+                if #available(macOS 26.0, *) {
+                    Picker("Lock screen material", selection: $lockScreenGlassStyle) {
+                        ForEach(LockScreenGlassStyle.allCases) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                } else {
+                    Picker("Lock screen material", selection: $lockScreenGlassStyle) {
+                        ForEach(LockScreenGlassStyle.allCases) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                    .disabled(true)
+                    Text("Liquid Glass requires macOS 26 or later.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 
                 Button("Copy Latest Crash Report") {
                     copyLatestCrashReport()
