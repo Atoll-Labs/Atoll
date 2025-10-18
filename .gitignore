@@ -2,11 +2,9 @@
 # Xcode
 *.xcuserstate
 *.xcuserdata
-*.xcscheme
 *.xcuserdatad
 *.pbxuser
 *.xccheckout
-*.xcscheme
 *.xcplayground
 *.xcuserdatad
 *.xctest
@@ -45,7 +43,6 @@ build/
 
 # User-specific files
 *.xcuserdatad/
-*.xcscheme
 *.xcodeproj/xcuserdata
 *.xcodeproj/project.xcuserdata
 
