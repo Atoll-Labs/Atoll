@@ -54,8 +54,12 @@ class StatsManager: ObservableObject {
     // Disk monitoring state  
     private var previousDiskStats: (bytesRead: UInt64, bytesWritten: UInt64) = (0, 0)
     
-    // CPU Usage History
-    private var previousProcessCPU: [pid_t: (userTime: UInt64, systemTime: UInt64, lastSample: Date)] = [:]
+    // Per-process monitoring cache (updated via ps sampling)
+    private var cachedProcessStats: [ProcessStats] = []
+    private var lastProcessStatsUpdate: Date = .distantPast
+    private let processStatsUpdateInterval: TimeInterval = 2.0
+    private let maxProcessEntries: Int = 20
+    private var isProcessRefreshInFlight = false
     
     // MARK: - Initialization
     private init() {
@@ -160,6 +164,9 @@ class StatsManager: ObservableObject {
         
         isMonitoring = false
         print("StatsManager: Monitoring stopped")
+        cachedProcessStats.removeAll()
+        lastProcessStatsUpdate = .distantPast
+        isProcessRefreshInFlight = false
     }
     
     // MARK: - Private Methods
@@ -227,6 +234,7 @@ class StatsManager: ObservableObject {
         previousNetworkStats = currentNetworkStats
         previousDiskStats = currentDiskStats
         previousTimestamp = currentTime
+        refreshProcessStatsIfNeeded(force: true)
     }
     
     private func updateHistory(value: Double, history: inout [Double]) {
@@ -462,71 +470,134 @@ class StatsManager: ObservableObject {
     }
     
     // MARK: - Process Monitoring Methods
+    @MainActor
     func getProcessesRankedByCPU() -> [ProcessStats] {
-        return getRunningProcesses().sorted { $0.cpuUsage > $1.cpuUsage }
+        refreshProcessStatsIfNeeded()
+        return cachedProcessStats.sorted { $0.cpuUsage > $1.cpuUsage }
     }
     
+    @MainActor
     func getProcessesRankedByMemory() -> [ProcessStats] {
-        return getRunningProcesses().sorted { $0.memoryUsage > $1.memoryUsage }
+        refreshProcessStatsIfNeeded()
+        return cachedProcessStats.sorted { $0.memoryUsage > $1.memoryUsage }
     }
     
+    @MainActor
     func getProcessesRankedByGPU() -> [ProcessStats] {
         // For now, rank by CPU usage as GPU per-process stats are complex to obtain
-        return getRunningProcesses().sorted { $0.cpuUsage > $1.cpuUsage }
+        refreshProcessStatsIfNeeded()
+        return cachedProcessStats.sorted { $0.cpuUsage > $1.cpuUsage }
     }
     
-    private func getRunningProcesses() -> [ProcessStats] {
-        var processes: [ProcessStats] = []
-        let runningApps = NSWorkspace.shared.runningApplications
-        let cpuCount = ProcessInfo.processInfo.processorCount
+    @MainActor
+    private func refreshProcessStatsIfNeeded(force: Bool = false) {
         let now = Date()
+        guard force || now.timeIntervalSince(lastProcessStatsUpdate) >= processStatsUpdateInterval else { return }
+        guard !isProcessRefreshInFlight else { return }
 
-        for app in runningApps {
-            guard let bundleId = app.bundleIdentifier,
-                  !bundleId.hasPrefix("com.apple.") || bundleId == "com.apple.finder"
-            else { continue }
+        isProcessRefreshInFlight = true
 
-            let pid = app.processIdentifier
-            var cpuUsage: Double = 0.0
-            var memoryUsage: UInt64 = 0
-
-            var taskInfo = proc_taskinfo()
-            let result = proc_pidinfo(pid, PROC_PIDTASKINFO, 0,
-                                      &taskInfo, Int32(MemoryLayout<proc_taskinfo>.size))
-
-            if result == MemoryLayout<proc_taskinfo>.size {
-                let userTime = taskInfo.pti_total_user
-                let systemTime = taskInfo.pti_total_system
-                memoryUsage = taskInfo.pti_resident_size
-
-                // Retrieve previous sample for this PID
-                if let prev = previousProcessCPU[pid] {
-                    let deltaUser = Double(userTime - prev.userTime)
-                    let deltaSystem = Double(systemTime - prev.systemTime)
-                    let deltaTime = now.timeIntervalSince(prev.lastSample)
-
-                    if deltaTime > 0 {
-                        // Convert nanoseconds to seconds and normalize
-                        let totalDelta = (deltaUser + deltaSystem) / 1e9
-                        cpuUsage = (totalDelta / deltaTime) * 100.0 / Double(cpuCount)
-                    }
-                }
-
-                // Update stored snapshot
-                previousProcessCPU[pid] = (userTime, systemTime, now)
+        Task.detached { [weak self] in
+            guard let self else { return }
+            let processes = StatsManager.collectTopProcesses(limit: self.maxProcessEntries)
+            await MainActor.run {
+                self.cachedProcessStats = processes
+                self.lastProcessStatsUpdate = Date()
+                self.isProcessRefreshInFlight = false
             }
+        }
+    }
 
-            let processStats = ProcessStats(
-                pid: pid,
-                name: app.localizedName ?? bundleId,
-                cpuUsage: max(0.0, min(cpuUsage, 100.0)), // Clamp for sanity
-                memoryUsage: memoryUsage,
-                icon: app.icon
-            )
+    private static func collectTopProcesses(limit: Int) -> [ProcessStats] {
+        guard limit > 0 else { return [] }
 
-            processes.append(processStats)
+        let task = Process()
+        task.launchPath = "/bin/ps"
+        task.arguments = ["-Aceo", "pid,pcpu,comm", "-r"]
+
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        task.standardOutput = outputPipe
+        task.standardError = errorPipe
+
+        defer {
+            outputPipe.fileHandleForReading.closeFile()
+            errorPipe.fileHandleForReading.closeFile()
         }
 
-        return processes
+        do {
+            try task.run()
+        } catch {
+            NSLog("StatsManager: Failed to run ps command: \(error.localizedDescription)")
+            return []
+        }
+
+        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        _ = errorPipe.fileHandleForReading.readDataToEndOfFile()
+
+        guard !outputData.isEmpty, let output = String(data: outputData, encoding: .utf8) else {
+            return []
+        }
+
+        var results: [ProcessStats] = []
+
+        let lines = output.split(separator: "\n", omittingEmptySubsequences: true)
+        guard lines.count > 1 else { return [] }
+
+        for line in lines.dropFirst() {
+            guard let parsed = parseProcessLine(String(line)) else { continue }
+            let (pid, cpuUsage, command) = parsed
+            let (displayName, icon) = runningApplicationInfo(for: pid, fallbackCommand: command)
+            let memoryUsage = residentMemory(for: pid)
+
+            let process = ProcessStats(
+                pid: pid,
+                name: displayName,
+                cpuUsage: cpuUsage,
+                memoryUsage: memoryUsage,
+                icon: icon
+            )
+
+            results.append(process)
+            if results.count >= limit { break }
+        }
+
+        return results
+    }
+
+    private static func parseProcessLine(_ rawLine: String) -> (pid_t, Double, String)? {
+        let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+
+        let scanner = Scanner(string: trimmed)
+        scanner.charactersToBeSkipped = .whitespaces
+
+          guard let pidToken = scanner.scanCharacters(from: .decimalDigits),
+              let pidValue = Int32(pidToken) else { return nil }
+
+          let cpuCharacterSet = CharacterSet(charactersIn: "0123456789.,")
+          guard let cpuToken = scanner.scanCharacters(from: cpuCharacterSet) else { return nil }
+        let normalizedCPU = cpuToken.replacingOccurrences(of: ",", with: ".")
+        guard let cpuValue = Double(normalizedCPU), cpuValue.isFinite, cpuValue >= 0 else { return nil }
+        _ = scanner.scanCharacters(from: .whitespaces)
+        let remainingIndex = scanner.currentIndex
+        let command = String(trimmed[remainingIndex...]).trimmingCharacters(in: .whitespaces)
+
+        return (pidValue, cpuValue, command.isEmpty ? "Unknown" : command)
+    }
+
+    private static func runningApplicationInfo(for pid: pid_t, fallbackCommand: String) -> (String, NSImage?) {
+        if let app = NSRunningApplication(processIdentifier: pid) {
+            let name = app.localizedName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return ((name?.isEmpty ?? true) ? fallbackCommand : name!, app.icon)
+        }
+        return (fallbackCommand, nil)
+    }
+
+    private static func residentMemory(for pid: pid_t) -> UInt64 {
+        var taskInfo = proc_taskinfo()
+        let result = proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &taskInfo, Int32(MemoryLayout<proc_taskinfo>.size))
+        guard result == MemoryLayout<proc_taskinfo>.size else { return 0 }
+        return taskInfo.pti_resident_size
     }
 }
