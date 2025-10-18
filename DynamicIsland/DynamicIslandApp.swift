@@ -93,10 +93,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables = Set<AnyCancellable>()
     private var windowsHiddenForLock = false
     
-    // Media key monitoring
-    private var globalEventMonitor: Any?
-    private var localEventMonitor: Any?
-    
     // Debouncing mechanism for window size updates
     private var windowSizeUpdateWorkItem: DispatchWorkItem?
 //    let calendarManager = CalendarManager.shared
@@ -127,84 +123,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
     
-    // MARK: - Media Key Monitoring
-    
-    private func setupMediaKeyMonitoring() {
-        // Monitor both global and local events to catch media keys
-        globalEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .systemDefined) { [weak self] event in
-            self?.handleSystemEvent(event)
-        }
-        
-        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .systemDefined) { [weak self] event in
-            self?.handleSystemEvent(event)
-            return event
-        }
-        
-        print("🎹 Media key monitoring started using NSEvent")
-    }
-    
-    private func handleSystemEvent(_ event: NSEvent) {
-        guard event.subtype.rawValue == 8 else { return }
-        
-        let data1 = event.data1
-        let keyCode = Int32((data1 & 0xFFFF0000) >> 16)
-        let keyFlags = Int(data1 & 0x0000FFFF)
-        let keyState = ((keyFlags & 0xFF00) >> 8) == 0xA  // KeyDown
-        let keyRepeat = (keyFlags & 0x1) != 0
-
-        guard keyState && !keyRepeat else { return }  // Only handle key down, ignore repeats
-        
-        switch keyCode {
-        case NX_KEYTYPE_SOUND_UP, NX_KEYTYPE_SOUND_DOWN, NX_KEYTYPE_MUTE:
-            print("🔊 Volume key detected: \(keyCode)")
-            SystemHUDManager.shared.handleVolumeKeyEvent()
-        case NX_KEYTYPE_BRIGHTNESS_UP, NX_KEYTYPE_BRIGHTNESS_DOWN:
-            print("☀️ Brightness key detected: \(keyCode)")
-            SystemHUDManager.shared.handleBrightnessKeyEvent()
-        default:
-            break
-        }
-    }
-    
-    private func stopMediaKeyMonitoring() {
-        if let globalMonitor = globalEventMonitor {
-            NSEvent.removeMonitor(globalMonitor)
-            globalEventMonitor = nil
-        }
-        
-        if let localMonitor = localEventMonitor {
-            NSEvent.removeMonitor(localMonitor)
-            localEventMonitor = nil
-        }
-        
-        print("🎹 Media key monitoring stopped")
-    }
-    
-    // MARK: - MediaKeyApplicationDelegate (for future use)
-    
-    func didDetectVolumeKey() {
-        SystemHUDManager.shared.handleVolumeKeyEvent()
-    }
-    
-    func didDetectBrightnessKey() {
-        SystemHUDManager.shared.handleBrightnessKeyEvent()
-    }
-    
     func applicationWillTerminate(_ notification: Notification) {
         // Cancel any pending window size updates
         windowSizeUpdateWorkItem?.cancel()
-        
-        // Stop media key monitoring
-        stopMediaKeyMonitoring()
-        
-        print("🚪 Application terminating - ensuring system HUD is restored...")
-        
-        // Re-enable system HUD on app termination
-        SystemOSDManager.enableSystemHUD()
-        
-        // Give it time to complete
-        usleep(500000) // 500ms
-        
         NotificationCenter.default.removeObserver(self)
     }
     
@@ -453,9 +374,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Setup Privacy Indicator Manager (camera and microphone monitoring)
         PrivacyIndicatorManager.shared.startMonitoring()
-        
-        // Setup media key monitoring
-        setupMediaKeyMonitoring()
         
         // Observe tab changes - use debounced updates
         coordinator.$currentView.sink { [weak self] newView in
