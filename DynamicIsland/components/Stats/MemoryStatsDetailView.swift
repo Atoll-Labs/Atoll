@@ -28,10 +28,6 @@ struct MemoryStatsDetailView: View {
                     MemoryHealthView(breakdown: statsManager.memoryBreakdown, accentColor: accentColor)
                 }
                 
-                StatsCard(title: "Details", padding: 16, background: cardBackground, cornerRadius: 12) {
-                    MemoryDetailsGrid(breakdown: statsManager.memoryBreakdown, accentColor: accentColor)
-                }
-                
                 StatsCard(title: "Top Processes", padding: 16, background: cardBackground, cornerRadius: 12) {
                     CPUProcessList(processes: topProcesses, accentColor: accentColor, displayLimit: processDisplayLimit)
                 }
@@ -78,46 +74,13 @@ private struct MemoryUsageDashboard: View {
         
         return ViewThatFits(in: .horizontal) {
             VStack(alignment: .leading, spacing: 20) {
-                ZStack {
-                    Circle()
-                        .stroke(freeColor.opacity(0.35), lineWidth: 14)
-                        .frame(width: 128, height: 128)
-                    
-                    MemoryUsageRing(breakdown: breakdown, usedColor: accentColor, freeColor: freeColor)
-                        .frame(width: 128, height: 128)
-                    
-                    VStack(spacing: 4) {
-                        Text(StatsFormatting.percentage(breakdown.usedPercentage))
-                            .font(.system(size: 30, weight: .bold, design: .rounded))
-                        Text("Used")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                
+                usageRing
                 totalsSection
                 Divider().padding(.vertical, 4)
                 breakdownSection
             }
             HStack(alignment: .top, spacing: 28) {
-                ZStack {
-                    Circle()
-                        .stroke(freeColor.opacity(0.35), lineWidth: 14)
-                        .frame(width: 128, height: 128)
-                    
-                    MemoryUsageRing(breakdown: breakdown, usedColor: accentColor, freeColor: freeColor)
-                        .frame(width: 128, height: 128)
-                    
-                    VStack(spacing: 4) {
-                        Text(StatsFormatting.percentage(breakdown.usedPercentage))
-                            .font(.system(size: 30, weight: .bold, design: .rounded))
-                        Text("Used")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
+                usageRing
                 totalsSection
                 breakdownSection
             }
@@ -126,6 +89,26 @@ private struct MemoryUsageDashboard: View {
     
     private func formattedBytes(_ value: UInt64) -> String {
         StatsFormatting.bytes(value)
+    }
+
+    private var usageRing: some View {
+        ZStack {
+            Circle()
+                .stroke(freeColor.opacity(0.35), lineWidth: 14)
+                .frame(width: 128, height: 128)
+            
+            MemoryUsageRing(breakdown: breakdown, usedColor: accentColor, freeColor: freeColor)
+                .frame(width: 128, height: 128)
+            
+            VStack(spacing: 4) {
+                Text(StatsFormatting.percentage(breakdown.usedPercentage))
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                Text("Used")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -159,31 +142,12 @@ private struct MemoryBreakdownRow: View {
     }
 }
 
-private struct MemoryDetailsGrid: View {
-    let breakdown: MemoryBreakdown
-    let accentColor: Color
-    
-    var body: some View {
-        VStack(spacing: 10) {
-            DetailRow(color: accentColor.opacity(0.85), label: "App Memory", value: StatsFormatting.bytes(breakdown.appBytes))
-            DetailRow(color: accentColor.opacity(0.7), label: "Cached Files", value: StatsFormatting.bytes(breakdown.cacheBytes))
-            DetailRow(color: accentColor.opacity(0.6), label: "Active", value: StatsFormatting.bytes(breakdown.activeBytes))
-            DetailRow(color: accentColor.opacity(0.45), label: "Inactive", value: StatsFormatting.bytes(breakdown.inactiveBytes))
-            DetailRow(color: accentColor.opacity(0.35), label: "Wired", value: StatsFormatting.bytes(breakdown.wiredBytes))
-            DetailRow(color: accentColor.opacity(0.25), label: "Compressed", value: StatsFormatting.bytes(breakdown.compressedBytes))
-            DetailRow(color: accentColor.opacity(0.18), label: "Free", value: StatsFormatting.bytes(breakdown.freeBytes))
-            Divider().padding(.vertical, 4)
-            DetailRow(color: nil, label: "Total Memory", value: StatsFormatting.bytes(breakdown.totalBytes))
-        }
-    }
-}
-
 private struct MemoryHealthView: View {
     let breakdown: MemoryBreakdown
     let accentColor: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             MemoryPressureIndicator(pressure: breakdown.pressure)
             Divider().padding(.vertical, 4)
             SwapUsageView(swap: breakdown.swap, accentColor: accentColor)

@@ -31,14 +31,14 @@ struct GPUStatsDetailView: View {
                     )
                 }
                 
+                StatsCard(title: "Top Processes", padding: 16, background: cardBackground, cornerRadius: 12) {
+                    CPUProcessList(processes: topProcesses, accentColor: accentColor, displayLimit: processDisplayLimit)
+                }
+
                 if !statsManager.gpuDevices.isEmpty {
                     StatsCard(title: "Devices", padding: 16, background: cardBackground, cornerRadius: 12) {
                         GPUDeviceList(devices: statsManager.gpuDevices, accentColor: accentColor)
                     }
-                }
-                
-                StatsCard(title: "Top Processes", padding: 16, background: cardBackground, cornerRadius: 12) {
-                    CPUProcessList(processes: topProcesses, accentColor: accentColor, displayLimit: processDisplayLimit)
                 }
             }
             .padding(16)
@@ -65,49 +65,15 @@ private struct GPUUsageDashboard: View {
     let primaryDevice: GPUDeviceMetrics?
     
     var body: some View {
-        HStack(alignment: .center, spacing: 24) {
-            ZStack {
-                Circle()
-                    .stroke(accentColor.opacity(0.25), lineWidth: 14)
-                    .frame(width: 120, height: 120)
-                
-                RingArc(start: 0, end: CGFloat(min(max(usage / 100, 0), 1)), color: accentColor, lineWidth: 14)
-                    .frame(width: 120, height: 120)
-                
-                VStack(spacing: 4) {
-                    Text(StatsFormatting.percentage(usage))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                    Text("Active")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 20) {
+                leftColumn
+                breakdownAndMeta
             }
-            
-            VStack(alignment: .leading, spacing: 12) {
-                DetailRow(color: accentColor.opacity(0.9), label: "Render", value: StatsFormatting.percentage(breakdown.render))
-                DetailRow(color: accentColor.opacity(0.7), label: "Compute", value: StatsFormatting.percentage(breakdown.compute))
-                DetailRow(color: accentColor.opacity(0.55), label: "Video", value: StatsFormatting.percentage(breakdown.video))
-                DetailRow(color: accentColor.opacity(0.45), label: "Other", value: StatsFormatting.percentage(breakdown.other))
+            VStack(alignment: .leading, spacing: 20) {
+                leftColumn
+                breakdownAndMeta
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Averages")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                DetailRow(color: nil, label: "Session Avg", value: StatsFormatting.percentage(averageUsage))
-                DetailRow(color: nil, label: "Last Update", value: formattedTimestamp(lastUpdated))
-                if let device = primaryDevice {
-                    Divider().padding(.vertical, 4)
-                    DetailRow(color: nil, label: "Active GPU", value: device.formattedVendorModel)
-                    DetailRow(color: nil, label: "Status", value: device.isActive ? "Active" : "Idle")
-                    DetailRow(color: nil, label: "Temperature", value: device.temperatureText)
-                    if let cores = device.cores {
-                        DetailRow(color: nil, label: "Cores", value: "\(cores)")
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
     
@@ -116,6 +82,143 @@ private struct GPUUsageDashboard: View {
         formatter.dateStyle = .none
         formatter.timeStyle = .medium
         return formatter.string(from: date)
+    }
+
+    private var leftColumn: some View {
+        VStack(alignment: .center, spacing: 16) {
+            usageRing
+            GPUEngineGauges(render: renderEngineUtilization, tiler: tilerUtilization, accentColor: accentColor)
+        }
+    }
+
+    private var breakdownAndMeta: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 20) {
+                breakdownSection
+                metaSection
+            }
+            VStack(alignment: .leading, spacing: 16) {
+                breakdownSection
+                Divider().padding(.vertical, 4)
+                metaSection
+            }
+        }
+    }
+
+    private var usageRing: some View {
+        ZStack {
+            Circle()
+                .stroke(accentColor.opacity(0.25), lineWidth: 12)
+                .frame(width: 108, height: 108)
+
+            RingArc(start: 0, end: CGFloat(min(max(usage / 100, 0), 1)), color: accentColor, lineWidth: 12)
+                .frame(width: 108, height: 108)
+
+            VStack(spacing: 4) {
+                Text(StatsFormatting.percentage(usage))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                Text("Active")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private var breakdownSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            DetailRow(color: accentColor.opacity(0.9), label: "Render", value: StatsFormatting.percentage(breakdown.render))
+            DetailRow(color: accentColor.opacity(0.7), label: "Compute", value: StatsFormatting.percentage(breakdown.compute))
+            DetailRow(color: accentColor.opacity(0.55), label: "Video", value: StatsFormatting.percentage(breakdown.video))
+            DetailRow(color: accentColor.opacity(0.45), label: "Other", value: StatsFormatting.percentage(breakdown.other))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var metaSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Averages")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            DetailRow(color: nil, label: "Session Avg", value: StatsFormatting.percentage(averageUsage))
+            DetailRow(color: nil, label: "Last Update", value: formattedTimestamp(lastUpdated))
+            if let device = primaryDevice {
+                Divider().padding(.vertical, 4)
+                DetailRow(color: nil, label: "Active GPU", value: device.formattedVendorModel)
+                DetailRow(color: nil, label: "Status", value: device.isActive ? "Active" : "Idle")
+                DetailRow(color: nil, label: "Temperature", value: device.temperatureText)
+                if let cores = device.cores {
+                    DetailRow(color: nil, label: "Cores", value: "\(cores)")
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var renderEngineUtilization: Double? {
+        primaryDevice?.renderUtilization ?? breakdown.render
+    }
+
+    private var tilerUtilization: Double? {
+        primaryDevice?.tilerUtilization
+    }
+}
+
+private struct GPUEngineGauges: View {
+    let render: Double?
+    let tiler: Double?
+    let accentColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Engines")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            HStack(alignment: .center, spacing: 16) {
+                EngineGaugeView(title: "Render", value: render, tint: accentColor)
+                EngineGaugeView(title: "Tiler", value: tiler, tint: accentColor.opacity(0.75))
+            }
+        }
+    }
+}
+
+private struct EngineGaugeView: View {
+    let title: String
+    let value: Double?
+    let tint: Color
+    private let size: CGFloat = 68
+
+    var body: some View {
+        if let value {
+            CircularGaugeView(
+                title: title,
+                value: min(max(value / 100, 0), 1),
+                tint: tint,
+                centerPrimaryText: StatsFormatting.percentage(value),
+                centerSecondaryText: nil,
+                subtitle: nil,
+                size: size,
+                lineWidth: 7,
+                backgroundTint: tint.opacity(0.18)
+            )
+        } else {
+            placeholder
+        }
+    }
+
+    private var placeholder: some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 7)
+                    .frame(width: size, height: size)
+                Text("—")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
     }
 }
 
