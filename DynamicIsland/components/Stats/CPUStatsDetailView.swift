@@ -29,7 +29,9 @@ struct CPUStatsDetailView: View {
                         coreCount: statsManager.cpuCoreUsage.count,
                         systemColor: systemColor,
                         userColor: userColor,
-                        idleColor: idleColor
+                        idleColor: idleColor,
+                        temperature: statsManager.cpuTemperature,
+                        frequency: statsManager.cpuFrequency
                     )
                 }
                 

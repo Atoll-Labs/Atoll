@@ -60,6 +60,8 @@ struct CPUUsageDashboard: View {
     let systemColor: Color
     let userColor: Color
     let idleColor: Color
+    let temperature: CPUTemperatureMetrics
+    let frequency: CPUFrequencyMetrics?
     
     var body: some View {
         let usageSection = VStack(alignment: .leading, spacing: 12) {
@@ -85,6 +87,14 @@ struct CPUUsageDashboard: View {
             DetailRow(color: nil, label: "Load 15m", value: String(format: "%.2f", loadAverage.fifteenMinutes))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+
+        let sensorsSection = CPUSensorGaugeGroup(
+            temperature: temperature,
+            frequency: frequency,
+            usageTint: userColor,
+            temperatureTint: Color(red: 0.98, green: 0.53, blue: 0.18)
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
         
         return ViewThatFits(in: .horizontal) {
             VStack(alignment: .leading, spacing: 20) {
@@ -97,23 +107,116 @@ struct CPUUsageDashboard: View {
                 .frame(width: 132, height: 132)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 
+                sensorsSection
                 usageSection
                 Divider().padding(.vertical, 4)
                 systemSection
             }
             HStack(alignment: .top, spacing: 28) {
-                CPUSegmentDonut(
-                    breakdown: breakdown,
-                    systemColor: systemColor,
-                    userColor: userColor,
-                    idleColor: idleColor
-                )
-                .frame(width: 132, height: 132)
-                
+                VStack(alignment: .leading, spacing: 18) {
+                    CPUSegmentDonut(
+                        breakdown: breakdown,
+                        systemColor: systemColor,
+                        userColor: userColor,
+                        idleColor: idleColor
+                    )
+                    .frame(width: 132, height: 132)
+
+                    sensorsSection
+                }
                 usageSection
                 systemSection
             }
         }
+    }
+}
+
+private struct CPUSensorGaugeGroup: View {
+    let temperature: CPUTemperatureMetrics
+    let frequency: CPUFrequencyMetrics?
+    let usageTint: Color
+    let temperatureTint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Sensors")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            HStack(spacing: 18) {
+                CPUTemperatureGauge(temperature: temperature.celsius, tint: temperatureTint)
+                CPUFrequencyGauge(frequency: frequency, tint: usageTint)
+            }
+        }
+    }
+}
+
+private struct CPUTemperatureGauge: View {
+    let temperature: Double?
+    let tint: Color
+    private let maxTemperature: Double = 110
+
+    var body: some View {
+        CircularGaugeView(
+            title: "Temperature",
+            value: normalizedValue,
+            tint: tint,
+            centerPrimaryText: centerPrimary,
+            subtitle: nil,
+            size: 84,
+            lineWidth: 9
+        )
+    }
+
+    private var normalizedValue: Double {
+        guard let temperature, maxTemperature > 0 else { return 0 }
+        return min(max(temperature / maxTemperature, 0), 1)
+    }
+
+    private var centerPrimary: String {
+        guard let temperature else { return "—" }
+        return String(format: "%.0f°", temperature)
+    }
+}
+
+private struct CPUFrequencyGauge: View {
+    let frequency: CPUFrequencyMetrics?
+    let tint: Color
+
+    var body: some View {
+        CircularGaugeView(
+            title: "Frequency",
+            value: normalizedValue,
+            tint: tint,
+            centerPrimaryText: centerPrimary,
+            centerSecondaryText: frequency != nil ? "GHz" : nil,
+            subtitle: subtitle,
+            size: 84,
+            lineWidth: 9
+        )
+    }
+
+    private var normalizedValue: Double {
+        guard let frequency else { return 0 }
+        let candidateMax = frequency.maxOverallGHz > 0 ? frequency.maxOverallGHz : frequency.overallGHz
+        let denominator = max(candidateMax, 1.0)
+        return min(max(frequency.overallGHz / denominator, 0), 1)
+    }
+
+    private var centerPrimary: String {
+        guard let frequency else { return "—" }
+        return String(format: "%.1f", frequency.overallGHz)
+    }
+
+    private var subtitle: String? {
+        guard let frequency else { return nil }
+        var components: [String] = []
+        if let eValue = frequency.eCoreGHz {
+            components.append("E \(String(format: "%.1f", eValue))")
+        }
+        if let pValue = frequency.pCoreGHz {
+            components.append("P \(String(format: "%.1f", pValue))")
+        }
+        return components.isEmpty ? nil : components.joined(separator: " • ")
     }
 }
 

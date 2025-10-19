@@ -379,6 +379,8 @@ class StatsManager: ObservableObject {
     @Published private(set) var cpuCoreUsage: [CPUCoreUsage] = []
     @Published private(set) var cpuUptime: TimeInterval = 0
     @Published private(set) var topCPUProcesses: [ProcessStats] = []
+    @Published private(set) var cpuTemperature: CPUTemperatureMetrics = CPUTemperatureMetrics(celsius: nil)
+    @Published private(set) var cpuFrequency: CPUFrequencyMetrics?
     @Published private(set) var memoryBreakdown: MemoryBreakdown = .zero
     @Published private(set) var gpuBreakdown: GPUBreakdown = .zero
     @Published private(set) var gpuDevices: [GPUDeviceMetrics] = []
@@ -439,6 +441,7 @@ class StatsManager: ObservableObject {
     private let maxProcessEntries: Int = 20
     private var isProcessRefreshInFlight = false
     private let gpuCollector = GPUInfoCollector()
+    private let cpuSensorCollector = CPUSensorCollector()
     
     // MARK: - Initialization
     private init() {
@@ -562,6 +565,8 @@ class StatsManager: ObservableObject {
         diskDevices = []
         previousInterfaceCounters.removeAll()
         interfaceTotals.removeAll()
+        cpuTemperature = CPUTemperatureMetrics(celsius: nil)
+        cpuFrequency = nil
     }
     
     // MARK: - Private Methods
@@ -656,6 +661,10 @@ class StatsManager: ObservableObject {
             cpuCoreUsage = coreUsage
         }
         cpuUptime = ProcessInfo.processInfo.systemUptime
+        cpuTemperature = cpuSensorCollector.readTemperature()
+        if let frequencyMetrics = cpuSensorCollector.readFrequency() {
+            cpuFrequency = frequencyMetrics
+        }
         
         // Update history arrays (sliding window)
         updateHistory(value: newCpuUsage, history: &cpuHistory)
