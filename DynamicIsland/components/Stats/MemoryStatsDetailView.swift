@@ -24,12 +24,12 @@ struct MemoryStatsDetailView: View {
                     MemoryUsageDashboard(breakdown: statsManager.memoryBreakdown, accentColor: accentColor)
                 }
                 
-                StatsCard(title: "Pressure & Swap", padding: 16, background: cardBackground, cornerRadius: 12) {
-                    MemoryHealthView(breakdown: statsManager.memoryBreakdown, accentColor: accentColor)
-                }
-                
                 StatsCard(title: "Top Processes", padding: 16, background: cardBackground, cornerRadius: 12) {
                     CPUProcessList(processes: topProcesses, accentColor: accentColor, displayLimit: processDisplayLimit)
+                }
+
+                StatsCard(title: "Pressure & Swap", padding: 16, background: cardBackground, cornerRadius: 12) {
+                    MemoryHealthView(breakdown: statsManager.memoryBreakdown, accentColor: accentColor)
                 }
             }
             .padding(16)

@@ -34,26 +34,15 @@ struct CPUStatsDetailView: View {
                         frequency: statsManager.cpuFrequency
                     )
                 }
+
+                StatsCard(title: "Top Processes") {
+                    CPUProcessList(processes: topProcesses, accentColor: userColor)
+                }
                 
                 if !statsManager.cpuCoreUsage.isEmpty {
                     StatsCard(title: "Per-Core Usage") {
                         CPUCoreUsageGrid(cores: statsManager.cpuCoreUsage, accentColor: userColor)
                     }
-                }
-                
-                StatsCard(title: "Details") {
-                    CPUDetailsGrid(
-                        breakdown: statsManager.cpuBreakdown,
-                        loadAverage: statsManager.cpuLoadAverage,
-                        uptime: statsManager.cpuUptime,
-                        coreCount: statsManager.cpuCoreUsage.count,
-                        systemColor: systemColor,
-                        userColor: userColor
-                    )
-                }
-                
-                StatsCard(title: "Top Processes") {
-                    CPUProcessList(processes: topProcesses, accentColor: userColor)
                 }
             }
             .padding(16)
