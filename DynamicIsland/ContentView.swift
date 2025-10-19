@@ -694,7 +694,7 @@ struct ContentView: View {
                         self.isHovering = false
                     }
                     
-                    if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive {
+                    if self.vm.notchState == .open && !self.hasAnyActivePopovers() {
                         self.vm.close()
                     }
                 }

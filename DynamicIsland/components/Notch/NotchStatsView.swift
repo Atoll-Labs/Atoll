@@ -64,6 +64,8 @@ struct NotchStatsView: View {
     @State private var isHoveringNetworkPopover = false
     @State private var isHoveringDiskPopover = false
     @State private var isResizingForStats = false
+    @State private var statsHoverGraceActive = false
+    @State private var statsHoverGraceWorkItem: DispatchWorkItem?
     @EnvironmentObject var vm: DynamicIslandViewModel
 
     var availableGraphs: [GraphData] {
@@ -364,7 +366,13 @@ struct NotchStatsView: View {
             }
         }
         .onDisappear {
+            statsHoverGraceWorkItem?.cancel()
+            statsHoverGraceWorkItem = nil
+            if statsHoverGraceActive {
+                statsHoverGraceActive = false
+            }
             // Keep monitoring running when tab is not visible
+            updateStatsPopoverState()
         }
         .animation(.easeInOut(duration: 0.4), value: enableStatsFeature)
         .animation(.easeInOut(duration: 0.4), value: availableGraphs.count)
@@ -375,19 +383,44 @@ struct NotchStatsView: View {
                 isResizingForStats = false
             }
         }
-        .onChange(of: showingCPUPopover) { _, _ in
+        .onChange(of: showingCPUPopover) { _, newValue in
+            if newValue {
+                activateStatsHoverGrace()
+            } else {
+                deactivateStatsHoverGrace()
+            }
             updateStatsPopoverState()
         }
-        .onChange(of: showingMemoryPopover) { _, _ in
+        .onChange(of: showingMemoryPopover) { _, newValue in
+            if newValue {
+                activateStatsHoverGrace()
+            } else {
+                deactivateStatsHoverGrace()
+            }
             updateStatsPopoverState()
         }
-        .onChange(of: showingGPUPopover) { _, _ in
+        .onChange(of: showingGPUPopover) { _, newValue in
+            if newValue {
+                activateStatsHoverGrace()
+            } else {
+                deactivateStatsHoverGrace()
+            }
             updateStatsPopoverState()
         }
-        .onChange(of: showingNetworkPopover) { _, _ in
+        .onChange(of: showingNetworkPopover) { _, newValue in
+            if newValue {
+                activateStatsHoverGrace()
+            } else {
+                deactivateStatsHoverGrace()
+            }
             updateStatsPopoverState()
         }
-        .onChange(of: showingDiskPopover) { _, _ in
+        .onChange(of: showingDiskPopover) { _, newValue in
+            if newValue {
+                activateStatsHoverGrace()
+            } else {
+                deactivateStatsHoverGrace()
+            }
             updateStatsPopoverState()
         }
         .onChange(of: isHoveringCPUPopover) { _, _ in
@@ -406,26 +439,41 @@ struct NotchStatsView: View {
             updateStatsPopoverState()
         }
     }
+
+    private func activateStatsHoverGrace(duration: TimeInterval = 0.45) {
+        statsHoverGraceWorkItem?.cancel()
+        statsHoverGraceActive = true
+        let workItem = DispatchWorkItem {
+            statsHoverGraceActive = false
+            statsHoverGraceWorkItem = nil
+            updateStatsPopoverState()
+        }
+        statsHoverGraceWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
+    }
+
+    private func deactivateStatsHoverGrace() {
+        statsHoverGraceWorkItem?.cancel()
+        statsHoverGraceWorkItem = nil
+        if statsHoverGraceActive {
+            statsHoverGraceActive = false
+        }
+    }
     
     private func updateStatsPopoverState() {
-        // Use the same logic as battery popover: active only when shown AND hovered
-        // Also consider resize protection to prevent closing during layout changes
-        let newState = (showingCPUPopover && isHoveringCPUPopover) ||
-                   (showingMemoryPopover && isHoveringMemoryPopover) ||
-                   (showingGPUPopover && isHoveringGPUPopover) ||
-                   (showingNetworkPopover && isHoveringNetworkPopover) ||
-                   (showingDiskPopover && isHoveringDiskPopover) ||
-                   isResizingForStats
+        let anyPopoverOpen = showingCPUPopover || showingMemoryPopover || showingGPUPopover || showingNetworkPopover || showingDiskPopover
+        let newState = anyPopoverOpen || isResizingForStats || statsHoverGraceActive
         if vm.isStatsPopoverActive != newState {
             vm.isStatsPopoverActive = newState
             #if DEBUG
             print("📊 Stats popover state updated: \(newState)")
-            print("   CPU: shown=\(showingCPUPopover), hovering=\(isHoveringCPUPopover)")
-            print("   Memory: shown=\(showingMemoryPopover), hovering=\(isHoveringMemoryPopover)")
-            print("   GPU: shown=\(showingGPUPopover), hovering=\(isHoveringGPUPopover)")
-            print("   Network: shown=\(showingNetworkPopover), hovering=\(isHoveringNetworkPopover)")
-            print("   Disk: shown=\(showingDiskPopover), hovering=\(isHoveringDiskPopover)")
+            print("   CPU open=\(showingCPUPopover)")
+            print("   Memory open=\(showingMemoryPopover)")
+            print("   GPU open=\(showingGPUPopover)")
+            print("   Network open=\(showingNetworkPopover)")
+            print("   Disk open=\(showingDiskPopover)")
             print("   Resizing: \(isResizingForStats)")
+            print("   Hover grace: \(statsHoverGraceActive)")
             #endif
         }
     }

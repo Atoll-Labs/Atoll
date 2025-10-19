@@ -6,6 +6,9 @@
 //  Adapted from boring.notch implementation
 
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 struct RankedProcessPopover: View {
     let rankingType: ProcessRankingType
@@ -44,8 +47,12 @@ struct RankedProcessPopover: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            .onHover { hovering in
-                onHoverChange?(hovering)
+            .overlay(alignment: .center) {
+                PopoverHoverSensor { hovering in
+                    onHoverChange?(hovering)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .allowsHitTesting(false)
             }
     }
     
@@ -65,3 +72,50 @@ struct RankedProcessPopover: View {
         }
     }
 }
+
+#if os(macOS)
+private struct PopoverHoverSensor: NSViewRepresentable {
+    var onHoverChange: ((Bool) -> Void)?
+
+    func makeNSView(context: Context) -> TrackingView {
+        let view = TrackingView()
+        view.onHoverChange = onHoverChange
+        return view
+    }
+
+    func updateNSView(_ nsView: TrackingView, context: Context) {
+        nsView.onHoverChange = onHoverChange
+    }
+
+    final class TrackingView: NSView {
+        var onHoverChange: ((Bool) -> Void)?
+        private var trackingArea: NSTrackingArea?
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            if let trackingArea {
+                removeTrackingArea(trackingArea)
+            }
+            let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeAlways, .inVisibleRect]
+            let area = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
+            addTrackingArea(area)
+            trackingArea = area
+        }
+
+        override func mouseEntered(with event: NSEvent) {
+            onHoverChange?(true)
+        }
+
+        override func mouseExited(with event: NSEvent) {
+            onHoverChange?(false)
+        }
+
+        deinit {
+            onHoverChange?(false)
+            if let trackingArea {
+                removeTrackingArea(trackingArea)
+            }
+        }
+    }
+}
+#endif

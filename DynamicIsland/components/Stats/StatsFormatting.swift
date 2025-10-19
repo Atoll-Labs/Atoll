@@ -26,6 +26,36 @@ enum StatsFormatting {
         let formatted = formatter.string(from: number) ?? String(format: "%.2f", value)
         return "\(formatted) MB/s"
     }
+
+    static func throughput(_ valueInMegabytesPerSecond: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+
+        if valueInMegabytesPerSecond >= 1 {
+            formatter.maximumFractionDigits = valueInMegabytesPerSecond >= 10 ? 1 : 2
+            let formatted = formatter.string(from: NSNumber(value: valueInMegabytesPerSecond))
+                ?? String(format: "%.2f", valueInMegabytesPerSecond)
+            return "\(formatted) MB/s"
+        }
+
+        let valueInKilobytesPerSecond = valueInMegabytesPerSecond * 1024
+        if valueInKilobytesPerSecond >= 1 {
+            formatter.maximumFractionDigits = valueInKilobytesPerSecond >= 10 ? 0 : 1
+            let formatted = formatter.string(from: NSNumber(value: valueInKilobytesPerSecond))
+                ?? String(format: valueInKilobytesPerSecond >= 10 ? "%.0f" : "%.1f", valueInKilobytesPerSecond)
+            return "\(formatted) KB/s"
+        }
+
+        let valueInBytesPerSecond = valueInMegabytesPerSecond * 1_048_576
+        if valueInBytesPerSecond >= 1 {
+            formatter.maximumFractionDigits = 0
+            let formatted = formatter.string(from: NSNumber(value: valueInBytesPerSecond))
+                ?? String(format: "%.0f", valueInBytesPerSecond)
+            return "\(formatted) B/s"
+        }
+
+        return "0 B/s"
+    }
     
     static func percentage(_ value: Double) -> String {
         String(format: "%.1f%%", value)

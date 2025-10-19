@@ -73,11 +73,11 @@ private struct NetworkOverview: View {
                 Text("Download")
                     .font(.headline)
                     .foregroundColor(downloadColor)
-                Text(StatsFormatting.mbPerSecond(download))
+                Text(StatsFormatting.throughput(download))
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
-                DetailRow(color: downloadColor.opacity(0.6), label: "Average", value: StatsFormatting.mbPerSecond(avgDownload))
-                DetailRow(color: downloadColor.opacity(0.45), label: "Peak", value: StatsFormatting.mbPerSecond(peakDownload))
+                DetailRow(color: downloadColor.opacity(0.6), label: "Average", value: StatsFormatting.throughput(avgDownload))
+                DetailRow(color: downloadColor.opacity(0.45), label: "Peak", value: StatsFormatting.throughput(peakDownload))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
@@ -89,11 +89,11 @@ private struct NetworkOverview: View {
                 Text("Upload")
                     .font(.headline)
                     .foregroundColor(uploadColor)
-                Text(StatsFormatting.mbPerSecond(upload))
+                Text(StatsFormatting.throughput(upload))
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
-                DetailRow(color: uploadColor.opacity(0.6), label: "Average", value: StatsFormatting.mbPerSecond(avgUpload))
-                DetailRow(color: uploadColor.opacity(0.45), label: "Peak", value: StatsFormatting.mbPerSecond(peakUpload))
+                DetailRow(color: uploadColor.opacity(0.6), label: "Average", value: StatsFormatting.throughput(avgUpload))
+                DetailRow(color: uploadColor.opacity(0.45), label: "Peak", value: StatsFormatting.throughput(peakUpload))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -213,8 +213,8 @@ private struct NetworkInterfaceRow: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 4) {
-                metricRow(label: "Down", value: StatsFormatting.mbPerSecond(interface.currentDownload), color: downloadColor)
-                metricRow(label: "Up", value: StatsFormatting.mbPerSecond(interface.currentUpload), color: uploadColor)
+                metricRow(label: "Down", value: StatsFormatting.throughput(interface.currentDownload), color: downloadColor)
+                metricRow(label: "Up", value: StatsFormatting.throughput(interface.currentUpload), color: uploadColor)
             }
         }
     }
