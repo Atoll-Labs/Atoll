@@ -36,35 +36,20 @@ struct ContentView: View {
     
     // Dynamic sizing based on view type and graph count with smooth transitions
     var dynamicNotchSize: CGSize {
-        // Use minimalistic or normal size based on settings
         let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
         
-        // Always return the target size for the current view to ensure smooth transitions
-        let targetSize: CGSize
-        
-        if coordinator.currentView == .stats {
-            // Count enabled graphs using the same logic as NotchStatsView
-            var enabledGraphsCount = 0
-            if showCpuGraph { enabledGraphsCount += 1 }
-            if showMemoryGraph { enabledGraphsCount += 1 }
-            if showGpuGraph { enabledGraphsCount += 1 }
-            if showNetworkGraph { enabledGraphsCount += 1 }
-            if showDiskGraph { enabledGraphsCount += 1 }
-            
-            if enabledGraphsCount > 3 {
-                // Expand height for 4+ graphs
-                targetSize = CGSize(
-                    width: baseSize.width,
-                    height: baseSize.height + 65  // Add extra height for second row
-                )
-            } else {
-                targetSize = baseSize
-            }
-        } else {
-            targetSize = baseSize
+        guard coordinator.currentView == .stats else {
+            return baseSize
         }
         
-        return targetSize
+        let rows = statsRowCount()
+        if rows <= 1 {
+            return baseSize
+        }
+        
+        let additionalRows = max(rows - 1, 0)
+        let extraHeight = CGFloat(additionalRows) * statsAdditionalRowHeight
+        return CGSize(width: baseSize.width, height: baseSize.height + extraHeight)
     }
     
 
@@ -96,6 +81,7 @@ struct ContentView: View {
     
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
+    private let statsAdditionalRowHeight: CGFloat = 110
     
     // Use minimalistic corner radius ONLY when opened, keep normal when closed
     private var activeCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) {
@@ -266,10 +252,12 @@ struct ContentView: View {
                     isViewTransitioning = false
                     
                     // Check if this transition will cause a size change
-                    let oldSize = oldValue == .stats && statsTabHasExpandedHeight() ? 
-                        CGSize(width: openNotchSize.width, height: openNotchSize.height + 65) : openNotchSize
-                    let newSize = newValue == .stats && statsTabHasExpandedHeight() ? 
-                        CGSize(width: openNotchSize.width, height: openNotchSize.height + 65) : openNotchSize
+                    let baseOpenSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+                    let expandedHeight = baseOpenSize.height + statsAdditionalRowHeight
+                    let oldSize = oldValue == .stats && statsTabHasExpandedHeight() ?
+                        CGSize(width: baseOpenSize.width, height: expandedHeight) : baseOpenSize
+                    let newSize = newValue == .stats && statsTabHasExpandedHeight() ?
+                        CGSize(width: baseOpenSize.width, height: expandedHeight) : baseOpenSize
                     let sizeWillChange = oldSize != newSize
                     
                     // Set flags for transition tracking
@@ -694,7 +682,7 @@ struct ContentView: View {
                         self.isHovering = false
                     }
                     
-                    if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive {
+                    if self.vm.notchState == .open && !self.hasAnyActivePopovers() {
                         self.vm.close()
                     }
                 }
@@ -780,13 +768,23 @@ struct ContentView: View {
     
     // Helper to check if stats tab has 4+ graphs (needs expanded height)
     private func statsTabHasExpandedHeight() -> Bool {
+        return statsRowCount() > 1
+    }
+
+    private func enabledStatsGraphCount() -> Int {
         var enabledCount = 0
         if showCpuGraph { enabledCount += 1 }
         if showMemoryGraph { enabledCount += 1 }
         if showGpuGraph { enabledCount += 1 }
         if showNetworkGraph { enabledCount += 1 }
         if showDiskGraph { enabledCount += 1 }
-        return enabledCount > 3
+        return enabledCount
+    }
+
+    private func statsRowCount() -> Int {
+        let count = enabledStatsGraphCount()
+        if count == 0 { return 0 }
+        return count <= 3 ? 1 : 2
     }
     
     // MARK: - Gesture Handling

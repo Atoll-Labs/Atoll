@@ -6,191 +6,116 @@
 //  Adapted from boring.notch implementation
 
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 struct RankedProcessPopover: View {
     let rankingType: ProcessRankingType
-    @ObservedObject var statsManager = StatsManager.shared
     @Environment(\.dismiss) private var dismiss
-    @State private var isHovering = false
     
     // Callback to notify parent about hover state
     var onHoverChange: ((Bool) -> Void)?
     
-    private var rankedProcesses: [ProcessStats] {
+    private var configuration: (width: CGFloat, minHeight: CGFloat, padding: CGFloat) {
         switch rankingType {
         case .cpu:
-            return statsManager.getProcessesRankedByCPU()
+            return (420, 420, 0)
         case .memory:
-            return statsManager.getProcessesRankedByMemory()
+            return (400, 380, 0)
         case .gpu:
-            return statsManager.getProcessesRankedByGPU()
+            return (380, 360, 0)
+        case .network, .disk:
+            return (360, 320, 0)
         }
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Header
-            HStack {
-                Image(systemName: rankingType.icon)
-                    .font(.title3)
-                    .foregroundColor(rankingType.color)
-                
-                Text("Top Processes by \(rankingType.title)")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
+        popoverContent
+            .padding(configuration.padding)
+            .frame(width: configuration.width)
+            .frame(minHeight: configuration.minHeight)
+            .background(Color(NSColor.controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: .black.opacity(0.28), radius: 12, x: 0, y: 8)
+            .overlay(alignment: .topTrailing) {
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
                         .foregroundColor(.secondary)
+                        .padding(10)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            .padding(.bottom, 4)
-            
-            Divider()
-            
-            // Process list
-            ScrollView {
-                LazyVStack(spacing: 6) {
-                    ForEach(Array(rankedProcesses.prefix(15).enumerated()), id: \.element.id) { index, process in
-                        RankedProcessRow(
-                            process: process,
-                            rank: index + 1,
-                            rankingType: rankingType
-                        )
-                    }
+            .overlay(alignment: .center) {
+                PopoverHoverSensor { hovering in
+                    onHoverChange?(hovering)
                 }
-                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .allowsHitTesting(false)
             }
-            .frame(maxHeight: 300)
-            
-            // Footer with refresh button
-            HStack {
-                Text("\(rankedProcesses.count) processes")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-                
-                Button("Refresh") {
-                    // Trigger stats update
-                    if statsManager.isMonitoring {
-                        // Stats will auto-refresh
-                    }
-                }
-                .font(.caption)
-                .foregroundColor(rankingType.color)
-            }
-        }
-        .padding()
-        .frame(width: 320)
-        .frame(minHeight: 200)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
-        .onHover { hovering in
-            isHovering = hovering
-            onHoverChange?(hovering)
+    }
+    
+    @ViewBuilder
+    private var popoverContent: some View {
+        switch rankingType {
+        case .cpu:
+            CPUStatsDetailView()
+        case .memory:
+            MemoryStatsDetailView()
+        case .gpu:
+            GPUStatsDetailView()
+        case .network:
+            NetworkStatsDetailView()
+        case .disk:
+            DiskStatsDetailView()
         }
     }
 }
 
-struct RankedProcessRow: View {
-    let process: ProcessStats
-    let rank: Int
-    let rankingType: ProcessRankingType
-    @State private var isHovered = false
-    
-    private var primaryValue: String {
-        switch rankingType {
-        case .cpu:
-            return process.cpuUsageString
-        case .memory:
-            return process.memoryUsageString
-        case .gpu:
-            return process.cpuUsageString // Using CPU as proxy for GPU
-        }
-    }
-    
-    private var secondaryValue: String {
-        switch rankingType {
-        case .cpu:
-            return process.memoryUsageString
-        case .memory:
-            return process.cpuUsageString
-        case .gpu:
-            return process.memoryUsageString
-        }
-    }
-    
-    var body: some View {
-        HStack(spacing: 8) {
-            // Rank
-            Text("\(rank)")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(rankingType.color)
-                .frame(width: 24, alignment: .center)
-            
-            // App icon
-            Group {
-                if let icon = process.icon {
-                    Image(nsImage: icon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                } else {
-                    Image(systemName: "app")
-                        .foregroundColor(.secondary)
-                }
-            }
-            .frame(width: 20, height: 20)
-            
-            // Process info
-            VStack(alignment: .leading, spacing: 2) {
-                Text(process.name)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                
-                HStack(spacing: 8) {
-                    Text(primaryValue)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(rankingType.color)
-                    
-                    Text(secondaryValue)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            // PID
-            Text("PID: \(process.pid)")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .opacity(0.7)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isHovered ? Color(NSColor.selectedControlColor).opacity(0.2) : Color.clear)
-        )
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
-            }
-        }
-    }
-}
+#if os(macOS)
+private struct PopoverHoverSensor: NSViewRepresentable {
+    var onHoverChange: ((Bool) -> Void)?
 
-#Preview {
-    RankedProcessPopover(rankingType: .cpu)
-        .background(Color.black)
+    func makeNSView(context: Context) -> TrackingView {
+        let view = TrackingView()
+        view.onHoverChange = onHoverChange
+        return view
+    }
+
+    func updateNSView(_ nsView: TrackingView, context: Context) {
+        nsView.onHoverChange = onHoverChange
+    }
+
+    final class TrackingView: NSView {
+        var onHoverChange: ((Bool) -> Void)?
+        private var trackingArea: NSTrackingArea?
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            if let trackingArea {
+                removeTrackingArea(trackingArea)
+            }
+            let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeAlways, .inVisibleRect]
+            let area = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
+            addTrackingArea(area)
+            trackingArea = area
+        }
+
+        override func mouseEntered(with event: NSEvent) {
+            onHoverChange?(true)
+        }
+
+        override func mouseExited(with event: NSEvent) {
+            onHoverChange?(false)
+        }
+
+        deinit {
+            onHoverChange?(false)
+            if let trackingArea {
+                removeTrackingArea(trackingArea)
+            }
+        }
+    }
 }
+#endif

@@ -56,15 +56,21 @@ struct NotchStatsView: View {
     @State private var showingCPUPopover = false
     @State private var showingMemoryPopover = false
     @State private var showingGPUPopover = false
+    @State private var showingNetworkPopover = false
+    @State private var showingDiskPopover = false
     @State private var isHoveringCPUPopover = false
     @State private var isHoveringMemoryPopover = false
     @State private var isHoveringGPUPopover = false
+    @State private var isHoveringNetworkPopover = false
+    @State private var isHoveringDiskPopover = false
     @State private var isResizingForStats = false
+    @State private var statsHoverGraceActive = false
+    @State private var statsHoverGraceWorkItem: DispatchWorkItem?
     @EnvironmentObject var vm: DynamicIslandViewModel
-    
+
     var availableGraphs: [GraphData] {
         var graphs: [GraphData] = []
-        
+
         if showCpuGraph {
             graphs.append(SingleGraphData(
                 title: "CPU",
@@ -74,7 +80,7 @@ struct NotchStatsView: View {
                 icon: "cpu"
             ))
         }
-        
+
         if showMemoryGraph {
             graphs.append(SingleGraphData(
                 title: "Memory",
@@ -84,7 +90,7 @@ struct NotchStatsView: View {
                 icon: "memorychip"
             ))
         }
-        
+
         if showGpuGraph {
             graphs.append(SingleGraphData(
                 title: "GPU",
@@ -94,7 +100,7 @@ struct NotchStatsView: View {
                 icon: "display"
             ))
         }
-        
+
         if showNetworkGraph {
             graphs.append(DualGraphData(
                 title: "Network",
@@ -108,7 +114,7 @@ struct NotchStatsView: View {
                 icon: "network"
             ))
         }
-        
+
         if showDiskGraph {
             graphs.append(DualGraphData(
                 title: "Disk",
@@ -122,15 +128,15 @@ struct NotchStatsView: View {
                 icon: "internaldrive"
             ))
         }
-        
+
         return graphs
     }
-    
+
     // Smart grid layout system for different graph counts
     @ViewBuilder
     var statsGridLayout: some View {
         let graphCount = availableGraphs.count
-        
+
         if graphCount <= 3 {
             // 1-3 graphs: Single row with equal spacing
             LazyVGrid(
@@ -163,7 +169,7 @@ struct NotchStatsView: View {
                         graphViewForIndex(index)
                     }
                 }
-                
+
                 // Second row: 2 graphs (half-width each)
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2),
@@ -176,13 +182,12 @@ struct NotchStatsView: View {
             }
         }
     }
-    
+
     @ViewBuilder
     private func graphViewForIndex(_ index: Int) -> some View {
         let graphData = availableGraphs[index]
-        
-        // Only make CPU, Memory, GPU clickable for process popovers
-        if graphData.title == "CPU" || graphData.title == "Memory" || graphData.title == "GPU" {
+
+        if let rankingType = rankingTypeForGraph(graphData) {
             Button(action: {
                 handleGraphClick(for: graphData)
             }) {
@@ -191,7 +196,7 @@ struct NotchStatsView: View {
             .buttonStyle(PlainButtonStyle())
             .popover(isPresented: bindingForGraph(graphData)) {
                 RankedProcessPopover(
-                    rankingType: rankingTypeForGraph(graphData),
+                    rankingType: rankingType,
                     onHoverChange: { hovering in
                         switch graphData.title {
                         case "CPU":
@@ -200,13 +205,16 @@ struct NotchStatsView: View {
                             isHoveringMemoryPopover = hovering
                         case "GPU":
                             isHoveringGPUPopover = hovering
+                        case "Network":
+                            isHoveringNetworkPopover = hovering
+                        case "Disk":
+                            isHoveringDiskPopover = hovering
                         default:
                             break
                         }
                     }
                 )
                 .onDisappear {
-                    // Reset hover states when popover disappears
                     switch graphData.title {
                     case "CPU":
                         isHoveringCPUPopover = false
@@ -214,10 +222,13 @@ struct NotchStatsView: View {
                         isHoveringMemoryPopover = false
                     case "GPU":
                         isHoveringGPUPopover = false
+                    case "Network":
+                        isHoveringNetworkPopover = false
+                    case "Disk":
+                        isHoveringDiskPopover = false
                     default:
                         break
                     }
-                    // Ensure popover state is updated when popover disappears
                     DispatchQueue.main.async {
                         updateStatsPopoverState()
                     }
@@ -228,7 +239,6 @@ struct NotchStatsView: View {
                 removal: .scale.combined(with: .opacity).animation(.easeInOut(duration: 0.4))
             ))
         } else {
-            // Network and Disk graphs are not clickable
             UnifiedStatsCard(graphData: graphData)
                 .transition(.asymmetric(
                     insertion: .scale.combined(with: .opacity).animation(.easeInOut(duration: 0.4)),
@@ -236,7 +246,7 @@ struct NotchStatsView: View {
                 ))
         }
     }
-    
+
     private func handleGraphClick(for graphData: GraphData) {
         switch graphData.title {
         case "CPU":
@@ -245,11 +255,15 @@ struct NotchStatsView: View {
             showingMemoryPopover = true
         case "GPU":
             showingGPUPopover = true
+        case "Network":
+            showingNetworkPopover = true
+        case "Disk":
+            showingDiskPopover = true
         default:
             break
         }
     }
-    
+
     private func bindingForGraph(_ graphData: GraphData) -> Binding<Bool> {
         switch graphData.title {
         case "CPU":
@@ -258,12 +272,16 @@ struct NotchStatsView: View {
             return $showingMemoryPopover
         case "GPU":
             return $showingGPUPopover
+        case "Network":
+            return $showingNetworkPopover
+        case "Disk":
+            return $showingDiskPopover
         default:
             return .constant(false)
         }
     }
-    
-    private func rankingTypeForGraph(_ graphData: GraphData) -> ProcessRankingType {
+
+    private func rankingTypeForGraph(_ graphData: GraphData) -> ProcessRankingType? {
         switch graphData.title {
         case "CPU":
             return .cpu
@@ -271,8 +289,12 @@ struct NotchStatsView: View {
             return .memory
         case "GPU":
             return .gpu
+        case "Network":
+            return .network
+        case "Disk":
+            return .disk
         default:
-            return .cpu
+            return nil
         }
     }
     
@@ -323,7 +345,6 @@ struct NotchStatsView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding()
             } else {
-                // Stats content with smart grid layout
                 VStack(spacing: 8) {
                     statsGridLayout
                 }
@@ -345,24 +366,61 @@ struct NotchStatsView: View {
             }
         }
         .onDisappear {
+            statsHoverGraceWorkItem?.cancel()
+            statsHoverGraceWorkItem = nil
+            if statsHoverGraceActive {
+                statsHoverGraceActive = false
+            }
             // Keep monitoring running when tab is not visible
+            updateStatsPopoverState()
         }
         .animation(.easeInOut(duration: 0.4), value: enableStatsFeature)
         .animation(.easeInOut(duration: 0.4), value: availableGraphs.count)
-        .onChange(of: availableGraphs.count) { _, newCount in
+        .onChange(of: availableGraphs.count) { _, _ in
             // Protect against hover interference during dynamic sizing
             isResizingForStats = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 isResizingForStats = false
             }
         }
-        .onChange(of: showingCPUPopover) { _, _ in
+        .onChange(of: showingCPUPopover) { _, newValue in
+            if newValue {
+                activateStatsHoverGrace()
+            } else {
+                deactivateStatsHoverGrace()
+            }
             updateStatsPopoverState()
         }
-        .onChange(of: showingMemoryPopover) { _, _ in
+        .onChange(of: showingMemoryPopover) { _, newValue in
+            if newValue {
+                activateStatsHoverGrace()
+            } else {
+                deactivateStatsHoverGrace()
+            }
             updateStatsPopoverState()
         }
-        .onChange(of: showingGPUPopover) { _, _ in
+        .onChange(of: showingGPUPopover) { _, newValue in
+            if newValue {
+                activateStatsHoverGrace()
+            } else {
+                deactivateStatsHoverGrace()
+            }
+            updateStatsPopoverState()
+        }
+        .onChange(of: showingNetworkPopover) { _, newValue in
+            if newValue {
+                activateStatsHoverGrace()
+            } else {
+                deactivateStatsHoverGrace()
+            }
+            updateStatsPopoverState()
+        }
+        .onChange(of: showingDiskPopover) { _, newValue in
+            if newValue {
+                activateStatsHoverGrace()
+            } else {
+                deactivateStatsHoverGrace()
+            }
             updateStatsPopoverState()
         }
         .onChange(of: isHoveringCPUPopover) { _, _ in
@@ -374,23 +432,48 @@ struct NotchStatsView: View {
         .onChange(of: isHoveringGPUPopover) { _, _ in
             updateStatsPopoverState()
         }
+        .onChange(of: isHoveringNetworkPopover) { _, _ in
+            updateStatsPopoverState()
+        }
+        .onChange(of: isHoveringDiskPopover) { _, _ in
+            updateStatsPopoverState()
+        }
+    }
+
+    private func activateStatsHoverGrace(duration: TimeInterval = 0.45) {
+        statsHoverGraceWorkItem?.cancel()
+        statsHoverGraceActive = true
+        let workItem = DispatchWorkItem {
+            statsHoverGraceActive = false
+            statsHoverGraceWorkItem = nil
+            updateStatsPopoverState()
+        }
+        statsHoverGraceWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
+    }
+
+    private func deactivateStatsHoverGrace() {
+        statsHoverGraceWorkItem?.cancel()
+        statsHoverGraceWorkItem = nil
+        if statsHoverGraceActive {
+            statsHoverGraceActive = false
+        }
     }
     
     private func updateStatsPopoverState() {
-        // Use the same logic as battery popover: active only when shown AND hovered
-        // Also consider resize protection to prevent closing during layout changes
-        let newState = (showingCPUPopover && isHoveringCPUPopover) || 
-                       (showingMemoryPopover && isHoveringMemoryPopover) || 
-                       (showingGPUPopover && isHoveringGPUPopover) ||
-                       isResizingForStats
+        let anyPopoverOpen = showingCPUPopover || showingMemoryPopover || showingGPUPopover || showingNetworkPopover || showingDiskPopover
+        let newState = anyPopoverOpen || isResizingForStats || statsHoverGraceActive
         if vm.isStatsPopoverActive != newState {
             vm.isStatsPopoverActive = newState
             #if DEBUG
             print("📊 Stats popover state updated: \(newState)")
-            print("   CPU: shown=\(showingCPUPopover), hovering=\(isHoveringCPUPopover)")
-            print("   Memory: shown=\(showingMemoryPopover), hovering=\(isHoveringMemoryPopover)")
-            print("   GPU: shown=\(showingGPUPopover), hovering=\(isHoveringGPUPopover)")
+            print("   CPU open=\(showingCPUPopover)")
+            print("   Memory open=\(showingMemoryPopover)")
+            print("   GPU open=\(showingGPUPopover)")
+            print("   Network open=\(showingNetworkPopover)")
+            print("   Disk open=\(showingDiskPopover)")
             print("   Resizing: \(isResizingForStats)")
+            print("   Hover grace: \(statsHoverGraceActive)")
             #endif
         }
     }
@@ -460,8 +543,8 @@ struct UnifiedStatsCard: View {
             }
             .frame(height: 36) // Match boring.notch exactly - reduced from 50
             
-            // Click hint - only for CPU, Memory, GPU
-            if graphData.title == "CPU" || graphData.title == "Memory" || graphData.title == "GPU" {
+            // Click hint - shown for graphs that open popovers
+            if ["CPU", "Memory", "GPU", "Network", "Disk"].contains(graphData.title) {
                 Text("Click for details")
                     .font(.caption2)
                     .foregroundColor(.secondary)
