@@ -165,7 +165,9 @@ class LockScreenLiveActivityWindowManager {
         overlayAnimator.update(isLocked: false)
 
         hideTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(max(Defaults[.waitInterval], 1.0)))
+            //try? await Task.sleep(for: .milliseconds(450))
+            try? await Task.sleep(for: .seconds(max(Defaults[.waitInterval], 0.7)))
+            //try? await Task.sleep(for: .seconds(1.0))
             guard let self, !Task.isCancelled else { return }
             await MainActor.run {
                 self.hideWithAnimation()
