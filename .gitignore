@@ -1,3 +1,8 @@
+# xcede
+.xcede/
+.xcrc
+buildServer.json
+
 .DS_Store
 # Xcode
 *.xcuserstate
@@ -131,7 +136,7 @@ referenceimages
 
 PrivateWorks
 
-*.py 
+*.py
 *.sh
 comparison_report.json
 *.txt
