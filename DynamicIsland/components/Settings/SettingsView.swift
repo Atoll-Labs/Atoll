@@ -181,7 +181,12 @@ struct GeneralSettings: View {
     @Default(.enableLockScreenWeatherWidget) var enableLockScreenWeatherWidget
     @Default(.lockScreenWeatherShowsLocation) var lockScreenWeatherShowsLocation
     @Default(.lockScreenWeatherShowsCharging) var lockScreenWeatherShowsCharging
+    @Default(.lockScreenWeatherShowsChargingPercentage) var lockScreenWeatherShowsChargingPercentage
     @Default(.lockScreenWeatherShowsBluetooth) var lockScreenWeatherShowsBluetooth
+    @Default(.lockScreenWeatherWidgetStyle) var lockScreenWeatherWidgetStyle
+    @Default(.lockScreenWeatherShowsAQI) var lockScreenWeatherShowsAQI
+    @Default(.lockScreenWeatherUsesGaugeTint) var lockScreenWeatherUsesGaugeTint
+    @Default(.lockScreenWeatherProviderSource) var lockScreenWeatherProviderSource
 
     var body: some View {
         Form {
@@ -329,9 +334,32 @@ struct GeneralSettings: View {
                 Defaults.Toggle("Show lock screen media panel", key: .enableLockScreenMediaWidget)
                 Defaults.Toggle("Show lock screen weather", key: .enableLockScreenWeatherWidget)
                 if enableLockScreenWeatherWidget {
+                    Picker("Widget layout", selection: $lockScreenWeatherWidgetStyle) {
+                        ForEach(LockScreenWeatherWidgetStyle.allCases) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    Picker("Weather data provider", selection: $lockScreenWeatherProviderSource) {
+                        ForEach(LockScreenWeatherProviderSource.allCases) { source in
+                            Text(source.displayName).tag(source)
+                        }
+                    }
+                    .pickerStyle(.segmented)
                     Defaults.Toggle("Show location label", key: .lockScreenWeatherShowsLocation)
                     Defaults.Toggle("Show charging status", key: .lockScreenWeatherShowsCharging)
+                    if lockScreenWeatherShowsCharging {
+                        Defaults.Toggle("Show charging percentage", key: .lockScreenWeatherShowsChargingPercentage)
+                    }
                     Defaults.Toggle("Show Bluetooth battery", key: .lockScreenWeatherShowsBluetooth)
+                    Defaults.Toggle("Show AQI widget", key: .lockScreenWeatherShowsAQI)
+                        .disabled(!lockScreenWeatherProviderSource.supportsAirQuality)
+                    if !lockScreenWeatherProviderSource.supportsAirQuality {
+                        Text("Air quality requires the Open Meteo provider.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Defaults.Toggle("Use colored gauges", key: .lockScreenWeatherUsesGaugeTint)
                 }
                 
                 Button("Copy Latest Crash Report") {

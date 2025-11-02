@@ -77,3 +77,28 @@ enum LockScreenGlassStyle: String, CaseIterable, Defaults.Serializable, Identifi
 
     var id: String { rawValue }
 }
+
+enum LockScreenWeatherWidgetStyle: String, CaseIterable, Defaults.Serializable, Identifiable {
+    case inline = "Inline"
+    case circular = "Circular"
+
+    var id: String { rawValue }
+}
+
+enum LockScreenWeatherProviderSource: String, CaseIterable, Defaults.Serializable, Identifiable {
+    case wttr = "wttr.in"
+    case openMeteo = "Open Meteo"
+
+    var id: String { rawValue }
+
+    var displayName: String { rawValue }
+
+    var supportsAirQuality: Bool {
+        switch self {
+        case .wttr:
+            return false
+        case .openMeteo:
+            return true
+        }
+    }
+}
