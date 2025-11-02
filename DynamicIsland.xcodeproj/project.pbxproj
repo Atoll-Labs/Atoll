@@ -221,6 +221,7 @@
 				B19424072CD0DB52003E5DC2 /* XCRemoteSwiftPackageReference "LottieUI" */,
 				146BC4352D366E9B0047C66A /* XCRemoteSwiftPackageReference "MacroVisionKit" */,
 				7E61181F2E24071E0050006C /* XCRemoteSwiftPackageReference "SkyLightWindow" */,
+				7E09D5962EB7B497005AF41D /* XCRemoteSwiftPackageReference "open-meteo" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F54406E82CD4987A00C7AFD9 /* Products */;
@@ -539,6 +540,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.6.4;
+			};
+		};
+		7E09D5962EB7B497005AF41D /* XCRemoteSwiftPackageReference "open-meteo" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/open-meteo/open-meteo";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.4.16;
 			};
 		};
 		7E61181F2E24071E0050006C /* XCRemoteSwiftPackageReference "SkyLightWindow" */ = {

@@ -17,6 +17,11 @@ final class LockScreenWeatherManager: ObservableObject {
 
     private init() {
         observeAccessoryChanges()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.locationProvider.prepareAuthorization()
+            _ = await self.refresh(force: true)
+        }
     }
 
     func prepareLocationAccess() {
@@ -73,7 +78,7 @@ final class LockScreenWeatherManager: ObservableObject {
 
         do {
             let location = await locationProvider.currentLocation()
-            let payload = try await provider.fetchSnapshot(location: location)
+            let payload = try await fetchWeatherPayload(location: location)
             latestWeatherPayload = payload
             if Defaults[.lockScreenWeatherShowsBluetooth] {
                 BluetoothAudioManager.shared.refreshConnectedDeviceBatteries()
@@ -86,6 +91,7 @@ final class LockScreenWeatherManager: ObservableObject {
         } catch {
             NSLog("LockScreenWeatherManager: failed to fetch weather - \(error.localizedDescription)")
 
+            let providerSource = Defaults[.lockScreenWeatherProviderSource]
             let fallback = LockScreenWeatherSnapshot(
                 temperatureText: snapshot?.temperatureText ?? "--",
                 symbolName: snapshot?.symbolName ?? "cloud.fill",
@@ -93,12 +99,36 @@ final class LockScreenWeatherManager: ObservableObject {
                 locationName: snapshot?.locationName,
                 charging: Defaults[.lockScreenWeatherShowsCharging] ? makeChargingInfo() : nil,
                 bluetooth: Defaults[.lockScreenWeatherShowsBluetooth] ? makeBluetoothInfo() : nil,
-                showsLocation: snapshot?.showsLocation ?? false
+                showsLocation: snapshot?.showsLocation ?? false,
+                airQuality: (providerSource.supportsAirQuality && Defaults[.lockScreenWeatherShowsAQI]) ? snapshot?.airQuality : nil,
+                widgetStyle: Defaults[.lockScreenWeatherWidgetStyle],
+                showsChargingPercentage: Defaults[.lockScreenWeatherShowsChargingPercentage],
+                temperatureInfo: snapshot?.temperatureInfo,
+                usesGaugeTint: Defaults[.lockScreenWeatherUsesGaugeTint]
             )
 
             self.snapshot = fallback
             deliver(fallback, forceShow: false)
             return fallback
+        }
+    }
+
+    private func fetchWeatherPayload(location: CLLocation?) async throws -> LockScreenWeatherSnapshot {
+        let primarySource = Defaults[.lockScreenWeatherProviderSource]
+
+        do {
+            return try await provider.fetchSnapshot(location: location, source: primarySource)
+        } catch {
+            if primarySource == .openMeteo {
+                NSLog("LockScreenWeatherManager: Open Meteo fetch failed - %@. Falling back to wttr.in", error.localizedDescription)
+                do {
+                    return try await provider.fetchSnapshot(location: location, source: .wttr)
+                } catch {
+                    NSLog("LockScreenWeatherManager: wttr.in fallback also failed - %@", error.localizedDescription)
+                    throw error
+                }
+            }
+            throw error
         }
     }
 
@@ -138,13 +168,33 @@ final class LockScreenWeatherManager: ObservableObject {
                 .map { _ in () }.eraseToAnyPublisher(),
             Defaults.publisher(.lockScreenWeatherShowsCharging, options: [])
                 .map { _ in () }.eraseToAnyPublisher(),
+            Defaults.publisher(.lockScreenWeatherShowsChargingPercentage, options: [])
+                .map { _ in () }.eraseToAnyPublisher(),
             Defaults.publisher(.lockScreenWeatherShowsBluetooth, options: [])
+                .map { _ in () }.eraseToAnyPublisher(),
+            Defaults.publisher(.lockScreenWeatherWidgetStyle, options: [])
+                .map { _ in () }.eraseToAnyPublisher(),
+            Defaults.publisher(.lockScreenWeatherShowsAQI, options: [])
+                .map { _ in () }.eraseToAnyPublisher(),
+            Defaults.publisher(.lockScreenWeatherUsesGaugeTint, options: [])
+                .map { _ in () }.eraseToAnyPublisher(),
+            Defaults.publisher(.lockScreenWeatherProviderSource, options: [])
                 .map { _ in () }.eraseToAnyPublisher()
         ]
 
         Publishers.MergeMany(defaultsPublishers)
             .sink { [weak self] in
                 self?.handleAccessoryUpdate(triggerBluetoothRefresh: true)
+            }
+            .store(in: &cancellables)
+
+        Defaults.publisher(.lockScreenWeatherProviderSource, options: [])
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.latestWeatherPayload = nil
+                Task { @MainActor in
+                    _ = await self.refresh(force: true)
+                }
             }
             .store(in: &cancellables)
     }
@@ -172,10 +222,15 @@ final class LockScreenWeatherManager: ObservableObject {
     }
 
     private func makeSnapshot(from payload: LockScreenWeatherSnapshot) -> LockScreenWeatherSnapshot {
-        let locationName = payload.locationName
-        let shouldShowLocation = Defaults[.lockScreenWeatherShowsLocation] && !(locationName?.isEmpty ?? true)
+    let locationName = payload.locationName
         let chargingInfo = Defaults[.lockScreenWeatherShowsCharging] ? makeChargingInfo() : nil
         let bluetoothInfo = Defaults[.lockScreenWeatherShowsBluetooth] ? makeBluetoothInfo() : nil
+        let widgetStyle = Defaults[.lockScreenWeatherWidgetStyle]
+    let shouldShowLocation = widgetStyle == .inline && Defaults[.lockScreenWeatherShowsLocation] && !(locationName?.isEmpty ?? true)
+        let showsChargingPercentage = Defaults[.lockScreenWeatherShowsChargingPercentage]
+        let providerSource = Defaults[.lockScreenWeatherProviderSource]
+        let airQualityInfo = (Defaults[.lockScreenWeatherShowsAQI] && providerSource.supportsAirQuality) ? payload.airQuality : nil
+        let usesGaugeTint = Defaults[.lockScreenWeatherUsesGaugeTint]
 
         return LockScreenWeatherSnapshot(
             temperatureText: payload.temperatureText,
@@ -184,7 +239,12 @@ final class LockScreenWeatherManager: ObservableObject {
             locationName: locationName,
             charging: chargingInfo,
             bluetooth: bluetoothInfo,
-            showsLocation: shouldShowLocation
+            showsLocation: shouldShowLocation,
+            airQuality: airQualityInfo,
+            widgetStyle: widgetStyle,
+            showsChargingPercentage: showsChargingPercentage,
+            temperatureInfo: payload.temperatureInfo,
+            usesGaugeTint: usesGaugeTint
         )
     }
 
@@ -202,10 +262,14 @@ final class LockScreenWeatherManager: ObservableObject {
         let rawMinutes = macStatus.timeRemainingMinutes ?? (battery.timeToFullCharge > 0 ? battery.timeToFullCharge : nil)
         let remaining = (rawMinutes ?? 0) > 0 ? rawMinutes : nil
 
+        let rawLevel = Int(round(Double(battery.levelBattery)))
+        let clampedLevel = min(max(rawLevel, 0), 100)
+
         return LockScreenWeatherSnapshot.ChargingInfo(
             minutesRemaining: remaining,
             isCharging: isCharging,
-            isPluggedIn: isPluggedIn
+            isPluggedIn: isPluggedIn,
+            batteryLevel: isPluggedIn || isCharging ? clampedLevel : nil
         )
     }
 
@@ -239,10 +303,37 @@ final class LockScreenWeatherManager: ObservableObject {
 }
 
 struct LockScreenWeatherSnapshot: Equatable {
+    struct TemperatureInfo: Equatable {
+        let current: Double
+        let minimum: Double?
+        let maximum: Double?
+        let unitSymbol: String
+
+        var displayMinimum: String? {
+            guard let minimum else { return nil }
+            return Self.formatted(value: minimum)
+        }
+
+        var displayMaximum: String? {
+            guard let maximum else { return nil }
+            return Self.formatted(value: maximum)
+        }
+
+        var displayCurrent: String {
+            Self.formatted(value: current)
+        }
+
+        private static func formatted(value: Double) -> String {
+            let rounded = Int(round(value))
+            return "\(rounded)"
+        }
+    }
+
     struct ChargingInfo: Equatable {
         let minutesRemaining: Int?
         let isCharging: Bool
         let isPluggedIn: Bool
+        let batteryLevel: Int?
 
         var iconName: String {
             if isCharging {
@@ -261,6 +352,33 @@ struct LockScreenWeatherSnapshot: Equatable {
         let iconName: String
     }
 
+    struct AirQualityInfo: Equatable {
+        enum Category: String, Equatable {
+            case good
+            case moderate
+            case unhealthyForSensitive
+            case unhealthy
+            case veryUnhealthy
+            case hazardous
+            case unknown
+
+            var displayName: String {
+                switch self {
+                case .good: return "Good"
+                case .moderate: return "Moderate"
+                case .unhealthyForSensitive: return "Sensitive"
+                case .unhealthy: return "Unhealthy"
+                case .veryUnhealthy: return "Very Unhealthy"
+                case .hazardous: return "Hazardous"
+                case .unknown: return "Unknown"
+                }
+            }
+        }
+
+        let index: Int
+        let category: Category
+    }
+
     let temperatureText: String
     let symbolName: String
     let description: String
@@ -268,6 +386,34 @@ struct LockScreenWeatherSnapshot: Equatable {
     let charging: ChargingInfo?
     let bluetooth: BluetoothInfo?
     let showsLocation: Bool
+    let airQuality: AirQualityInfo?
+    let widgetStyle: LockScreenWeatherWidgetStyle
+    let showsChargingPercentage: Bool
+    let temperatureInfo: TemperatureInfo?
+    let usesGaugeTint: Bool
+}
+
+extension LockScreenWeatherSnapshot.AirQualityInfo.Category {
+    init(aqiValue: Int) {
+        switch aqiValue {
+        case ..<0:
+            self = .unknown
+        case 0...50:
+            self = .good
+        case 51...100:
+            self = .moderate
+        case 101...150:
+            self = .unhealthyForSensitive
+        case 151...200:
+            self = .unhealthy
+        case 201...300:
+            self = .veryUnhealthy
+        case 301...:
+            self = .hazardous
+        default:
+            self = .unknown
+        }
+    }
 }
 
 private actor LockScreenWeatherProvider {
@@ -283,6 +429,23 @@ private actor LockScreenWeatherProvider {
     }
 
     func fetchSnapshot(location: CLLocation?) async throws -> LockScreenWeatherSnapshot {
+        let source = Defaults[.lockScreenWeatherProviderSource]
+        return try await fetchSnapshot(location: location, source: source)
+    }
+
+    func fetchSnapshot(location: CLLocation?, source: LockScreenWeatherProviderSource) async throws -> LockScreenWeatherSnapshot {
+        switch source {
+        case .wttr:
+            return try await fetchWttrSnapshot(location: location)
+        case .openMeteo:
+            guard let location else {
+                return try await fetchWttrSnapshot(location: nil)
+            }
+            return try await fetchOpenMeteoSnapshot(location: location)
+        }
+    }
+
+    private func fetchWttrSnapshot(location: CLLocation?) async throws -> LockScreenWeatherSnapshot {
         let locationSuffix: String
         if let coordinate = location?.coordinate {
             let lat = String(format: "%.4f", coordinate.latitude)
@@ -292,7 +455,8 @@ private actor LockScreenWeatherProvider {
             locationSuffix = ""
         }
 
-        let urlString = locationSuffix.isEmpty ? "https://wttr.in/?format=j1" : "https://wttr.in/\(locationSuffix)?format=j1"
+        let query = "?format=j1&aqi=yes"
+        let urlString = locationSuffix.isEmpty ? "https://wttr.in/\(query)" : "https://wttr.in/\(locationSuffix)\(query)"
 
         guard let url = URL(string: urlString) else {
             throw WeatherProviderError.invalidURL
@@ -309,8 +473,27 @@ private actor LockScreenWeatherProvider {
         }
 
         let usesMetric = Locale.current.usesMetricSystem
-        let temperature = usesMetric ? condition.tempC : condition.tempF
-        let temperatureText = "\(temperature)°"
+        let rawTemperature = usesMetric ? condition.tempC : condition.tempF
+        let temperatureValue = Double(rawTemperature) ?? 0
+        let temperatureText = "\(Int(round(temperatureValue)))°"
+        let unitSymbol = usesMetric ? "°C" : "°F"
+
+        let forecast = payload.dailyWeather.first
+        let minTempValue = forecast.flatMap { daily in
+            let value = usesMetric ? daily.mintempC : daily.mintempF
+            return value.flatMap(Double.init)
+        }
+        let maxTempValue = forecast.flatMap { daily in
+            let value = usesMetric ? daily.maxtempC : daily.maxtempF
+            return value.flatMap(Double.init)
+        }
+
+        let temperatureInfo = LockScreenWeatherSnapshot.TemperatureInfo(
+            current: temperatureValue,
+            minimum: minTempValue,
+            maximum: maxTempValue,
+            unitSymbol: unitSymbol
+        )
 
         let code = Int(condition.weatherCode) ?? 113
         let symbol = WeatherSymbolMapper.symbol(for: code)
@@ -319,6 +502,16 @@ private actor LockScreenWeatherProvider {
         let nearest = payload.nearestArea.first
         let locationName = nearest?.preferredName
 
+        let airQualityInfo: LockScreenWeatherSnapshot.AirQualityInfo?
+        if let index = condition.airQuality?.usIndexValue {
+            airQualityInfo = LockScreenWeatherSnapshot.AirQualityInfo(
+                index: index,
+                category: LockScreenWeatherSnapshot.AirQualityInfo.Category(aqiValue: index)
+            )
+        } else {
+            airQualityInfo = nil
+        }
+
         return LockScreenWeatherSnapshot(
             temperatureText: temperatureText,
             symbolName: symbol,
@@ -326,7 +519,117 @@ private actor LockScreenWeatherProvider {
             locationName: locationName,
             charging: nil,
             bluetooth: nil,
-            showsLocation: true
+            showsLocation: true,
+            airQuality: airQualityInfo,
+            widgetStyle: .inline,
+            showsChargingPercentage: true,
+            temperatureInfo: temperatureInfo,
+            usesGaugeTint: true
+        )
+    }
+
+    private func fetchOpenMeteoSnapshot(location: CLLocation) async throws -> LockScreenWeatherSnapshot {
+        let latitude = String(format: "%.4f", location.coordinate.latitude)
+        let longitude = String(format: "%.4f", location.coordinate.longitude)
+
+        let usesMetric = Locale.current.usesMetricSystem
+        var weatherComponents = URLComponents(string: "https://api.open-meteo.com/v1/forecast")
+        var weatherQueryItems: [URLQueryItem] = [
+            URLQueryItem(name: "latitude", value: latitude),
+            URLQueryItem(name: "longitude", value: longitude),
+            URLQueryItem(name: "current", value: "temperature_2m,weather_code,pressure_msl"),
+            URLQueryItem(name: "daily", value: "temperature_2m_max,temperature_2m_min"),
+            URLQueryItem(name: "forecast_days", value: "1"),
+            URLQueryItem(name: "timezone", value: "auto")
+        ]
+
+        if !usesMetric {
+            weatherQueryItems.append(URLQueryItem(name: "temperature_unit", value: "fahrenheit"))
+        }
+
+        weatherComponents?.queryItems = weatherQueryItems
+
+        guard let weatherURL = weatherComponents?.url else {
+            throw WeatherProviderError.invalidURL
+        }
+
+        let (weatherData, weatherResponse) = try await session.data(from: weatherURL)
+        guard let weatherHTTP = weatherResponse as? HTTPURLResponse, (200..<300).contains(weatherHTTP.statusCode) else {
+            throw WeatherProviderError.invalidResponse
+        }
+
+        let weatherDecoder = JSONDecoder()
+        weatherDecoder.keyDecodingStrategy = .convertFromSnakeCase
+        let weatherPayload = try weatherDecoder.decode(OpenMeteoForecastResponse.self, from: weatherData)
+        guard let current = weatherPayload.current else {
+            throw WeatherProviderError.noData
+        }
+
+        let temperatureValue = current.temperature2M ?? 0
+        let temperatureText = "\(Int(round(temperatureValue)))°"
+        let code = current.weatherCode ?? 0
+        let mapping = OpenMeteoSymbolMapper.mapping(for: code)
+        let unitSymbol = usesMetric ? "°C" : "°F"
+        let minTempValue = weatherPayload.daily?.temperature2MMin?.first
+        let maxTempValue = weatherPayload.daily?.temperature2MMax?.first
+
+        let temperatureInfo = LockScreenWeatherSnapshot.TemperatureInfo(
+            current: temperatureValue,
+            minimum: minTempValue,
+            maximum: maxTempValue,
+            unitSymbol: unitSymbol
+        )
+
+        var airQualityInfo: LockScreenWeatherSnapshot.AirQualityInfo?
+        if Defaults[.lockScreenWeatherShowsAQI] {
+            airQualityInfo = try? await fetchOpenMeteoAirQuality(latitude: latitude, longitude: longitude)
+        }
+
+        return LockScreenWeatherSnapshot(
+            temperatureText: temperatureText,
+            symbolName: mapping.symbol,
+            description: mapping.description,
+            locationName: nil,
+            charging: nil,
+            bluetooth: nil,
+            showsLocation: true,
+            airQuality: airQualityInfo,
+            widgetStyle: .inline,
+            showsChargingPercentage: true,
+            temperatureInfo: temperatureInfo,
+            usesGaugeTint: true
+        )
+    }
+
+    private func fetchOpenMeteoAirQuality(latitude: String, longitude: String) async throws -> LockScreenWeatherSnapshot.AirQualityInfo? {
+        var airComponents = URLComponents(string: "https://air-quality-api.open-meteo.com/v1/air-quality")
+        airComponents?.queryItems = [
+            URLQueryItem(name: "latitude", value: latitude),
+            URLQueryItem(name: "longitude", value: longitude),
+            URLQueryItem(name: "current", value: "us_aqi"),
+            URLQueryItem(name: "timezone", value: "auto")
+        ]
+
+        guard let airURL = airComponents?.url else {
+            throw WeatherProviderError.invalidURL
+        }
+
+        let (airData, airResponse) = try await session.data(from: airURL)
+        guard let airHTTP = airResponse as? HTTPURLResponse, (200..<300).contains(airHTTP.statusCode) else {
+            throw WeatherProviderError.invalidResponse
+        }
+
+        let airDecoder = JSONDecoder()
+        airDecoder.keyDecodingStrategy = .convertFromSnakeCase
+        let airPayload = try airDecoder.decode(OpenMeteoAirQualityResponse.self, from: airData)
+        guard let airCurrent = airPayload.current, let indexValue = airCurrent.usAqi else {
+            return nil
+        }
+
+        let index = Int(round(indexValue))
+        return LockScreenWeatherSnapshot.AirQualityInfo(
+            index: index,
+            category: LockScreenWeatherSnapshot.AirQualityInfo.Category(aqiValue: index)
         )
     }
 }
@@ -340,9 +643,11 @@ enum WeatherProviderError: Error {
 private struct WTTRResponse: Decodable {
     let current_condition: [WTTRCurrentCondition]
     let nearest_area: [WTTRNearestArea]?
+    let weather: [WTTRDailyWeather]?
 
     var currentCondition: [WTTRCurrentCondition] { current_condition }
     var nearestArea: [WTTRNearestArea] { nearest_area ?? [] }
+    var dailyWeather: [WTTRDailyWeather] { weather ?? [] }
 }
 
 private struct WTTRCurrentCondition: Decodable {
@@ -352,6 +657,9 @@ private struct WTTRCurrentCondition: Decodable {
         case weatherCode
         case weatherDesc
         case langEn = "lang_en"
+        case pressure = "pressure"
+        case pressureInches = "pressureInches"
+        case airQuality = "air_quality"
     }
 
     let tempC: String
@@ -359,6 +667,9 @@ private struct WTTRCurrentCondition: Decodable {
     let weatherCode: String
     let weatherDesc: [WTTRTextValue]?
     let langEn: [WTTRTextValue]?
+    let pressure: String?
+    let pressureInches: String?
+    let airQuality: WTTRAirQuality?
 
     var localizedDescription: String {
         if let english = langEn?.first?.value, !english.isEmpty {
@@ -373,6 +684,35 @@ private struct WTTRCurrentCondition: Decodable {
 
 private struct WTTRTextValue: Decodable {
     let value: String
+}
+
+private struct WTTRAirQuality: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case usEpaIndex = "us-epa-index"
+        case gbDefraIndex = "gb-defra-index"
+    }
+
+    let usEpaIndex: String?
+    let gbDefraIndex: String?
+
+    var usIndexValue: Int? {
+        guard let value = usEpaIndex else { return nil }
+        return Int(value)
+    }
+}
+
+private struct WTTRDailyWeather: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case maxtempC = "maxtempC"
+        case maxtempF = "maxtempF"
+        case mintempC = "mintempC"
+        case mintempF = "mintempF"
+    }
+
+    let maxtempC: String?
+    let maxtempF: String?
+    let mintempC: String?
+    let mintempF: String?
 }
 
 private struct WTTRNearestArea: Decodable {
@@ -397,6 +737,69 @@ private struct WTTRNearestArea: Decodable {
             return countryName
         }
         return nil
+    }
+}
+
+private struct OpenMeteoForecastResponse: Decodable {
+    struct Current: Decodable {
+        let time: String?
+        let temperature2M: Double?
+        let weatherCode: Int?
+        let pressureMsl: Double?
+    }
+
+    let current: Current?
+    let daily: Daily?
+
+    struct Daily: Decodable {
+        let temperature2MMax: [Double]?
+        let temperature2MMin: [Double]?
+    }
+}
+
+private struct OpenMeteoAirQualityResponse: Decodable {
+    struct Current: Decodable {
+        let time: String?
+        let usAqi: Double?
+    }
+
+    let current: Current?
+}
+
+private enum OpenMeteoSymbolMapper {
+    static func mapping(for code: Int) -> (symbol: String, description: String) {
+        switch code {
+        case 0:
+            return ("sun.max.fill", "Clear sky")
+        case 1:
+            return ("cloud.sun.fill", "Mainly clear")
+        case 2:
+            return ("cloud.sun.fill", "Partly cloudy")
+        case 3:
+            return ("cloud.fill", "Overcast")
+        case 45, 48:
+            return ("cloud.fog.fill", "Fog")
+        case 51, 53, 55:
+            return ("cloud.drizzle.fill", "Drizzle")
+        case 56, 57:
+            return ("cloud.sleet.fill", "Freezing drizzle")
+        case 61, 63, 65:
+            return ("cloud.rain.fill", "Rain")
+        case 66, 67:
+            return ("cloud.sleet.fill", "Freezing rain")
+        case 71, 73, 75, 77:
+            return ("cloud.snow.fill", "Snow")
+        case 80, 81, 82:
+            return ("cloud.heavyrain.fill", "Rain showers")
+        case 85, 86:
+            return ("cloud.snow.fill", "Snow showers")
+        case 95:
+            return ("cloud.bolt.rain.fill", "Thunderstorm")
+        case 96, 99:
+            return ("cloud.bolt.rain.fill", "Thunderstorm with hail")
+        default:
+            return ("cloud.sun.fill", "Cloudy")
+        }
     }
 }
 
