@@ -163,7 +163,7 @@ struct LockScreenWeatherWidget: View {
 			Gauge(value: Double(level), in: 0...100) {
 				EmptyView()
 			} currentValueLabel: {
-				Image(systemName: "battery.100")
+				Image(systemName: batteryIconName(for: level))
 					.font(.system(size: 20, weight: .semibold))
 					.foregroundStyle(Color.white)
 			} minimumValueLabel: {
@@ -569,6 +569,22 @@ struct LockScreenWeatherWidget: View {
 			format: NSLocalizedString("Mac battery at %d percent", comment: "Mac battery gauge accessibility label"),
 			clampedBatteryLevel(battery.batteryLevel)
 		)
+	}
+
+	private func batteryIconName(for level: Int) -> String {
+		let clamped = clampedBatteryLevel(level)
+		switch clamped {
+		case ..<10:
+			return "battery.0percent"
+		case 10..<40:
+			return "battery.25percent"
+		case 40..<70:
+			return "battery.50percent"
+		case 70..<90:
+			return "battery.75percent"
+		default:
+			return "battery.100percent"
+		}
 	}
 }
 
