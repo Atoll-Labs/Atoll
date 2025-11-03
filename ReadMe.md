@@ -343,3 +343,5 @@ If you previously cloned DynamicIsland, update the remote to track the Atoll rep
 ```bash
 git remote set-url origin https://github.com/Ebullioscopic/Atoll.git
 ```
+
+A heartfelt thanks to [TheBoredTeam](https://github.com/TheBoredTeam) for being supportive and being totally awesome, Atoll would not have been possible without Boring.Notch
