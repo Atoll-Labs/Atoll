@@ -34,6 +34,7 @@ DerivedData/
 build/
 *.app
 *.dSYM
+*.dmg
 
 # Temporary files
 *.swp
