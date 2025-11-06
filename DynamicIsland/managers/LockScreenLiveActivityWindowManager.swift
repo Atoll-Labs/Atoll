@@ -9,6 +9,7 @@ import AppKit
 import Defaults
 import SkyLightWindow
 import SwiftUI
+import QuartzCore
 
 @MainActor
 class LockScreenLiveActivityWindowManager {
@@ -165,9 +166,7 @@ class LockScreenLiveActivityWindowManager {
         overlayAnimator.update(isLocked: false)
 
         hideTask = Task { [weak self] in
-            //try? await Task.sleep(for: .milliseconds(450))
-            try? await Task.sleep(for: .seconds(max(Defaults[.waitInterval], 0.7)))
-            //try? await Task.sleep(for: .seconds(1.0))
+            try? await Task.sleep(for: .seconds(LockScreenAnimationTimings.unlockCollapse))
             guard let self, !Task.isCancelled else { return }
             await MainActor.run {
                 self.hideWithAnimation()
@@ -185,17 +184,18 @@ class LockScreenLiveActivityWindowManager {
     private func hideWithAnimation() {
         guard let window else { return }
 
-        withAnimation(.easeInOut(duration: 0.18)) {
+        withAnimation(.smooth(duration: LockScreenAnimationTimings.unlockCollapse)) {
             overlayModel.opacity = 0
             overlayModel.scale = 0.7
         }
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
+            context.duration = LockScreenAnimationTimings.unlockCollapse
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             window.animator().alphaValue = 0
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + LockScreenAnimationTimings.unlockCollapse + 0.02) {
             window.orderOut(nil)
         }
 

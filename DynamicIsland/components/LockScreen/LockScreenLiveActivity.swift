@@ -16,6 +16,14 @@ struct LockScreenLiveActivity: View {
     @State private var gestureProgress: CGFloat = 0
     @State private var isExpanded: Bool = false
 
+    private var expandAnimation: Animation {
+        .smooth(duration: LockScreenAnimationTimings.lockExpand)
+    }
+
+    private var collapseAnimation: Animation {
+        .smooth(duration: LockScreenAnimationTimings.unlockCollapse)
+    }
+
     private var iconColor: Color {
         .white
     }
@@ -48,9 +56,9 @@ struct LockScreenLiveActivity: View {
         .frame(height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0))
         .onAppear {
             iconAnimator.update(isLocked: lockScreenManager.isLocked, animated: false)
-            // Expand immediately without animation to avoid conflicts
-            withAnimation(.smooth(duration: 0.4)) {
-                isExpanded = true
+            let shouldStartExpanded = lockScreenManager.isLocked || !lockScreenManager.isLockIdle
+            withAnimation(expandAnimation) {
+                isExpanded = shouldStartExpanded
             }
         }
         .onDisappear {
@@ -59,17 +67,26 @@ struct LockScreenLiveActivity: View {
         }
         .onChange(of: lockScreenManager.isLockIdle) { _, newValue in
             if newValue {
-                withAnimation(.smooth(duration: 0.4)) {
+                withAnimation(collapseAnimation) {
                     isExpanded = false
                 }
-            } else {
-                withAnimation(.smooth(duration: 0.4)) {
+            } else if lockScreenManager.isLocked {
+                withAnimation(expandAnimation) {
                     isExpanded = true
                 }
             }
         }
         .onChange(of: lockScreenManager.isLocked) { _, newValue in
             iconAnimator.update(isLocked: newValue)
+            if newValue {
+                withAnimation(expandAnimation) {
+                    isExpanded = true
+                }
+            } else {
+                withAnimation(collapseAnimation) {
+                    isExpanded = false
+                }
+            }
         }
         .animation(.spring(response: 0.5, dampingFraction: 0.85), value: lockScreenManager.isLocked)
         .animation(.easeOut(duration: 0.25), value: isExpanded)
