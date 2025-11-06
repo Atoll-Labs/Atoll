@@ -1,3 +1,8 @@
+# xcede
+.xcede/
+.xcrc
+buildServer.json
+
 .DS_Store
 # Xcode
 *.xcuserstate
@@ -29,6 +34,7 @@ DerivedData/
 build/
 *.app
 *.dSYM
+*.dmg
 
 # Temporary files
 *.swp
@@ -131,7 +137,7 @@ referenceimages
 
 PrivateWorks
 
-*.py 
+*.py
 *.sh
 comparison_report.json
 *.txt
