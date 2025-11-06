@@ -445,8 +445,11 @@ final class SystemBrightnessController {
     private var brightnessAnimationStart: Float = 0
     private var brightnessAnimationTarget: Float = 0
     private var brightnessAnimationStartDate: Date?
-    private let brightnessAnimationDuration: TimeInterval = 0.18
+    private var currentBrightnessAnimationDuration: TimeInterval = 0.18
     private let brightnessAnimationSteps = 10
+    private let minimumBrightnessAnimationDuration: TimeInterval = 0.08
+    private let maximumBrightnessAnimationDuration: TimeInterval = 0.3
+    private let brightnessAnimationDurationScale: TimeInterval = 1.6
     private var lastEmittedBrightness: Float = 0.5
 
     private init() {
@@ -507,8 +510,9 @@ final class SystemBrightnessController {
         brightnessAnimationStart = start
         brightnessAnimationTarget = target
         brightnessAnimationStartDate = Date()
+        currentBrightnessAnimationDuration = animationDuration(forDelta: abs(target - start))
 
-        let interval = brightnessAnimationDuration / Double(brightnessAnimationSteps)
+        let interval = currentBrightnessAnimationDuration / Double(brightnessAnimationSteps)
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] timer in
             guard let self else { return }
             guard let startDate = self.brightnessAnimationStartDate else {
@@ -517,7 +521,7 @@ final class SystemBrightnessController {
                 return
             }
             let elapsed = Date().timeIntervalSince(startDate)
-            let progress = min(elapsed / self.brightnessAnimationDuration, 1)
+            let progress = min(elapsed / self.currentBrightnessAnimationDuration, 1)
             let eased = self.ease(progress)
             let value = self.brightnessAnimationStart + (self.brightnessAnimationTarget - self.brightnessAnimationStart) * Float(eased)
             self.applyBrightness(value)
@@ -530,6 +534,11 @@ final class SystemBrightnessController {
         brightnessAnimationTimer = timer
         RunLoop.main.add(timer, forMode: .common)
         timer.fire()
+    }
+
+    private func animationDuration(forDelta delta: Float) -> TimeInterval {
+        let scaled = minimumBrightnessAnimationDuration + TimeInterval(delta) * brightnessAnimationDurationScale
+        return min(maximumBrightnessAnimationDuration, max(minimumBrightnessAnimationDuration, scaled))
     }
 
     private func applyBrightness(_ value: Float) {

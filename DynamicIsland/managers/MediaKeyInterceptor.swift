@@ -17,6 +17,11 @@ enum MediaKeyDirection {
     case down
 }
 
+enum MediaKeyStep {
+    case standard
+    case fine
+}
+
 struct MediaKeyConfiguration {
     var interceptVolume: Bool
     var interceptBrightness: Bool
@@ -25,8 +30,8 @@ struct MediaKeyConfiguration {
 }
 
 protocol MediaKeyInterceptorDelegate: AnyObject {
-    func mediaKeyInterceptor(_ interceptor: MediaKeyInterceptor, didReceiveVolumeCommand direction: MediaKeyDirection, isRepeat: Bool)
-    func mediaKeyInterceptor(_ interceptor: MediaKeyInterceptor, didReceiveBrightnessCommand direction: MediaKeyDirection, isRepeat: Bool)
+    func mediaKeyInterceptor(_ interceptor: MediaKeyInterceptor, didReceiveVolumeCommand direction: MediaKeyDirection, step: MediaKeyStep, isRepeat: Bool)
+    func mediaKeyInterceptor(_ interceptor: MediaKeyInterceptor, didReceiveBrightnessCommand direction: MediaKeyDirection, step: MediaKeyStep, isRepeat: Bool)
     func mediaKeyInterceptorDidToggleMute(_ interceptor: MediaKeyInterceptor)
 }
 
@@ -132,8 +137,8 @@ final class MediaKeyInterceptor {
     }
 
     private func handleEvent(cgEvent: CGEvent, type: CGEventType) -> Unmanaged<CGEvent>? {
-                  guard let systemDefinedType = systemDefinedEventType,
-                      type == systemDefinedType,
+        guard let systemDefinedType = systemDefinedEventType,
+              type == systemDefinedType,
               let nsEvent = NSEvent(cgEvent: cgEvent),
               nsEvent.subtype.rawValue == 8 else {
             return Unmanaged.passUnretained(cgEvent)
@@ -144,6 +149,7 @@ final class MediaKeyInterceptor {
         let keyFlags = data1 & 0x0000FFFF
         let keyState = ((keyFlags & 0xFF00) >> 8) == 0xA // 0xA = keyDown, 0xB = keyUp
         let isRepeat = (keyFlags & 0x0001) == 1
+        let step = step(for: nsEvent)
 
         guard keyState else {
             // Swallow key-up events only when intercepting, otherwise let them pass through
@@ -156,11 +162,11 @@ final class MediaKeyInterceptor {
         switch Int32(keyCode) {
         case NX_KEYTYPE_SOUND_UP:
             guard configuration.interceptVolume else { return Unmanaged.passUnretained(cgEvent) }
-            delegate?.mediaKeyInterceptor(self, didReceiveVolumeCommand: .up, isRepeat: isRepeat)
+            delegate?.mediaKeyInterceptor(self, didReceiveVolumeCommand: .up, step: step, isRepeat: isRepeat)
             return nil
         case NX_KEYTYPE_SOUND_DOWN:
             guard configuration.interceptVolume else { return Unmanaged.passUnretained(cgEvent) }
-            delegate?.mediaKeyInterceptor(self, didReceiveVolumeCommand: .down, isRepeat: isRepeat)
+            delegate?.mediaKeyInterceptor(self, didReceiveVolumeCommand: .down, step: step, isRepeat: isRepeat)
             return nil
         case NX_KEYTYPE_MUTE:
             guard configuration.interceptVolume else { return Unmanaged.passUnretained(cgEvent) }
@@ -168,11 +174,11 @@ final class MediaKeyInterceptor {
             return nil
         case NX_KEYTYPE_BRIGHTNESS_UP:
             guard configuration.interceptBrightness else { return Unmanaged.passUnretained(cgEvent) }
-            delegate?.mediaKeyInterceptor(self, didReceiveBrightnessCommand: .up, isRepeat: isRepeat)
+            delegate?.mediaKeyInterceptor(self, didReceiveBrightnessCommand: .up, step: step, isRepeat: isRepeat)
             return nil
         case NX_KEYTYPE_BRIGHTNESS_DOWN:
             guard configuration.interceptBrightness else { return Unmanaged.passUnretained(cgEvent) }
-            delegate?.mediaKeyInterceptor(self, didReceiveBrightnessCommand: .down, isRepeat: isRepeat)
+            delegate?.mediaKeyInterceptor(self, didReceiveBrightnessCommand: .down, step: step, isRepeat: isRepeat)
             return nil
         default:
             return Unmanaged.passUnretained(cgEvent)
@@ -188,6 +194,14 @@ final class MediaKeyInterceptor {
         default:
             return false
         }
+    }
+
+    private func step(for event: NSEvent) -> MediaKeyStep {
+        let modifiers = event.modifierFlags
+        if modifiers.contains(.option) && modifiers.contains(.shift) {
+            return .fine
+        }
+        return .standard
     }
 }
 

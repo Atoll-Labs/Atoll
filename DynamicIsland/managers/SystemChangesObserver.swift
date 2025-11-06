@@ -8,8 +8,9 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
     private let brightnessController = SystemBrightnessController.shared
     private let mediaKeyInterceptor = MediaKeyInterceptor.shared
 
-    private let volumeStep: Float = 1.0 / 16.0
-    private let brightnessStep: Float = 1.0 / 16.0
+    private let standardVolumeStep: Float = 1.0 / 16.0
+    private let standardBrightnessStep: Float = 1.0 / 16.0
+    private let fineStepDivisor: Float = 4.0
 
     private var volumeEnabled = false
     private var brightnessEnabled = false
@@ -73,9 +74,15 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
 
     // MARK: - MediaKeyInterceptorDelegate
 
-    func mediaKeyInterceptor(_ interceptor: MediaKeyInterceptor, didReceiveVolumeCommand direction: MediaKeyDirection, isRepeat: Bool) {
+    func mediaKeyInterceptor(
+        _ interceptor: MediaKeyInterceptor,
+        didReceiveVolumeCommand direction: MediaKeyDirection,
+        step: MediaKeyStep,
+        isRepeat: Bool
+    ) {
         guard volumeEnabled else { return }
-        let delta = (direction == .up ? volumeStep : -volumeStep)
+        let baseStep = stepSize(for: step, base: standardVolumeStep)
+        let delta = direction == .up ? baseStep : -baseStep
         volumeController.adjust(by: delta)
     }
 
@@ -84,9 +91,15 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
         volumeController.toggleMute()
     }
 
-    func mediaKeyInterceptor(_ interceptor: MediaKeyInterceptor, didReceiveBrightnessCommand direction: MediaKeyDirection, isRepeat: Bool) {
+    func mediaKeyInterceptor(
+        _ interceptor: MediaKeyInterceptor,
+        didReceiveBrightnessCommand direction: MediaKeyDirection,
+        step: MediaKeyStep,
+        isRepeat: Bool
+    ) {
         guard brightnessEnabled else { return }
-        let delta = (direction == .up ? brightnessStep : -brightnessStep)
+        let baseStep = stepSize(for: step, base: standardBrightnessStep)
+        let delta = direction == .up ? baseStep : -baseStep
         brightnessController.adjust(by: delta)
     }
 
@@ -111,6 +124,17 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
             value: CGFloat(value),
             icon: ""
         )
+    }
+}
+
+private extension SystemChangesObserver {
+    func stepSize(for step: MediaKeyStep, base: Float) -> Float {
+        switch step {
+        case .standard:
+            return base
+        case .fine:
+            return base / fineStepDivisor
+        }
     }
 }
 
