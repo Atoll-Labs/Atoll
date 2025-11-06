@@ -12,6 +12,11 @@ import AppKit
 import Defaults
 import SwiftUI
 
+enum LockScreenAnimationTimings {
+    static let lockExpand: TimeInterval = 0.45
+    static let unlockCollapse: TimeInterval = 0.82
+}
+
 @MainActor
 class LockScreenManager: ObservableObject {
     static let shared = LockScreenManager()
@@ -125,7 +130,7 @@ class LockScreenManager: ObservableObject {
         if Defaults[.enableLockScreenLiveActivity] {
             collapseTask?.cancel()
             collapseTask = Task { [weak self] in
-                try? await Task.sleep(for: .milliseconds(380))
+                try? await Task.sleep(for: .seconds(LockScreenAnimationTimings.unlockCollapse))
                 guard let self = self, !Task.isCancelled else { return }
                 await MainActor.run {
                     self.coordinator.toggleExpandingView(status: false, type: .lockScreen)
@@ -134,7 +139,7 @@ class LockScreenManager: ObservableObject {
         }
         
         self.lastUpdated = Date()
-        self.updateIdleState(locked: false)
+    self.updateIdleState(locked: false)
         self.isLocked = false
         
         print("[\(self.timestamp())] LockScreenManager: ✅ Lock screen deactivated")
@@ -150,11 +155,13 @@ class LockScreenManager: ObservableObject {
         } else {
             debounceIdleTask?.cancel()
             debounceIdleTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(Defaults[.waitInterval]))
+                let configuredInterval = max(Defaults[.waitInterval], 0)
+                let idleDelay = min(max(configuredInterval, 0.2), LockScreenAnimationTimings.unlockCollapse)
+                try? await Task.sleep(for: .seconds(idleDelay))
                 guard let self = self, !Task.isCancelled else { return }
                 await MainActor.run {
-                    if self.lastUpdated.timeIntervalSinceNow < -Defaults[.waitInterval] {
-                        withAnimation {
+                    if self.lastUpdated.timeIntervalSinceNow < -idleDelay {
+                        withAnimation(.smooth(duration: 0.3)) {
                             self.isLockIdle = !self.isLocked
                         }
                     }
