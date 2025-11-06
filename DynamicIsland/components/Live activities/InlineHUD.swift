@@ -38,7 +38,7 @@ struct InlineHUD: View {
             if showBluetoothDeviceNameMarquee {
                 return enableMinimalisticUI ? 128 : 140
             }
-            return enableMinimalisticUI ? 76 : 88
+            return enableMinimalisticUI ? 64 : 72
         }()
 
         let infoWidth: CGFloat = {
@@ -49,7 +49,7 @@ struct InlineHUD: View {
                 if showBluetoothDeviceNameMarquee {
                     return enableMinimalisticUI ? 112 : 120
                 }
-                return enableMinimalisticUI ? 70 : 82
+                return enableMinimalisticUI ? 56 : 68
             }()
             return max(width, minimum)
         }()
@@ -61,7 +61,7 @@ struct InlineHUD: View {
             }
 
             if useCircularIndicator {
-                return showBluetoothBatteryPercentageText ? (enableMinimalisticUI ? 108 : 120) : (enableMinimalisticUI ? 84 : 96)
+                return showBluetoothBatteryPercentageText ? (enableMinimalisticUI ? 108 : 120) : (enableMinimalisticUI ? 72 : 84)
             }
 
             return showBluetoothBatteryPercentageText ? (enableMinimalisticUI ? 118 : 136) : (enableMinimalisticUI ? 92 : 108)
@@ -73,14 +73,14 @@ struct InlineHUD: View {
             let minimum: CGFloat = {
                 guard type == .bluetoothAudio else { return 90 }
                 if !hasBatteryLevel {
-                    return showBluetoothDeviceNameMarquee ? (enableMinimalisticUI ? 96 : 110) : (enableMinimalisticUI ? 70 : 92)
+                    return showBluetoothDeviceNameMarquee ? (enableMinimalisticUI ? 96 : 110) : (enableMinimalisticUI ? 62 : 88)
                 }
 
                 if useCircularIndicator {
-                    return showBluetoothBatteryPercentageText ? (enableMinimalisticUI ? 92 : 110) : (enableMinimalisticUI ? 68 : 80)
+                    return showBluetoothBatteryPercentageText ? (enableMinimalisticUI ? 92 : 110) : (enableMinimalisticUI ? 56 : 72)
                 }
 
-                return showBluetoothBatteryPercentageText ? (enableMinimalisticUI ? 104 : 120) : (enableMinimalisticUI ? 82 : 98)
+                return showBluetoothBatteryPercentageText ? (enableMinimalisticUI ? 104 : 120) : (enableMinimalisticUI ? 72 : 90)
             }()
             return max(width, minimum)
         }()
