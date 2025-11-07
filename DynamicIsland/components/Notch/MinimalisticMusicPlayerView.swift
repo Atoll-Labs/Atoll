@@ -89,49 +89,56 @@ struct MinimalisticMusicPlayerView: View {
     
     private var progressBar: some View {
         TimelineView(.animation(minimumInterval: musicManager.playbackRate > 0 ? 0.1 : nil)) { timeline in
-            let currentElapsed = currentSliderValue(timeline.date)
-            
-            HStack(spacing: 8) {
-                // Elapsed time - left
-                Text(formatTime(dragging ? sliderValue : currentElapsed))
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 42, alignment: .leading)
-                
-                // Progress bar
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        // Background track
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.white.opacity(0.2))
-                            .frame(height: 6)
-                        
-                        // Filled portion
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(sliderColor)
-                            .frame(width: max(0, geometry.size.width * (currentSliderValue(timeline.date) / max(musicManager.songDuration, 1))), height: 6)
-                    }
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                dragging = true
-                                let newValue = min(max(0, Double(value.location.x / geometry.size.width) * musicManager.songDuration), musicManager.songDuration)
-                                sliderValue = newValue
-                                lastDragged = Date()
-                            }
-                            .onEnded { _ in
-                                musicManager.seek(to: sliderValue)
-                                dragging = false
-                            }
-                    )
+            if musicManager.isLiveStream {
+                HStack(spacing: 8) {
+                    Spacer()
+                        .frame(width: 42)
+                    LiveStreamProgressIndicator(tint: sliderColor)
+                        .frame(maxWidth: .infinity, minHeight: 6, maxHeight: 6)
+                    Spacer()
+                        .frame(width: 48)
                 }
-                .frame(height: 6)
-                
-                // Time remaining - right
-                Text("-\(formatTime(musicManager.songDuration - (dragging ? sliderValue : currentElapsed)))")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 48, alignment: .trailing)
+                .allowsHitTesting(false)
+            } else {
+                let currentElapsed = currentSliderValue(timeline.date)
+
+                HStack(spacing: 8) {
+                    Text(formatTime(dragging ? sliderValue : currentElapsed))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 42, alignment: .leading)
+
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.white.opacity(0.2))
+                                .frame(height: 6)
+
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(sliderColor)
+                                .frame(width: max(0, geometry.size.width * (currentSliderValue(timeline.date) / max(musicManager.songDuration, 1))), height: 6)
+                        }
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    dragging = true
+                                    let newValue = min(max(0, Double(value.location.x / geometry.size.width) * musicManager.songDuration), musicManager.songDuration)
+                                    sliderValue = newValue
+                                    lastDragged = Date()
+                                }
+                                .onEnded { _ in
+                                    musicManager.seek(to: sliderValue)
+                                    dragging = false
+                                }
+                        )
+                    }
+                    .frame(height: 6)
+
+                    Text("-\(formatTime(musicManager.songDuration - (dragging ? sliderValue : currentElapsed)))")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 48, alignment: .trailing)
+                }
             }
         }
         .onAppear {

@@ -170,8 +170,10 @@ struct MusicControlsView: View {
                 timestampDate: musicManager.timestampDate,
                 elapsedTime: musicManager.elapsedTime,
                 playbackRate: musicManager.playbackRate,
-                isPlaying: musicManager.isPlaying
+                isPlaying: musicManager.isPlaying,
+                isLiveStream: musicManager.isLiveStream
             ) { newValue in
+                guard !musicManager.isLiveStream else { return }
                 MusicManager.shared.seek(to: newValue)
             }
             .padding(.top, 5)
@@ -296,36 +298,69 @@ struct MusicSliderView: View {
     let elapsedTime: Double
     let playbackRate: Double
     let isPlaying: Bool
+    let isLiveStream: Bool
     var onValueChange: (Double) -> Void
 
 
     var body: some View {
         VStack {
+            sliderContent
+                .frame(height: 10, alignment: .center)
+            if !isLiveStream {
+                HStack {
+                    Text(timeString(from: sliderValue))
+                    Spacer()
+                    Text(timeString(from: duration))
+                }
+                .fontWeight(.medium)
+                .foregroundColor(timeLabelColor)
+                .font(.caption)
+            }
+        }
+        .onChange(of: currentDate) { newDate in
+            guard !isLiveStream else { return }
+            guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
+            sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: newDate)
+        }
+        .onChange(of: isLiveStream) { isLive in
+            if isLive {
+                sliderValue = 0
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sliderContent: some View {
+        if isLiveStream {
+            LiveStreamProgressIndicator(tint: sliderTint)
+                .frame(maxWidth: .infinity)
+        } else {
             CustomSlider(
                 value: $sliderValue,
                 range: 0 ... duration,
-                color: Defaults[.sliderColor] == SliderColorEnum.albumArt ? Color(
-                    nsColor: color
-                ).ensureMinimumBrightness(factor: 0.8) : Defaults[.sliderColor] == SliderColorEnum.accent ? .accentColor : .white,
+                color: sliderTint,
                 dragging: $dragging,
                 lastDragged: $lastDragged,
                 onValueChange: onValueChange
             )
-            .frame(height: 10, alignment: .center)
-            HStack {
-                Text(timeString(from: sliderValue))
-                Spacer()
-                Text(timeString(from: duration))
-            }
-            .fontWeight(.medium)
-            .foregroundColor(Defaults[.playerColorTinting] ? Color(nsColor: color)
-                .ensureMinimumBrightness(factor: 0.6) : .gray)
-            .font(.caption)
         }
-        .onChange(of: currentDate) { newDate in
-            guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
-            sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: newDate)
+    }
+
+    private var sliderTint: Color {
+        switch Defaults[.sliderColor] {
+        case .albumArt:
+            return Color(nsColor: color).ensureMinimumBrightness(factor: 0.8)
+        case .accent:
+            return .accentColor
+        case .white:
+            return .white
         }
+    }
+
+    private var timeLabelColor: Color {
+        Defaults[.playerColorTinting]
+            ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.6)
+            : .gray
     }
 
     func timeString(from seconds: Double) -> String {
@@ -340,7 +375,9 @@ struct MusicSliderView: View {
             return String(format: "%d:%02d", minutes, remainingSeconds)
         }
     }
+
 }
+
 
 struct CustomSlider: View {
     @Binding var value: Double
