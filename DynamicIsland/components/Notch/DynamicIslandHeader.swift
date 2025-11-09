@@ -16,6 +16,7 @@ struct DynamicIslandHeader: View {
     @ObservedObject var clipboardManager = ClipboardManager.shared
     @ObservedObject var tvm = TrayDrop.shared
     @ObservedObject var timerManager = TimerManager.shared
+    @ObservedObject var doNotDisturbManager = DoNotDisturbManager.shared
     @State private var showClipboardPopover = false
     @State private var showColorPickerPopover = false
     @State private var showTimerPopover = false
@@ -195,6 +196,12 @@ struct DynamicIslandHeader: View {
                     if Defaults[.enableScreenRecordingDetection] && Defaults[.showRecordingIndicator] {
                         RecordingIndicator()
                             .frame(width: 30, height: 30) // Same size as other header elements
+                    }
+
+                    if Defaults[.enableDoNotDisturbDetection] && Defaults[.showDoNotDisturbIndicator] && doNotDisturbManager.isDoNotDisturbActive {
+                        FocusIndicator()
+                            .frame(width: 30, height: 30)
+                            .transition(.opacity)
                     }
                     
                     if Defaults[.showBatteryIndicator] {

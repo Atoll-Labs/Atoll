@@ -157,6 +157,7 @@ struct GeneralSettings: View {
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject var recordingManager = ScreenRecordingManager.shared
     @ObservedObject var privacyManager = PrivacyIndicatorManager.shared
+    @ObservedObject var doNotDisturbManager = DoNotDisturbManager.shared
 
     @Default(.mirrorShape) var mirrorShape
     @Default(.showEmojis) var showEmojis
@@ -172,6 +173,9 @@ struct GeneralSettings: View {
     @Default(.openNotchOnHover) var openNotchOnHover
     @Default(.enableScreenRecordingDetection) var enableScreenRecordingDetection
     @Default(.showRecordingIndicator) var showRecordingIndicator
+    @Default(.enableDoNotDisturbDetection) var enableDoNotDisturbDetection
+    @Default(.showDoNotDisturbIndicator) var showDoNotDisturbIndicator
+    @Default(.showDoNotDisturbLabel) var showDoNotDisturbLabel
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
     @Default(.lockScreenGlassStyle) var lockScreenGlassStyle
     @Default(.lockScreenShowAppIcon) var lockScreenShowAppIcon
@@ -235,12 +239,12 @@ struct GeneralSettings: View {
             
             Section {
                 Defaults.Toggle("Enable Screen Recording Detection", key: .enableScreenRecordingDetection)
-                
+
                 Defaults.Toggle("Show Recording Indicator", key: .showRecordingIndicator)
                     .disabled(!enableScreenRecordingDetection)
-                
+
                 // Note: Polling removed - now uses event-driven private API detection
-                
+
                 if recordingManager.isMonitoring {
                     HStack {
                         Text("Detection Status")
@@ -260,11 +264,51 @@ struct GeneralSettings: View {
                     }
                 }
             } header: {
-                Text("Screen Recording Detection")
+                Text("Screen Recording")
             } footer: {
                 Text("Uses event-driven private API for real-time screen recording detection")
             }
-            
+
+            Section {
+                Defaults.Toggle("Enable Focus Detection", key: .enableDoNotDisturbDetection)
+
+                Defaults.Toggle("Show Focus Indicator", key: .showDoNotDisturbIndicator)
+                    .disabled(!enableDoNotDisturbDetection)
+
+                Defaults.Toggle("Show Focus Label", key: .showDoNotDisturbLabel)
+                    .disabled(!enableDoNotDisturbDetection)
+
+                if doNotDisturbManager.isMonitoring {
+                    HStack {
+                        Text("Focus Status")
+                        Spacer()
+                        if doNotDisturbManager.isDoNotDisturbActive {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.purple)
+                                    .frame(width: 8, height: 8)
+                                Text(doNotDisturbManager.currentFocusModeName.isEmpty ? "Focus Enabled" : doNotDisturbManager.currentFocusModeName)
+                                    .foregroundColor(.purple)
+                            }
+                        } else {
+                            Text("Active - No Focus")
+                                .foregroundColor(.green)
+                        }
+                    }
+                } else {
+                    HStack {
+                        Text("Focus Status")
+                        Spacer()
+                        Text("Disabled")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            } header: {
+                Text("Do Not Disturb")
+            } footer: {
+                Text("Listens for Focus session changes via distributed notifications")
+            }
+
             Section {
                 Defaults.Toggle("Enable Camera Detection", key: .enableCameraDetection)
                 Defaults.Toggle("Enable Microphone Detection", key: .enableMicrophoneDetection)

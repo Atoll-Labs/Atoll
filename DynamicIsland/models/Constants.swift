@@ -483,6 +483,11 @@ extension Defaults.Keys {
     static let showRecordingIndicator = Key<Bool>("showRecordingIndicator", default: true)
     // Polling removed - now uses event-driven private API detection (CGSIsScreenWatcherPresent)
     // static let enableScreenRecordingPolling = Key<Bool>("enableScreenRecordingPolling", default: false)
+
+    // MARK: Focus / Do Not Disturb Detection
+    static let enableDoNotDisturbDetection = Key<Bool>("enableDoNotDisturbDetection", default: true)
+    static let showDoNotDisturbIndicator = Key<Bool>("showDoNotDisturbIndicator", default: true)
+    static let showDoNotDisturbLabel = Key<Bool>("showDoNotDisturbLabel", default: true)
     
     // MARK: Privacy Indicators (Camera & Microphone Detection)
     static let enableCameraDetection = Key<Bool>("enableCameraDetection", default: true)

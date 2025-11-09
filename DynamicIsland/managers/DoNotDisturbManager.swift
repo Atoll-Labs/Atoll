@@ -2,403 +2,168 @@
 //  DoNotDisturbManager.swift
 //  DynamicIsland
 //
-//  Created for Do Not Disturb / Focus Mode detection
-//  Monitors macOS Focus Mode state changes via distributed notifications
+//  Replaces the legacy polling-based Focus detection with
+//  NSDistributedNotificationCenter-backed monitoring.
 //
 
-import Foundation
-import Combine
 import AppKit
+import Combine
 import Defaults
+import Foundation
 import SwiftUI
-import UserNotifications  // For notification permission checks
-import ApplicationServices  // For AXIsProcessTrusted
 
-/// Manages detection and state tracking for macOS Focus Mode (Do Not Disturb)
-class DoNotDisturbManager: ObservableObject {
+final class DoNotDisturbManager: ObservableObject {
     static let shared = DoNotDisturbManager()
-    
-    // MARK: - Published Properties
-    @Published var isDoNotDisturbActive: Bool = false
+
+    @Published private(set) var isMonitoring = false
+    @Published var isDoNotDisturbActive = false
     @Published var currentFocusModeName: String = ""
     @Published var currentFocusModeIdentifier: String = ""
-    
-    // MARK: - Private Properties
-    private var observers: [NSObjectProtocol] = []
-    private var cancellables = Set<AnyCancellable>()
-    
-    // MARK: - Initialization
-    private init() {
-        print("🔔 [DoNotDisturbManager] Initializing...")
-        checkPermissions()
-        setupFocusModeObservers()
-        checkInitialState()
-    }
-    
+
+    private let notificationCenter = DistributedNotificationCenter.default()
+    private let metadataExtractionQueue = DispatchQueue(label: "com.dynamicisland.focus.metadata", qos: .userInitiated)
+
+    private init() {}
+
     deinit {
-        cleanup()
+        stopMonitoring()
     }
-    
-    // MARK: - Permission Checks
-    
-    /// Checks if the app has necessary permissions for notification observation
-    private func checkPermissions() {
-        print("🔔 [DoNotDisturbManager] ==========================================")
-        print("🔔 [DoNotDisturbManager] 🔐 CHECKING PERMISSIONS & CAPABILITIES")
-        print("🔔 [DoNotDisturbManager] ==========================================")
-        
-        // Check if running in sandbox
-        let isSandboxed = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
-        print("   📦 Sandboxed: \(isSandboxed ? "YES ⚠️" : "NO ✅")")
-        
-        // Check notification center permissions
-        let notificationCenter = UNUserNotificationCenter.current()
-        notificationCenter.getNotificationSettings { settings in
-            print("   🔔 Notification Authorization: \(settings.authorizationStatus.rawValue)")
-            print("      - .notDetermined = 0")
-            print("      - .denied = 1")
-            print("      - .authorized = 2")
-            print("      - .provisional = 3")
-            print("      - .ephemeral = 4")
-        }
-        
-        // Check accessibility permissions
-        let trusted = AXIsProcessTrusted()
-        print("   ♿️ Accessibility Trusted: \(trusted ? "YES ✅" : "NO ⚠️")")
-        if !trusted {
-            print("      ⚠️  App needs Accessibility permission!")
-            print("      ⚠️  Go to: System Settings > Privacy & Security > Accessibility")
-        }
-        
-        // Check entitlements
-        print("   📝 Checking Entitlements...")
-        if let entitlements = Bundle.main.object(forInfoDictionaryKey: "Entitlements") as? [String: Any] {
-            print("      Entitlements found: \(entitlements.keys)")
-        } else {
-            print("      ⚠️  No entitlements in Info.plist")
-        }
-        
-        // Test if we can observe notifications at all
-        print("   🧪 Testing notification observation capability...")
-        testNotificationObservation()
-        
-        print("🔔 [DoNotDisturbManager] ==========================================")
-    }
-    
-    /// Test if notification observation is working at all
-    private func testNotificationObservation() {
-        // Test 1: Local NotificationCenter
-        let testObserver = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("TEST_NOTIFICATION"),
+
+    func startMonitoring() {
+        guard !isMonitoring else { return }
+
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleFocusEnabled(_:)),
+            name: .focusModeEnabled,
             object: nil,
-            queue: .main,
-            using: { notification in
-                print("   ✅ Local NotificationCenter works!")
-            }
+            suspensionBehavior: .deliverImmediately
         )
-        NotificationCenter.default.post(name: NSNotification.Name("TEST_NOTIFICATION"), object: nil)
-        NotificationCenter.default.removeObserver(testObserver)
-        
-        // Test 2: Distributed NotificationCenter (this is what we need)
-        let dnc = DistributedNotificationCenter.default()
-        print("   🌐 DistributedNotificationCenter instance: \(dnc)")
-        print("   🌐 Attempting to post test distributed notification...")
-        
-        let testDistributedObserver = dnc.addObserver(
-            forName: NSNotification.Name("com.test.distributed.notification"),
+
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleFocusDisabled(_:)),
+            name: .focusModeDisabled,
             object: nil,
-            queue: .main,
-            using: { notification in
-                print("   ✅ Distributed NotificationCenter observation works!")
-            }
+            suspensionBehavior: .deliverImmediately
         )
-        
-        // Post a test distributed notification
-        dnc.postNotificationName(
-            NSNotification.Name("com.test.distributed.notification"),
-            object: nil,
-            userInfo: ["test": "data"],
-            deliverImmediately: true
-        )
-        
-        // Wait a bit then remove observer
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            dnc.removeObserver(testDistributedObserver)
-            print("   🧹 Test observer cleaned up")
+
+        isMonitoring = true
+    }
+
+    func stopMonitoring() {
+        guard isMonitoring else { return }
+
+        notificationCenter.removeObserver(self, name: .focusModeEnabled, object: nil)
+        notificationCenter.removeObserver(self, name: .focusModeDisabled, object: nil)
+
+        isMonitoring = false
+
+        DispatchQueue.main.async {
+            self.isDoNotDisturbActive = false
+            self.currentFocusModeIdentifier = ""
+            self.currentFocusModeName = ""
         }
     }
-    
-    // MARK: - Setup Methods
-    
-    /// Sets up distributed notification observers for Focus Mode changes
-    private func setupFocusModeObservers() {
-        print("🔔 [DoNotDisturbManager] ==========================================")
-        print("🔔 [DoNotDisturbManager] 🚨 SETTING UP NOTIFICATION OBSERVERS 🚨")
-        print("🔔 [DoNotDisturbManager] ==========================================")
-        
-        // Method 1: Darwin Notifications (low-level, no permissions needed)
-        setupDarwinNotificationObserver()
-        
-        // Method 2: Distributed Notifications (system-wide)
-        setupDistributedNotificationObserver()
-        
-        // Method 3: NSWorkspace Notifications (local)
-        setupNSWorkspaceNotificationObserver()
-        
-        // Method 4: Polling as fallback
-        startPollingForDND()
-        
-        print("🔔 [DoNotDisturbManager] ✅ All observers registered")
-        print("🔔 [DoNotDisturbManager] Please toggle Do Not Disturb now...")
-        print("🔔 [DoNotDisturbManager] ==========================================")
+
+    @objc private func handleFocusEnabled(_ notification: Notification) {
+        apply(notification: notification, isActive: true)
     }
-    
-    private func setupDarwinNotificationObserver() {
-        print("🔔 [DoNotDisturbManager] Setting up DARWIN notification observer...")
-        
-        // Darwin notifications - these are low-level and work without special permissions
-        let darwinNotificationNames = [
-            "com.apple.controlcenter.modeChanged",
-            "com.apple.donotdisturb.changed",
-            "com.apple.donotdisturb.state",
-            "com.apple.springboard.donotdisturb"
-        ]
-        
-        let center = CFNotificationCenterGetDarwinNotifyCenter()
-        
-        for notificationName in darwinNotificationNames {
-            CFNotificationCenterAddObserver(
-                center,
-                Unmanaged.passUnretained(self).toOpaque(),
-                { (center, observer, name, object, userInfo) in
-                    guard let name = name else { return }
-                    let notificationName = name.rawValue as String
-                    print("🎯 [DARWIN NOTIFICATION] \(notificationName)")
-                    
-                    // Get the manager instance
-                    if let observer = observer {
-                        let manager = Unmanaged<DoNotDisturbManager>.fromOpaque(observer).takeUnretainedValue()
-                        manager.handleDarwinNotification(notificationName)
-                    }
-                },
-                notificationName as CFString,
-                nil,
-                .deliverImmediately
-            )
-            print("   ✅ Darwin observer registered for: \(notificationName)")
-        }
+
+    @objc private func handleFocusDisabled(_ notification: Notification) {
+        apply(notification: notification, isActive: false)
     }
-    
-    private func handleDarwinNotification(_ name: String) {
-        DispatchQueue.main.async { [weak self] in
-            print("🔔🔔🔔 [DARWIN] Focus Mode notification received: \(name)")
-            // Toggle DND state
-            self?.isDoNotDisturbActive.toggle()
-            self?.showFocusModeActivatedHUD()
-        }
-    }
-    
-    private func setupDistributedNotificationObserver() {
-        let dnc = DistributedNotificationCenter.default()
-        
-        print("🔔 [DoNotDisturbManager] Setting up DISTRIBUTED notification observer...")
-        
-        // Observer for ANY AND ALL distributed notifications (for discovery)
-        let allNotificationsObserver = dnc.addObserver(
-            forName: nil,  // nil = listen to EVERYTHING
-            object: nil,
-            queue: .main,
-            using: { [weak self] notification in
-                let notificationName = notification.name.rawValue
-                
-                // PRINT EVERY SINGLE NOTIFICATION (no filtering)
-                print("📢 [DISTRIBUTED] \(notificationName)")
-                
-                // Also check if it looks Focus Mode related
-                if notificationName.lowercased().contains("focus") ||
-                   notificationName.lowercased().contains("dnd") ||
-                   notificationName.lowercased().contains("disturb") ||
-                   notificationName.lowercased().contains("mode") ||
-                   notificationName.contains("com.apple.controlcenter") ||
-                   notificationName.contains("com.apple.donotdisturb") {
-                    
-                    print("🔔🔔🔔 [DoNotDisturbManager] ⚡️⚡️⚡️ POTENTIAL FOCUS MODE NOTIFICATION:")
-                    print("       Name: \(notificationName)")
-                    print("       Object: \(String(describing: notification.object))")
-                    print("       UserInfo Keys: \(notification.userInfo?.keys.map { String(describing: $0) } ?? [])")
-                    print("       UserInfo: \(notification.userInfo ?? [:])")
-                    print("       ===============================================")
-                    
-                    self?.handleFocusModeNotification(notification)
-                }
-            }
-        )
-        observers.append(allNotificationsObserver)
-        print("   ✅ Distributed notification observer registered")
-    }
-    
-    private func setupNSWorkspaceNotificationObserver() {
-        let nc = NSWorkspace.shared.notificationCenter
-        
-        print("🔔 [DoNotDisturbManager] Setting up NSWORKSPACE notification observer...")
-        
-        // Try to observe workspace notifications
-        let workspaceObserver = nc.addObserver(
-            forName: nil,  // Listen to all workspace notifications
-            object: nil,
-            queue: .main,
-            using: { notification in
-                let notificationName = notification.name.rawValue
-                
-                // Print all workspace notifications
-                print("🏢 [NSWORKSPACE] \(notificationName)")
-                
-                // Check for Focus Mode related
-                if notificationName.lowercased().contains("focus") ||
-                   notificationName.lowercased().contains("dnd") ||
-                   notificationName.lowercased().contains("disturb") {
-                    print("🔔🔔🔔 [WORKSPACE FOCUS NOTIFICATION]")
-                    print("       Name: \(notificationName)")
-                    print("       UserInfo: \(notification.userInfo ?? [:])")
-                }
-            }
-        )
-        observers.append(workspaceObserver)
-        print("   ✅ NSWorkspace notification observer registered")
-    }
-    
-    private func startPollingForDND() {
-        print("🔔 [DoNotDisturbManager] Starting polling fallback (every 2 seconds)...")
-        
-        // Poll every 2 seconds to check for DND state changes
-        Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.checkDNDStateViaDefaults()
-        }
-        print("   ✅ Polling timer started")
-    }
-    
-    private func checkDNDStateViaDefaults() {
-        // Try to read DND state from UserDefaults or system preferences
-        // This is a fallback detection method
-        
-        let cfPrefs = CFPreferencesCopyAppValue("dndStart" as CFString, "com.apple.controlcenter" as CFString)
-        if let prefs = cfPrefs {
-            print("🔍 [POLLING] Found controlcenter prefs: \(prefs)")
-        }
-        
-        // Try reading notification center settings
-        let ncPrefs = CFPreferencesCopyAppValue("doNotDisturb" as CFString, "com.apple.notificationcenterui" as CFString)
-        if let nc = ncPrefs {
-            print("🔍 [POLLING] Found notification center prefs: \(nc)")
-        }
-    }
-    
-    /// Checks initial Focus Mode state on app launch
-    private func checkInitialState() {
-        // TODO: Find a way to check current Focus Mode state
-        // Options to explore:
-        // 1. NSWorkspace properties (if any exist)
-        // 2. Private APIs
-        // 3. AppleScript (last resort)
-        
-        print("🔔 [DoNotDisturbManager] Checking initial Focus Mode state...")
-        print("   Note: Initial state detection not yet implemented")
-    }
-    
-    // MARK: - Notification Handling
-    
-    /// Handles incoming Focus Mode notifications
-    private func handleFocusModeNotification(_ notification: Notification) {
-        DispatchQueue.main.async { [weak self] in
+
+    private func apply(notification: Notification, isActive: Bool) {
+        metadataExtractionQueue.async { [weak self] in
             guard let self = self else { return }
-            
-            // Parse notification payload
-            let userInfo = notification.userInfo ?? [:]
-            
-            // Try to extract Focus Mode state and identifier
-            // Note: Actual keys depend on the notification structure (to be discovered)
-            if let stateString = userInfo["state"] as? String {
-                self.isDoNotDisturbActive = (stateString == "enabled" || stateString == "on" || stateString == "active")
-            } else if let enabled = userInfo["enabled"] as? Bool {
-                self.isDoNotDisturbActive = enabled
-            } else if let active = userInfo["active"] as? Bool {
-                self.isDoNotDisturbActive = active
-            }
-            
-            // Try to extract mode name
-            if let modeName = userInfo["name"] as? String {
-                self.currentFocusModeName = modeName
-            } else if let mode = userInfo["mode"] as? String {
-                self.currentFocusModeName = mode
-            }
-            
-            // Try to extract mode identifier
-            if let identifier = userInfo["identifier"] as? String {
-                self.currentFocusModeIdentifier = identifier
-            }
-            
-            print("🔔 [DoNotDisturbManager] State updated:")
-            print("   Active: \(self.isDoNotDisturbActive)")
-            print("   Mode Name: \(self.currentFocusModeName.isEmpty ? "N/A" : self.currentFocusModeName)")
-            print("   Identifier: \(self.currentFocusModeIdentifier.isEmpty ? "N/A" : self.currentFocusModeIdentifier)")
-            
-            // Trigger HUD display
-            if self.isDoNotDisturbActive {
-                self.showFocusModeActivatedHUD()
-            } else {
-                self.showFocusModeDeactivatedHUD()
+
+            let metadata = self.extractMetadata(from: notification)
+
+            DispatchQueue.main.async {
+                let trimmedIdentifier = metadata.identifier?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmedName = metadata.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                let resolvedMode = FocusModeType.resolve(identifier: trimmedIdentifier, name: trimmedName)
+
+                debugPrint("[DoNotDisturbManager] Focus update -> notification: \(notification.name.rawValue) | identifier: \(trimmedIdentifier ?? "<nil>") | name: \(trimmedName ?? "<nil>") | resolved: \(resolvedMode.rawValue)")
+
+                let finalIdentifier: String
+                if let identifier = trimmedIdentifier, !identifier.isEmpty {
+                    finalIdentifier = identifier
+                } else {
+                    finalIdentifier = resolvedMode.rawValue
+                }
+
+                if finalIdentifier != self.currentFocusModeIdentifier {
+                    self.currentFocusModeIdentifier = finalIdentifier
+                }
+
+                let finalName: String
+                if let name = trimmedName, !name.isEmpty {
+                    finalName = name
+                } else if !resolvedMode.displayName.isEmpty {
+                    finalName = resolvedMode.displayName
+                } else if let identifier = trimmedIdentifier, !identifier.isEmpty {
+                    finalName = identifier
+                } else {
+                    finalName = "Focus"
+                }
+
+                if finalName != self.currentFocusModeName {
+                    self.currentFocusModeName = finalName
+                }
+
+                guard self.isDoNotDisturbActive != isActive else { return }
+
+                withAnimation(.smooth(duration: 0.25)) {
+                    self.isDoNotDisturbActive = isActive
+                }
             }
         }
     }
-    
-    // MARK: - HUD Display Methods
-    
-    /// Shows HUD when Focus Mode is activated
-    private func showFocusModeActivatedHUD() {
-        print("🔔 [DoNotDisturbManager] 📱 Showing Focus Mode ACTIVATED HUD")
-        
-        // TODO: Integrate with DynamicIslandViewCoordinator to show HUD
-        // coordinator.toggleSneakPeek(status: true, type: .doNotDisturb, value: 1)
+
+    private func extractMetadata(from notification: Notification) -> (name: String?, identifier: String?) {
+        guard let userInfo = notification.userInfo else { return (nil, nil) }
+
+        debugPrint("[DoNotDisturbManager] raw focus payload -> name: \(notification.name.rawValue), object: \(String(describing: notification.object)), userInfo: \(userInfo)")
+
+        let identifierKeys = [
+            "FocusModeIdentifier",
+            "focusModeIdentifier",
+            "FocusModeUUID",
+            "focusModeUUID",
+            "UUID",
+            "uuid",
+            "identifier",
+            "Identifier"
+        ]
+
+        let nameKeys = [
+            "FocusModeName",
+            "focusModeName",
+            "FocusMode",
+            "focusMode",
+            "name",
+            "Name"
+        ]
+
+        let identifier = firstMatch(for: identifierKeys, in: userInfo)
+        let name = firstMatch(for: nameKeys, in: userInfo)
+
+        return (name, identifier)
     }
-    
-    /// Shows HUD when Focus Mode is deactivated
-    private func showFocusModeDeactivatedHUD() {
-        print("🔔 [DoNotDisturbManager] 📱 Showing Focus Mode DEACTIVATED HUD")
-        
-        // TODO: Integrate with DynamicIslandViewCoordinator to show HUD
-        // coordinator.toggleSneakPeek(status: true, type: .doNotDisturb, value: 0)
-    }
-    
-    // MARK: - Public Methods
-    
-    /// Manually refresh Focus Mode state
-    func refreshState() {
-        print("🔔 [DoNotDisturbManager] Manual state refresh requested")
-        checkInitialState()
-    }
-    
-    // MARK: - Cleanup
-    
-    private func cleanup() {
-        print("🔔 [DoNotDisturbManager] Cleaning up observers...")
-        
-        // Remove Darwin notification observers
-        let center = CFNotificationCenterGetDarwinNotifyCenter()
-        CFNotificationCenterRemoveEveryObserver(center, Unmanaged.passUnretained(self).toOpaque())
-        
-        // Remove other observers
-        let dnc = DistributedNotificationCenter.default()
-        for observer in observers {
-            dnc.removeObserver(observer)
-        }
-        observers.removeAll()
-        cancellables.removeAll()
-    }
+
+}
+
+private extension Notification.Name {
+    static let focusModeEnabled = Notification.Name("_NSDoNotDisturbEnabledNotification")
+    static let focusModeDisabled = Notification.Name("_NSDoNotDisturbDisabledNotification")
 }
 
 // MARK: - Focus Mode Types
 
-enum FocusModeType: String {
+enum FocusModeType: String, CaseIterable {
     case doNotDisturb = "com.apple.donotdisturb.mode"
     case work = "com.apple.focus.work"
     case personal = "com.apple.focus.personal"
@@ -413,7 +178,7 @@ enum FocusModeType: String {
     
     var displayName: String {
         switch self {
-        case .doNotDisturb: return "Do Not Disturb"
+    case .doNotDisturb: return "Do Not Disturb"
         case .work: return "Work"
         case .personal: return "Personal"
         case .sleep: return "Sleep"
@@ -439,7 +204,152 @@ enum FocusModeType: String {
         case .mindfulness: return "brain.head.profile"
         case .reading: return "book.fill"
         case .custom: return "app.badge"
-        case .unknown: return "moon.zzz.fill"
+        case .unknown: return "moon.fill"
+        }
+    }
+
+    var accentColor: Color {
+        switch self {
+        case .doNotDisturb:
+            return Color(red: 0.370, green: 0.360, blue: 0.902)
+        case .work:
+            return Color(red: 0.133, green: 0.475, blue: 0.992)
+        case .personal:
+            return Color(red: 0.937, green: 0.282, blue: 0.624)
+        case .sleep:
+            return Color(red: 0.341, green: 0.384, blue: 0.980)
+        case .driving:
+            return Color(red: 0.988, green: 0.561, blue: 0.153)
+        case .fitness:
+            return Color(red: 0.176, green: 0.804, blue: 0.459)
+        case .gaming:
+            return Color(red: 0.639, green: 0.329, blue: 0.937)
+        case .mindfulness:
+            return Color(red: 0.239, green: 0.718, blue: 0.682)
+        case .reading:
+            return Color(red: 0.239, green: 0.596, blue: 0.965)
+        case .custom:
+            return Color(red: 0.513, green: 0.478, blue: 0.965)
+        case .unknown:
+            return Color(red: 0.370, green: 0.360, blue: 0.902)
+        }
+    }
+
+    var inactiveSymbol: String {
+        switch self {
+        case .doNotDisturb:
+            return "moon.circle.fill"
+        default:
+            return sfSymbol
+        }
+    }
+}
+
+extension FocusModeType {
+    init(identifier: String) {
+        let normalized = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedLowercased = normalized.lowercased()
+
+        guard !normalized.isEmpty else {
+            self = .doNotDisturb
+            return
+        }
+
+        if let direct = FocusModeType(rawValue: normalized) ?? FocusModeType(rawValue: normalizedLowercased) {
+            self = direct
+            return
+        }
+
+        if let resolved = FocusModeType.allCases.first(where: {
+            guard !$0.rawValue.isEmpty else { return false }
+            return normalized.hasPrefix($0.rawValue) || normalizedLowercased.hasPrefix($0.rawValue)
+        }) {
+            self = resolved
+            return
+        }
+
+        if normalizedLowercased.hasPrefix("com.apple.focus.") {
+            self = .custom
+            return
+        }
+
+        self = .doNotDisturb
+    }
+
+    static func resolve(identifier: String?, name: String?) -> FocusModeType {
+        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmedName.isEmpty {
+            if let match = FocusModeType.allCases.first(where: {
+                guard !$0.displayName.isEmpty else { return false }
+                return $0.displayName.compare(trimmedName, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+            }) {
+                return match
+            }
+        }
+
+        let trimmedIdentifier = identifier?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmedIdentifier.isEmpty {
+            return FocusModeType(identifier: trimmedIdentifier)
+        }
+
+        return .doNotDisturb
+    }
+}
+
+// MARK: - Metadata helpers
+
+private extension DoNotDisturbManager {
+    func firstMatch(for keys: [String], in value: Any) -> String? {
+        if let dictionary = value as? [AnyHashable: Any] {
+            for key in keys {
+                if let candidate = dictionary[key], let string = normalizedString(from: candidate) {
+                    return string
+                }
+            }
+
+            for nestedValue in dictionary.values {
+                if let nestedMatch = firstMatch(for: keys, in: nestedValue) {
+                    return nestedMatch
+                }
+            }
+        } else if let array = value as? [Any] {
+            for element in array {
+                if let nestedMatch = firstMatch(for: keys, in: element) {
+                    return nestedMatch
+                }
+            }
+        }
+
+        return nil
+    }
+
+    func normalizedString(from value: Any) -> String? {
+        switch value {
+        case let string as String:
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        case let number as NSNumber:
+            return number.stringValue
+        case let uuid as UUID:
+            return uuid.uuidString
+        case let uuid as NSUUID:
+            return uuid.uuidString
+        case let data as Data:
+            if let string = String(data: data, encoding: .utf8) {
+                return string.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            return nil
+        case let dict as [AnyHashable: Any]:
+            // Attempt to pull common keys from nested dictionaries
+            if let nested = firstMatch(for: ["identifier", "Identifier", "uuid", "UUID"], in: dict) {
+                return nested
+            }
+            if let name = firstMatch(for: ["name", "Name", "displayName", "display_name"], in: dict) {
+                return name
+            }
+            return nil
+        default:
+            return nil
         }
     }
 }

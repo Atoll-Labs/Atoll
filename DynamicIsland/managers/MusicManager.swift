@@ -44,10 +44,16 @@ class MusicManager: ObservableObject {
     @Published var playbackRate: Double = 1
     @Published var isShuffled: Bool = false
     @Published var repeatMode: RepeatMode = .off
+    @Published var isLiveStream: Bool = false
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @Published var usingAppIconForArtwork: Bool = false
 
     private var artworkData: Data? = nil
+
+    private var liveStreamUnknownDurationCount: Int = 0
+    private var liveStreamEdgeObservationCount: Int = 0
+    private var liveStreamCompletionObservationCount: Int = 0
+    private var liveStreamCompletionReleaseCount: Int = 0
 
     // Store last values at the time artwork was changed
     private var lastArtworkTitle: String = "I'm Handsome"
@@ -262,12 +268,83 @@ class MusicManager: ObservableObject {
             self.repeatMode = state.repeatMode
         }
         
+        updateLiveStreamState(with: state)
         self.timestampDate = state.lastUpdated
     }
 
     private func triggerFlipAnimation() {
         withAnimation(.easeInOut(duration: flipAnimationDuration)) {
             flipAngle += 180
+        }
+    }
+
+    private func updateLiveStreamState(with state: PlaybackState) {
+        let duration = state.duration
+        let current = max(state.currentTime, elapsedTime)
+        let hasKnownDuration = duration.isFinite && duration > 0
+        let isPlaying = state.isPlaying
+
+        if hasKnownDuration {
+            liveStreamUnknownDurationCount = 0
+
+            let remaining = duration - current
+            let clampedDuration = max(duration, 0)
+            let clampedCurrent = clampedDuration > 0
+                ? max(0, min(current, clampedDuration))
+                : max(0, current)
+            let progress = clampedDuration > 0 ? clampedCurrent / clampedDuration : 0
+            let sliderAppearsComplete = isPlaying && clampedDuration > 0 && progress >= 0.999
+            let nearDurationEdge = isPlaying && remaining.isFinite && remaining <= 1.0 && clampedCurrent >= 10
+
+            if sliderAppearsComplete {
+                liveStreamCompletionObservationCount = min(liveStreamCompletionObservationCount + 1, 8)
+                liveStreamCompletionReleaseCount = 0
+            } else {
+                liveStreamCompletionReleaseCount = min(liveStreamCompletionReleaseCount + 1, 8)
+                if liveStreamCompletionObservationCount > 0 {
+                    liveStreamCompletionObservationCount = max(liveStreamCompletionObservationCount - 1, 0)
+                }
+            }
+
+            if nearDurationEdge || sliderAppearsComplete {
+                liveStreamEdgeObservationCount = min(liveStreamEdgeObservationCount + 1, 12)
+            } else if liveStreamEdgeObservationCount > 0 {
+                liveStreamEdgeObservationCount = max(liveStreamEdgeObservationCount - 1, 0)
+            }
+
+            if !isLiveStream {
+                if liveStreamCompletionObservationCount >= 3 || liveStreamEdgeObservationCount >= 5 {
+                    isLiveStream = true
+                }
+            } else {
+                let shouldClearForKnownDuration =
+                    !isPlaying
+                    || (duration > 10 && remaining > 5)
+                    || (liveStreamCompletionObservationCount == 0
+                        && liveStreamEdgeObservationCount == 0
+                        && liveStreamCompletionReleaseCount >= 4)
+
+                if shouldClearForKnownDuration {
+                    isLiveStream = false
+                }
+            }
+        } else if isPlaying {
+            liveStreamEdgeObservationCount = max(liveStreamEdgeObservationCount - 1, 0)
+            liveStreamCompletionObservationCount = max(liveStreamCompletionObservationCount - 1, 0)
+            liveStreamCompletionReleaseCount = 0
+
+            liveStreamUnknownDurationCount = min(liveStreamUnknownDurationCount + 1, 8)
+            if liveStreamUnknownDurationCount >= 3 && !isLiveStream {
+                isLiveStream = true
+            }
+        } else {
+            liveStreamUnknownDurationCount = 0
+            liveStreamEdgeObservationCount = 0
+            liveStreamCompletionObservationCount = 0
+            liveStreamCompletionReleaseCount = 0
+            if !hasKnownDuration && isLiveStream {
+                isLiveStream = false
+            }
         }
     }
 
