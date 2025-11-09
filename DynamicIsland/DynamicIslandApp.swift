@@ -379,6 +379,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ScreenRecordingManager.shared.startMonitoring()
         }
         
+        // Setup Do Not Disturb Manager
+        if Defaults[.enableDoNotDisturbDetection] {
+            dndManager.startMonitoring()
+        }
+
         // Setup Privacy Indicator Manager (camera and microphone monitoring)
         PrivacyIndicatorManager.shared.startMonitoring()
         
@@ -435,6 +440,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }.store(in: &cancellables)
         
+        Defaults.publisher(.enableDoNotDisturbDetection, options: []).sink { [weak self] _ in
+            guard let self else { return }
+
+            if Defaults[.enableDoNotDisturbDetection] {
+                self.dndManager.startMonitoring()
+            } else {
+                self.dndManager.stopMonitoring()
+            }
+        }.store(in: &cancellables)
+
         // Note: Polling setting removed - now uses event-driven private API detection only
 
         NotificationCenter.default.addObserver(

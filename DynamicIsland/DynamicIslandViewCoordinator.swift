@@ -20,6 +20,7 @@ enum SneakContentType {
     case download
     case timer
     case recording
+    case doNotDisturb
     case bluetoothAudio
     case privacy
     case lockScreen
