@@ -42,7 +42,7 @@ struct ReminderLiveActivity: View {
             Color.clear
                 .frame(width: leftWingWidth, height: notchContentHeight)
                 .background(alignment: .leading) {
-                    iconSection(for: reminder)
+                    iconSection(for: reminder, now: now)
                         .padding(.leading, wingPadding / 2)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                 }
@@ -62,11 +62,11 @@ struct ReminderLiveActivity: View {
         .frame(height: notchContentHeight, alignment: .center)
     }
 
-    private func iconSection(for reminder: ReminderLiveActivityManager.ReminderEntry) -> some View {
+    private func iconSection(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date) -> some View {
         let diameter = iconDiameter
-        let accent = accentColor(for: reminder)
+        let accent = accentColor(for: reminder, now: now)
 
-        return Image(systemName: glyphName(for: reminder.event))
+        return Image(systemName: iconName(for: reminder, now: now))
             .font(.system(size: 16, weight: .semibold))
             .foregroundStyle(accent)
             .frame(width: diameter, height: diameter)
@@ -75,49 +75,49 @@ struct ReminderLiveActivity: View {
 
     @ViewBuilder
     private func rightSection(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date) -> some View {
-        let accent = accentColor(for: reminder)
+        let accent = accentColor(for: reminder, now: now)
         switch presentationStyle {
         case .ringCountdown:
             ringCountdownSection(for: reminder, now: now, accent: accent)
         case .digital:
-            digitalSection(for: reminder, now: now)
+            digitalSection(for: reminder, now: now, accent: accent)
         case .minutes:
-            minutesSection(for: reminder, now: now)
+            minutesSection(for: reminder, now: now, accent: accent)
         }
     }
 
     private func ringCountdownSection(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date, accent: Color) -> some View {
-        let progress = progress(for: reminder, now: now)
+        let progressValue = progress(for: reminder, now: now)
         let diameter = ringDiameter
 
         return ZStack {
             Circle()
                 .stroke(Color.white.opacity(0.15), lineWidth: ringStrokeWidth)
             Circle()
-                .trim(from: 0, to: progress)
+                .trim(from: 0, to: progressValue)
                 .stroke(accent, style: StrokeStyle(lineWidth: ringStrokeWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(.smooth(duration: 0.25), value: progress)
+                .animation(.smooth(duration: 0.25), value: progressValue)
         }
         .frame(width: diameter, height: diameter)
         .frame(height: notchContentHeight, alignment: .center)
     }
 
-    private func digitalSection(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date) -> some View {
+    private func digitalSection(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date, accent: Color) -> some View {
         let countdown = digitalCountdown(for: reminder, now: now)
         return Text(countdown)
             .font(.system(size: 16, weight: .semibold, design: .monospaced))
-            .foregroundColor(.white)
+            .foregroundColor(accent)
             .contentTransition(.numericText())
             .animation(.smooth(duration: 0.25), value: countdown)
             .frame(height: notchContentHeight, alignment: .center)
     }
 
-    private func minutesSection(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date) -> some View {
+    private func minutesSection(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date, accent: Color) -> some View {
         VStack(alignment: .trailing, spacing: 2) {
             Text(minutesCountdown(for: reminder, now: now))
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(accent)
         }
         .frame(height: notchContentHeight, alignment: .center)
     }
@@ -144,23 +144,15 @@ struct ReminderLiveActivity: View {
         return minutes == 1 ? "in 1 min" : "in \(minutes) min"
     }
 
-    private func glyphName(for event: EventModel) -> String {
-        switch event.type {
-        case .birthday:
-            return "gift.fill"
-        case .reminder(let completed):
-            return completed ? "checkmark.circle" : "bell.fill"
-        case .event:
-            return event.isMeeting ? "person.2.fill" : "calendar"
+    private func accentColor(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date) -> Color {
+        if isCritical(for: reminder, now: now) {
+            return .red
         }
-    }
-
-    private func accentColor(for reminder: ReminderLiveActivityManager.ReminderEntry) -> Color {
-        Color(nsColor: reminder.event.calendar.color).ensureMinimumBrightness(factor: 0.7)
+        return Color(nsColor: reminder.event.calendar.color).ensureMinimumBrightness(factor: 0.7)
     }
 
     private var leftWingWidth: CGFloat {
-    wingPadding + iconDiameter
+        wingPadding + iconDiameter
     }
 
     private func rightWingWidth(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date) -> CGFloat {
@@ -215,5 +207,16 @@ struct ReminderLiveActivity: View {
         #else
         return UIFont.monospacedDigitSystemFont(ofSize: size, weight: weight)
         #endif
+    }
+
+    private func iconName(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date) -> String {
+        isCritical(for: reminder, now: now) ? ReminderLiveActivityManager.criticalIconName : ReminderLiveActivityManager.standardIconName
+    }
+
+    private func isCritical(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date) -> Bool {
+        let window = TimeInterval(Defaults[.reminderSneakPeekDuration])
+        guard window > 0 else { return false }
+        let remaining = reminder.event.start.timeIntervalSince(now)
+        return remaining > 0 && remaining <= window
     }
 }

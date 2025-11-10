@@ -474,7 +474,7 @@ struct ContentView: View {
                                   GeometryReader { geo in
                                       MarqueeText(
                                           .constant(reminderSneakPeekText(for: reminder)),
-                                          textColor: reminderColor(for: reminder.event),
+                                          textColor: reminderColor(for: reminder, now: reminderManager.currentDate),
                                           minDuration: 1,
                                           frameWidth: geo.size.width
                                       )
@@ -522,8 +522,13 @@ struct ContentView: View {
           }
       }
 
-    private func reminderColor(for event: EventModel) -> Color {
-        Color(nsColor: event.calendar.color).ensureMinimumBrightness(factor: 0.7)
+    private func reminderColor(for reminder: ReminderLiveActivityManager.ReminderEntry, now: Date) -> Color {
+        let window = TimeInterval(Defaults[.reminderSneakPeekDuration])
+        let remaining = reminder.event.start.timeIntervalSince(now)
+        if window > 0 && remaining > 0 && remaining <= window {
+            return .red
+        }
+        return Color(nsColor: reminder.event.calendar.color).ensureMinimumBrightness(factor: 0.7)
     }
 
     private func reminderSneakPeekText(for entry: ReminderLiveActivityManager.ReminderEntry) -> String {

@@ -19,6 +19,8 @@ final class ReminderLiveActivityManager: ObservableObject {
     }
 
     static let shared = ReminderLiveActivityManager()
+    static let standardIconName = "calendar.badge.clock"
+    static let criticalIconName = "calendar.badge.exclamationmark"
 
     @Published private(set) var activeReminder: ReminderEntry?
     @Published private(set) var currentDate: Date = Date()
@@ -36,6 +38,7 @@ final class ReminderLiveActivityManager: ObservableObject {
     private let minimumRefreshInterval: TimeInterval = 10
     private let refreshDebounceInterval: TimeInterval = 0.3
     private var refreshTaskToken = UUID()
+    private var hasShownCriticalSneakPeek = false
 
     private let calendarService: CalendarServiceProviding
     private let calendarManager = CalendarManager.shared
@@ -110,6 +113,7 @@ final class ReminderLiveActivityManager: ObservableObject {
         pendingRefreshForce = false
         refreshTask?.cancel()
         refreshTask = nil
+    hasShownCriticalSneakPeek = false
     }
 
     private func deactivateReminder() {
@@ -254,6 +258,7 @@ final class ReminderLiveActivityManager: ObservableObject {
     private func handleEntrySelection(_ entry: ReminderEntry?, referenceDate: Date) {
         fallbackRefreshTask?.cancel()
         nextReminder = entry
+        hasShownCriticalSneakPeek = false
         Task { await self.evaluateCurrentState(at: referenceDate) }
     }
 
@@ -317,6 +322,7 @@ final class ReminderLiveActivityManager: ObservableObject {
             activeReminder = nil
             nextReminder = nil
             stopTicker()
+            hasShownCriticalSneakPeek = false
             scheduleRefresh(force: true)
             return
         }
@@ -333,8 +339,28 @@ final class ReminderLiveActivityManager: ObservableObject {
                     type: .reminder,
                     duration: Defaults[.reminderSneakPeekDuration],
                     value: 0,
-                    icon: glyphName(for: entry.event)
+                    icon: ReminderLiveActivityManager.standardIconName
                 )
+                hasShownCriticalSneakPeek = false
+            }
+
+            let criticalWindow = TimeInterval(Defaults[.reminderSneakPeekDuration])
+            let timeRemaining = entry.event.start.timeIntervalSince(date)
+            if criticalWindow > 0 && timeRemaining > 0 {
+                if timeRemaining <= criticalWindow {
+                    if !hasShownCriticalSneakPeek {
+                        DynamicIslandViewCoordinator.shared.toggleSneakPeek(
+                            status: true,
+                            type: .reminder,
+                            duration: Defaults[.reminderSneakPeekDuration],
+                            value: 0,
+                            icon: ReminderLiveActivityManager.criticalIconName
+                        )
+                        hasShownCriticalSneakPeek = true
+                    }
+                } else {
+                    hasShownCriticalSneakPeek = false
+                }
             }
             startTickerIfNeeded()
         } else {
@@ -342,6 +368,7 @@ final class ReminderLiveActivityManager: ObservableObject {
                 activeReminder = nil
             }
             stopTicker()
+            hasShownCriticalSneakPeek = false
             scheduleEvaluation(at: entry.triggerDate)
         }
     }
@@ -355,14 +382,4 @@ final class ReminderLiveActivityManager: ObservableObject {
         await evaluateCurrentState(at: now)
     }
 
-    private func glyphName(for event: EventModel) -> String {
-        switch event.type {
-        case .birthday:
-            return "gift.fill"
-        case .reminder(let completed):
-            return completed ? "checkmark.circle" : "bell.fill"
-        case .event:
-            return event.isMeeting ? "person.2.fill" : "calendar"
-        }
-    }
 }
