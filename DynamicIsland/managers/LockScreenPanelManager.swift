@@ -20,6 +20,7 @@ class LockScreenPanelManager {
     private var collapsedFrame: NSRect?
     private let collapsedPanelCornerRadius: CGFloat = 28
     private let expandedPanelCornerRadius: CGFloat = 52
+    private(set) var latestFrame: NSRect?
 
     private init() {
         print("[\(timestamp())] LockScreenPanelManager: initialized")
@@ -79,6 +80,7 @@ class LockScreenPanelManager {
         }
 
         window.setFrame(targetFrame, display: true)
+        latestFrame = targetFrame
         let hosting = NSHostingView(rootView: LockScreenMusicPanel())
         hosting.frame = NSRect(origin: .zero, size: targetFrame.size)
         window.contentView = hosting
@@ -123,6 +125,8 @@ class LockScreenPanelManager {
             window.setFrame(targetFrame, display: true)
         }
 
+        latestFrame = targetFrame
+
         // Update corner radius to match the SwiftUI panel's style
         let targetRadius = expanded ? expandedPanelCornerRadius : collapsedPanelCornerRadius
         if animated {
@@ -145,6 +149,8 @@ class LockScreenPanelManager {
 
         window.orderOut(nil)
         window.contentView = nil
+
+        latestFrame = nil
 
         print("[\(timestamp())] LockScreenPanelManager: panel hidden")
     }

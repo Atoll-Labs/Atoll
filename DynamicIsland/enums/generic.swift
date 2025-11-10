@@ -125,3 +125,10 @@ enum LockScreenWeatherTemperatureUnit: String, CaseIterable, Defaults.Serializab
         }
     }
 }
+
+enum LockScreenReminderChipStyle: String, CaseIterable, Defaults.Serializable, Identifiable {
+    case eventColor = "Event color"
+    case monochrome = "White"
+
+    var id: String { rawValue }
+}

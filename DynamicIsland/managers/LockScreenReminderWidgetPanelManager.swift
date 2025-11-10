@@ -3,20 +3,23 @@ import SwiftUI
 import SkyLightWindow
 
 @MainActor
-final class LockScreenWeatherPanelManager {
-    static let shared = LockScreenWeatherPanelManager()
+final class LockScreenReminderWidgetPanelManager {
+    static let shared = LockScreenReminderWidgetPanelManager()
 
     private var window: NSWindow?
     private var hasDelegated = false
-    private(set) var latestFrame: NSRect?
+
+    var isVisible: Bool {
+        window?.isVisible == true
+    }
 
     private init() {}
 
-    func show(with snapshot: LockScreenWeatherSnapshot) {
+    func show(with snapshot: LockScreenReminderWidgetSnapshot) {
         render(snapshot: snapshot, makeVisible: true)
     }
 
-    func update(with snapshot: LockScreenWeatherSnapshot) {
+    func update(with snapshot: LockScreenReminderWidgetSnapshot) {
         render(snapshot: snapshot, makeVisible: false)
     }
 
@@ -24,24 +27,21 @@ final class LockScreenWeatherPanelManager {
         guard let window else { return }
         window.orderOut(nil)
         window.contentView = nil
-        latestFrame = nil
     }
 
-    private func render(snapshot: LockScreenWeatherSnapshot, makeVisible: Bool) {
+    private func render(snapshot: LockScreenReminderWidgetSnapshot, makeVisible: Bool) {
         guard let screen = NSScreen.main else { return }
         if !makeVisible, window == nil {
             return
         }
 
-        let view = LockScreenWeatherWidget(snapshot: snapshot)
+        let view = LockScreenReminderWidget(snapshot: snapshot)
         let hostingView = NSHostingView(rootView: view)
         let fittingSize = hostingView.fittingSize
         hostingView.frame = NSRect(origin: .zero, size: fittingSize)
 
-        let targetFrame = frame(for: fittingSize, on: screen)
         let window = ensureWindow()
-        window.setFrame(targetFrame, display: true)
-        latestFrame = targetFrame
+        window.setFrame(frame(for: fittingSize, on: screen), display: true)
         window.contentView = hostingView
 
         if makeVisible {
@@ -54,7 +54,7 @@ final class LockScreenWeatherPanelManager {
             return window
         }
 
-        let frame = NSRect(origin: .zero, size: CGSize(width: 110, height: 40))
+        let frame = NSRect(origin: .zero, size: CGSize(width: 220, height: 48))
         let newWindow = NSWindow(
             contentRect: frame,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -81,11 +81,28 @@ final class LockScreenWeatherPanelManager {
     private func frame(for size: CGSize, on screen: NSScreen) -> NSRect {
         let screenFrame = screen.frame
         let originX = screenFrame.midX - (size.width / 2)
-        let verticalOffset = screenFrame.height * 0.15
-        let maxY = screenFrame.maxY - size.height - 48
-        let baseY = min(maxY, screenFrame.midY + verticalOffset)
-        let loweredY = baseY - 36
-        let clampedY = max(screenFrame.minY + 80, loweredY)
-        return NSRect(x: originX, y: clampedY, width: size.width, height: size.height)
+        let musicTop = LockScreenPanelManager.shared.latestFrame?.maxY ?? (screenFrame.midY - 32)
+
+        let defaultWeatherBottom = screenFrame.midY + (screenFrame.height * 0.14)
+        let weatherBottom = LockScreenWeatherPanelManager.shared.latestFrame?.minY ?? min(screenFrame.maxY - 120, max(defaultWeatherBottom, musicTop + size.height + 80))
+
+        let marginAboveMusic: CGFloat = 16
+        let marginBelowWeather: CGFloat = 16
+
+        let constrainedWeatherBottom = max(weatherBottom, musicTop + size.height + marginAboveMusic + marginBelowWeather)
+        let centerY = (musicTop + constrainedWeatherBottom) / 2
+        let lowerBound = screenFrame.minY + 80
+        let upperBound = constrainedWeatherBottom - marginBelowWeather - size.height
+
+        var proposedY = centerY - (size.height / 2)
+        if proposedY < lowerBound {
+            proposedY = lowerBound
+        }
+        if upperBound > lowerBound {
+            proposedY = min(proposedY, upperBound)
+        }
+
+        return NSRect(x: originX, y: proposedY, width: size.width, height: size.height)
     }
 }
+

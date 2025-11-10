@@ -957,6 +957,8 @@ struct CalendarSettings: View {
     @Default(.reminderPresentationStyle) var reminderPresentationStyle
     @Default(.reminderLeadTime) var reminderLeadTime
     @Default(.reminderSneakPeekDuration) var reminderSneakPeekDuration
+    @Default(.enableLockScreenReminderWidget) var enableLockScreenReminderWidget
+    @Default(.lockScreenReminderChipStyle) var lockScreenReminderChipStyle
 
     var body: some View {
         Form {
@@ -1040,6 +1042,18 @@ struct CalendarSettings: View {
                             .foregroundStyle(.secondary)
                             .frame(width: 60, alignment: .trailing)
                     }
+                }
+
+                Section(header: Text("Lock Screen Reminder Widget")) {
+                    Defaults.Toggle("Show lock screen reminder", key: .enableLockScreenReminderWidget)
+
+                    Picker("Chip color", selection: $lockScreenReminderChipStyle) {
+                        ForEach(LockScreenReminderChipStyle.allCases) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(!enableLockScreenReminderWidget || !enableReminderLiveActivity)
                 }
 
                 Section(header: Text("Select Calendars")) {

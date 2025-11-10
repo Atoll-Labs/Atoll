@@ -375,6 +375,7 @@ extension Defaults.Keys {
     // Enable lock screen media widget (shows the standalone panel when screen is locked)
     static let enableLockScreenMediaWidget = Key<Bool>("enableLockScreenMediaWidget", default: true)
     static let enableLockScreenWeatherWidget = Key<Bool>("enableLockScreenWeatherWidget", default: true)
+    static let enableLockScreenReminderWidget = Key<Bool>("enableLockScreenReminderWidget", default: true)
     static let lockScreenWeatherRefreshInterval = Key<TimeInterval>("lockScreenWeatherRefreshInterval", default: 30 * 60)
     static let lockScreenWeatherShowsLocation = Key<Bool>("lockScreenWeatherShowsLocation", default: true)
     static let lockScreenWeatherShowsCharging = Key<Bool>("lockScreenWeatherShowsCharging", default: true)
@@ -390,6 +391,7 @@ extension Defaults.Keys {
     static let lockScreenShowAppIcon = Key<Bool>("lockScreenShowAppIcon", default: false)
     static let lockScreenPanelShowsBorder = Key<Bool>("lockScreenPanelShowsBorder", default: true)
     static let lockScreenPanelUsesBlur = Key<Bool>("lockScreenPanelUsesBlur", default: true)
+    static let lockScreenReminderChipStyle = Key<LockScreenReminderChipStyle>("lockScreenReminderChipStyle", default: .eventColor)
     
         // MARK: Battery
     static let showPowerStatusNotifications = Key<Bool>("showPowerStatusNotifications", default: true)
