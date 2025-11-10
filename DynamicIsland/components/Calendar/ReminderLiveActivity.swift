@@ -22,7 +22,7 @@ struct ReminderLiveActivity: View {
 
     @Default(.reminderPresentationStyle) private var presentationStyle
 
-    private let wingPadding: CGFloat = 22
+    private let wingPadding: CGFloat = 16
     private let ringStrokeWidth: CGFloat = 3
 
     private var notchContentHeight: CGFloat {
@@ -181,11 +181,11 @@ struct ReminderLiveActivity: View {
     }
 
     private var iconDiameter: CGFloat {
-        max(notchContentHeight - 6, 28)
+        max(notchContentHeight - 8, 26)
     }
 
     private var ringDiameter: CGFloat {
-        max(min(notchContentHeight - 10, 24), 18)
+        max(min(notchContentHeight - 12, 22), 16)
     }
 
     private func measureTextWidth(_ text: String, font: ReminderFont) -> CGFloat {

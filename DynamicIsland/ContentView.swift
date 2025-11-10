@@ -478,10 +478,10 @@ struct ContentView: View {
                                               .fill(chipColor)
                                               .frame(width: 8, height: 12)
                                           MarqueeText(
-                                              .constant(reminderSneakPeekText(for: reminder)),
+                                              .constant(reminderSneakPeekText(for: reminder, now: reminderManager.currentDate)),
                                               textColor: reminderColor(for: reminder, now: reminderManager.currentDate),
                                               minDuration: 1,
-                                              frameWidth: max(0, geo.size.width - 18)
+                                              frameWidth: max(0, geo.size.width - 14)
                                           )
                                       }
                                   }
@@ -537,18 +537,24 @@ struct ContentView: View {
         return Color(nsColor: reminder.event.calendar.color).ensureMinimumBrightness(factor: 0.7)
     }
 
-    private func reminderSneakPeekText(for entry: ReminderLiveActivityManager.ReminderEntry) -> String {
+    private func reminderSneakPeekText(for entry: ReminderLiveActivityManager.ReminderEntry, now: Date) -> String {
         let title = entry.event.title.isEmpty ? "Upcoming Reminder" : entry.event.title
-        let remaining = max(entry.event.start.timeIntervalSince(reminderManager.currentDate), 0)
+        let remaining = max(entry.event.start.timeIntervalSince(now), 0)
+        let window = TimeInterval(Defaults[.reminderSneakPeekDuration])
+
+        if window > 0 && remaining <= window {
+            return "\(title) • now"
+        }
+
         let minutes = Int(ceil(remaining / 60))
         let timeString = reminderTimeFormatter.string(from: entry.event.start)
 
         if minutes <= 0 {
-            return "\(title) • starts now @ \(timeString)"
+            return "\(title) • now • \(timeString)"
         } else if minutes == 1 {
-            return "\(title) • in 1 min @ \(timeString)"
+            return "\(title) • in 1 min • \(timeString)"
         } else {
-            return "\(title) • in \(minutes) min @ \(timeString)"
+            return "\(title) • in \(minutes) min • \(timeString)"
         }
     }
 
