@@ -8,10 +8,16 @@
 import SwiftUI
 import Defaults
 
+#if canImport(AppKit)
+import AppKit
+#endif
+
 struct MinimalisticMusicPlayerView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     let albumArtNamespace: Namespace.ID
     @Default(.showMediaOutputControl) var showMediaOutputControl
+    @ObservedObject private var reminderManager = ReminderLiveActivityManager.shared
+    @Default(.enableReminderLiveActivity) private var enableReminderLiveActivity
 
     var body: some View {
         VStack(spacing: 0) {
@@ -58,13 +64,243 @@ struct MinimalisticMusicPlayerView: View {
             // Compact playback controls
             playbackControls
                 .padding(.top, 4)
+
+            if shouldShowReminderList {
+                MinimalisticReminderEventListView(reminders: reminderEntries, currentDate: reminderManager.currentDate)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
         }
         .padding(.horizontal, 12)
         .padding(.top, -15)
-        .padding(.bottom, 3)
+    .padding(.bottom, shouldShowReminderList ? ReminderLiveActivityManager.listBottomPadding : ReminderLiveActivityManager.baselineMinimalisticBottomPadding)
         .frame(maxWidth: .infinity)
     }
+
+    private var reminderEntries: [ReminderLiveActivityManager.ReminderEntry] {
+        reminderManager.activeWindowReminders
+    }
+
+    private var shouldShowReminderList: Bool {
+        enableReminderLiveActivity && !reminderEntries.isEmpty
+    }
     
+
+private struct MinimalisticReminderEventListView: View {
+    let reminders: [ReminderLiveActivityManager.ReminderEntry]
+    let currentDate: Date
+
+    private let textFont = Font.system(size: 13, weight: .semibold)
+    private let separatorSpacing: CGFloat = 10
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ReminderLiveActivityManager.listRowSpacing) {
+            ForEach(reminders) { entry in
+                MinimalisticReminderEventRow(entry: entry, now: currentDate, textFont: textFont, separatorSpacing: separatorSpacing)
+            }
+        }
+        .padding(.top, ReminderLiveActivityManager.listTopPadding)
+    }
+}
+
+private struct MinimalisticReminderEventRow: View {
+    let entry: ReminderLiveActivityManager.ReminderEntry
+    let now: Date
+    let textFont: Font
+    let separatorSpacing: CGFloat
+
+    @State private var isDetailsPresented = false
+
+    private let ringDiameter: CGFloat = 20
+    private let ringLineWidth: CGFloat = 3
+
+    var body: some View {
+        HStack(spacing: separatorSpacing) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(eventColor)
+                .frame(width: 8, height: ringDiameter)
+
+            Text(entry.event.title)
+                .font(textFont)
+                .foregroundStyle(Color.white)
+                .lineLimit(1)
+                .layoutPriority(1)
+
+            Spacer(minLength: 12)
+
+            HStack(spacing: separatorSpacing) {
+                if let url = linkURL {
+                    Button {
+                        copyToClipboard(url: url)
+                    } label: {
+                        Image(systemName: "link")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.85))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Copy event link")
+                }
+
+                if hasDetails {
+                    Button {
+                        isDetailsPresented.toggle()
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.85))
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $isDetailsPresented, arrowEdge: .top) {
+                        MinimalisticReminderDetailsView(entry: entry, linkURL: linkURL)
+                    }
+                }
+
+                ReminderProgressRing(progress: progress, accent: accentColor, diameter: ringDiameter, lineWidth: ringLineWidth)
+            }
+        }
+        .frame(height: ReminderLiveActivityManager.listRowHeight)
+    }
+
+    private var progress: Double {
+        guard entry.leadTime > 0 else { return 1 }
+        let remaining = max(entry.event.start.timeIntervalSince(now), 0)
+        let elapsed = entry.leadTime - remaining
+        let ratio = elapsed / entry.leadTime
+        return min(max(ratio, 0), 1)
+    }
+
+    private var accentColor: Color {
+        if isCritical {
+            return .red
+        }
+        return eventColor
+    }
+
+    private var eventColor: Color {
+        Color(nsColor: entry.event.calendar.color).ensureMinimumBrightness(factor: 0.7)
+    }
+
+    private var isCritical: Bool {
+        let window = TimeInterval(Defaults[.reminderSneakPeekDuration])
+        guard window > 0 else { return false }
+        let remaining = entry.event.start.timeIntervalSince(now)
+        return remaining > 0 && remaining <= window
+    }
+
+    private var hasDetails: Bool {
+        let location = entry.event.location?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let notes = entry.event.notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return !location.isEmpty || !notes.isEmpty
+    }
+
+    private var linkURL: URL? {
+        entry.event.url ?? entry.event.calendarAppURL()
+    }
+
+    private func copyToClipboard(url: URL) {
+#if canImport(AppKit)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(url.absoluteString, forType: .string)
+#endif
+    }
+}
+
+private struct ReminderProgressRing: View {
+    let progress: Double
+    let accent: Color
+    let diameter: CGFloat
+    let lineWidth: CGFloat
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.18), lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(accent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+        .frame(width: diameter, height: diameter)
+        .animation(.smooth(duration: 0.25), value: progress)
+    }
+}
+
+private struct MinimalisticReminderDetailsView: View {
+    let entry: ReminderLiveActivityManager.ReminderEntry
+    let linkURL: URL?
+
+    private let detailFont = Font.system(size: 13, weight: .regular)
+    private let smallLabelFont = Font.system(size: 12, weight: .semibold)
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(entry.event.title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.white)
+                .lineLimit(2)
+
+            VStack(alignment: .leading, spacing: 6) {
+                if let timeRange = timeRangeText {
+                    detailRow(icon: "clock", label: "Time", value: timeRange)
+                }
+
+                if let location = entry.event.location, !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    detailRow(icon: "mappin.and.ellipse", label: "Location", value: location)
+                }
+
+                if let notes = entry.event.notes, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    detailRow(icon: "note.text", label: "Notes", value: notes)
+                }
+            }
+
+            if let url = linkURL {
+                Button {
+                    open(url: url)
+                } label: {
+                    Label("Open in Calendar", systemImage: "arrow.up.right.square")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .buttonStyle(.link)
+                .foregroundStyle(Color.accentColor)
+            }
+        }
+        .padding(16)
+        .frame(minWidth: 220)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.black.opacity(0.92))
+        )
+    }
+
+    private func detailRow(icon: String, label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(label, systemImage: icon)
+                .font(smallLabelFont)
+                .foregroundStyle(Color.white.opacity(0.8))
+            Text(value)
+                .font(detailFont)
+                .foregroundStyle(Color.white)
+        }
+    }
+
+    private var timeRangeText: String? {
+        let startText = Self.timeFormatter.string(from: entry.event.start)
+        let endText = Self.timeFormatter.string(from: entry.event.end)
+        return startText == endText ? startText : "\(startText) – \(endText)"
+    }
+
+    private func open(url: URL) {
+#if canImport(AppKit)
+        NSWorkspace.shared.open(url)
+#endif
+    }
+}
     // MARK: - Visualizer
     
     @Default(.useMusicVisualizer) var useMusicVisualizer

@@ -331,7 +331,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // Use minimalistic or normal size based on settings
-        let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        var baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+
+        if Defaults[.enableMinimalisticUI] && vm.notchState == .open {
+            let reminderCount = ReminderLiveActivityManager.shared.activeWindowReminders.count
+            let extraHeight = ReminderLiveActivityManager.additionalHeight(forRowCount: reminderCount)
+            baseSize.height += extraHeight
+        }
         
         // Only apply dynamic sizing when on stats tab and stats are enabled
         guard coordinator.currentView == .stats && Defaults[.enableStatsFeature] else {
@@ -416,6 +422,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Defaults.publisher(.showDiskGraph, options: []).sink { [weak self] _ in
             self?.debouncedUpdateWindowSize()
         }.store(in: &cancellables)
+
+        ReminderLiveActivityManager.shared.$activeWindowReminders
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.debouncedUpdateWindowSize()
+            }
+            .store(in: &cancellables)
 
         Defaults.publisher(.enableShortcuts, options: []).sink { change in
             KeyboardShortcuts.isEnabled = change.newValue

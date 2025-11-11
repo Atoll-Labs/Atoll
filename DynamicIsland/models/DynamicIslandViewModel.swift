@@ -135,7 +135,13 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     
     private func calculateDynamicNotchSize() -> CGSize {
         // Use minimalistic size if minimalistic UI is enabled
-        let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        var baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+
+        if Defaults[.enableMinimalisticUI] {
+            let reminderCount = ReminderLiveActivityManager.shared.activeWindowReminders.count
+            let extraHeight = ReminderLiveActivityManager.additionalHeight(forRowCount: reminderCount)
+            baseSize.height += extraHeight
+        }
         
         // Only apply dynamic sizing when on stats tab and stats are enabled
         guard DynamicIslandViewCoordinator.shared.currentView == .stats && Defaults[.enableStatsFeature] else {

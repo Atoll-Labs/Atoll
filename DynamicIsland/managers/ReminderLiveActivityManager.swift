@@ -9,6 +9,7 @@ import Combine
 import Defaults
 import EventKit
 import Foundation
+import CoreGraphics
 
 @MainActor
 final class ReminderLiveActivityManager: ObservableObject {
@@ -21,9 +22,16 @@ final class ReminderLiveActivityManager: ObservableObject {
     static let shared = ReminderLiveActivityManager()
     static let standardIconName = "calendar.badge.clock"
     static let criticalIconName = "calendar.badge.exclamationmark"
+    static let listRowHeight: CGFloat = 30
+    static let listRowSpacing: CGFloat = 8
+    static let listTopPadding: CGFloat = 14
+    static let listBottomPadding: CGFloat = 10
+    static let baselineMinimalisticBottomPadding: CGFloat = 3
 
     @Published private(set) var activeReminder: ReminderEntry?
     @Published private(set) var currentDate: Date = Date()
+    @Published private(set) var upcomingEntries: [ReminderEntry] = []
+    @Published private(set) var activeWindowReminders: [ReminderEntry] = []
 
     private var nextReminder: ReminderEntry?
     private var cancellables = Set<AnyCancellable>()
@@ -113,12 +121,14 @@ final class ReminderLiveActivityManager: ObservableObject {
         pendingRefreshForce = false
         refreshTask?.cancel()
         refreshTask = nil
-    hasShownCriticalSneakPeek = false
+        hasShownCriticalSneakPeek = false
     }
 
     private func deactivateReminder() {
         nextReminder = nil
         activeReminder = nil
+        upcomingEntries = []
+        activeWindowReminders = []
         cancelAllTimers()
     }
 
@@ -269,6 +279,9 @@ final class ReminderLiveActivityManager: ObservableObject {
             .compactMap { makeEntry(from: $0, leadMinutes: leadMinutes, referenceDate: referenceDate) }
             .sorted { $0.triggerDate < $1.triggerDate }
 
+        upcomingEntries = upcoming
+        updateActiveWindowReminders(for: referenceDate)
+
         guard let first = upcoming.first else {
             deactivateReminder()
             scheduleFallbackRefresh()
@@ -311,6 +324,7 @@ final class ReminderLiveActivityManager: ObservableObject {
         }
 
         currentDate = date
+        updateActiveWindowReminders(for: date)
 
         guard var entry = nextReminder else {
             activeReminder = nil
@@ -385,4 +399,25 @@ final class ReminderLiveActivityManager: ObservableObject {
         await evaluateCurrentState(at: now)
     }
 
+    private func updateActiveWindowReminders(for date: Date) {
+        let filtered = upcomingEntries.filter { entry in
+            entry.triggerDate <= date && entry.event.start >= date
+        }
+        if filtered != activeWindowReminders {
+            activeWindowReminders = filtered
+        }
+    }
+
+    static func additionalHeight(forRowCount rowCount: Int) -> CGFloat {
+        guard rowCount > 0 else { return 0 }
+        let rows = CGFloat(rowCount)
+        let spacing = CGFloat(max(rowCount - 1, 0)) * listRowSpacing
+        let bottomDelta = max(listBottomPadding - baselineMinimalisticBottomPadding, 0)
+        return listTopPadding + rows * listRowHeight + spacing + bottomDelta
+    }
+
+}
+
+extension ReminderLiveActivityManager.ReminderEntry: Identifiable {
+    var id: String { event.id }
 }
