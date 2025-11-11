@@ -86,17 +86,17 @@ struct MinimalisticMusicPlayerView: View {
     }
 
     private var reminderList: some View {
-        MinimalisticReminderEventListView(reminders: reminderEntries, currentDate: reminderManager.currentDate)
+        MinimalisticReminderEventListView(reminders: reminderEntries)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: reminderListHeight, alignment: .top)
             .opacity(shouldShowReminderList ? 1 : 0)
             .animation(.easeInOut(duration: 0.18), value: shouldShowReminderList)
+            .environmentObject(vm)
     }
     
 
 private struct MinimalisticReminderEventListView: View {
     let reminders: [ReminderLiveActivityManager.ReminderEntry]
-    let currentDate: Date
 
     private let textFont = Font.system(size: 13, weight: .semibold)
     private let separatorSpacing: CGFloat = 10
@@ -104,7 +104,7 @@ private struct MinimalisticReminderEventListView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: ReminderLiveActivityManager.listRowSpacing) {
             ForEach(reminders) { entry in
-                MinimalisticReminderEventRow(entry: entry, now: currentDate, textFont: textFont, separatorSpacing: separatorSpacing)
+                MinimalisticReminderEventRow(entry: entry, textFont: textFont, separatorSpacing: separatorSpacing)
             }
         }
         .padding(.top, ReminderLiveActivityManager.listTopPadding)
@@ -113,26 +113,44 @@ private struct MinimalisticReminderEventListView: View {
 
 private struct MinimalisticReminderEventRow: View {
     let entry: ReminderLiveActivityManager.ReminderEntry
-    let now: Date
     let textFont: Font
     let separatorSpacing: CGFloat
 
-    @State private var isDetailsPresented = false
+    @EnvironmentObject private var vm: DynamicIslandViewModel
+    @State private var didCopyLink = false
+    @State private var copyResetToken: UUID?
+    @State private var isDetailsPopoverPresented = false
+    @State private var isHoveringDetailsPopover = false
 
-    private let ringDiameter: CGFloat = 20
-    private let ringLineWidth: CGFloat = 3
+    private let indicatorHeight: CGFloat = 20
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
 
     var body: some View {
         HStack(spacing: separatorSpacing) {
             RoundedRectangle(cornerRadius: 3)
                 .fill(eventColor)
-                .frame(width: 8, height: ringDiameter)
+                .frame(width: 8, height: indicatorHeight)
 
-            Text(entry.event.title)
-                .font(textFont)
-                .foregroundStyle(Color.white)
-                .lineLimit(1)
-                .layoutPriority(1)
+            HStack(spacing: 6) {
+                Text(entry.event.title)
+                    .font(textFont)
+                    .foregroundStyle(Color.white)
+                    .lineLimit(1)
+
+                if let timeText {
+                    Text(timeText)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(Color.white.opacity(0.6))
+                        .lineLimit(1)
+                }
+            }
+            .layoutPriority(1)
 
             Spacer(minLength: 12)
 
@@ -140,10 +158,13 @@ private struct MinimalisticReminderEventRow: View {
                 if let url = linkURL {
                     Button {
                         copyToClipboard(url: url)
+                        triggerCopyFeedback()
                     } label: {
-                        Image(systemName: "link")
+                        Image(systemName: didCopyLink ? "checkmark.circle.fill" : "link")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.85))
+                            .foregroundStyle(didCopyLink ? Color.green : Color.white.opacity(0.85))
+                            .symbolRenderingMode(.monochrome)
+                            .animation(.easeInOut(duration: 0.2), value: didCopyLink)
                     }
                     .buttonStyle(.plain)
                     .help("Copy event link")
@@ -151,48 +172,50 @@ private struct MinimalisticReminderEventRow: View {
 
                 if hasDetails {
                     Button {
-                        isDetailsPresented.toggle()
+                        isDetailsPopoverPresented.toggle()
                     } label: {
                         Image(systemName: "info.circle")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.85))
                     }
                     .buttonStyle(.plain)
-                    .popover(isPresented: $isDetailsPresented, arrowEdge: .top) {
-                        MinimalisticReminderDetailsView(entry: entry, linkURL: linkURL)
+                    .popover(isPresented: $isDetailsPopoverPresented, arrowEdge: .top) {
+                        MinimalisticReminderDetailsView(
+                            entry: entry,
+                            linkURL: linkURL,
+                            onHoverChanged: { hovering in
+                                isHoveringDetailsPopover = hovering
+                                updatePopoverActivity()
+                            }
+                        )
+                        .onDisappear {
+                            isHoveringDetailsPopover = false
+                            updatePopoverActivity()
+                        }
+                    }
+                    .onChange(of: isDetailsPopoverPresented) { _, presented in
+                        if !presented {
+                            isHoveringDetailsPopover = false
+                            updatePopoverActivity()
+                        }
                     }
                 }
-
-                ReminderProgressRing(progress: progress, accent: accentColor, diameter: ringDiameter, lineWidth: ringLineWidth)
             }
         }
         .frame(height: ReminderLiveActivityManager.listRowHeight)
-    }
-
-    private var progress: Double {
-        guard entry.leadTime > 0 else { return 1 }
-        let remaining = max(entry.event.start.timeIntervalSince(now), 0)
-        let elapsed = entry.leadTime - remaining
-        let ratio = elapsed / entry.leadTime
-        return min(max(ratio, 0), 1)
-    }
-
-    private var accentColor: Color {
-        if isCritical {
-            return .red
+        .contentShape(Rectangle())
+        .onTapGesture {
+            openInCalendar()
         }
-        return eventColor
+        .onDisappear {
+            copyResetToken = nil
+            didCopyLink = false
+            vm.isReminderPopoverActive = false
+        }
     }
 
     private var eventColor: Color {
         Color(nsColor: entry.event.calendar.color).ensureMinimumBrightness(factor: 0.7)
-    }
-
-    private var isCritical: Bool {
-        let window = TimeInterval(Defaults[.reminderSneakPeekDuration])
-        guard window > 0 else { return false }
-        let remaining = entry.event.start.timeIntervalSince(now)
-        return remaining > 0 && remaining <= window
     }
 
     private var hasDetails: Bool {
@@ -205,6 +228,35 @@ private struct MinimalisticReminderEventRow: View {
         entry.event.url ?? entry.event.calendarAppURL()
     }
 
+    private var timeText: String? {
+        Self.timeFormatter.string(from: entry.event.start)
+    }
+
+    private func updatePopoverActivity() {
+        vm.isReminderPopoverActive = isDetailsPopoverPresented && isHoveringDetailsPopover
+    }
+
+    private func triggerCopyFeedback() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+            didCopyLink = true
+        }
+
+        let token = UUID()
+        copyResetToken = token
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [token] in
+            guard copyResetToken == token else { return }
+
+            withAnimation(.easeInOut(duration: 0.2)) {
+                didCopyLink = false
+            }
+
+            if copyResetToken == token {
+                copyResetToken = nil
+            }
+        }
+    }
+
     private func copyToClipboard(url: URL) {
 #if canImport(AppKit)
         let pasteboard = NSPasteboard.general
@@ -212,31 +264,19 @@ private struct MinimalisticReminderEventRow: View {
         pasteboard.setString(url.absoluteString, forType: .string)
 #endif
     }
-}
 
-private struct ReminderProgressRing: View {
-    let progress: Double
-    let accent: Color
-    let diameter: CGFloat
-    let lineWidth: CGFloat
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Color.white.opacity(0.18), lineWidth: lineWidth)
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(accent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-        }
-        .frame(width: diameter, height: diameter)
-        .animation(.smooth(duration: 0.25), value: progress)
+    private func openInCalendar() {
+#if canImport(AppKit)
+        guard let url = linkURL else { return }
+        NSWorkspace.shared.open(url)
+#endif
     }
 }
 
 private struct MinimalisticReminderDetailsView: View {
     let entry: ReminderLiveActivityManager.ReminderEntry
     let linkURL: URL?
+    var onHoverChanged: (Bool) -> Void = { _ in }
 
     private let detailFont = Font.system(size: 13, weight: .regular)
     private let smallLabelFont = Font.system(size: 12, weight: .semibold)
@@ -285,6 +325,12 @@ private struct MinimalisticReminderDetailsView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.black.opacity(0.92))
         )
+        .onHover { hovering in
+            onHoverChanged(hovering)
+        }
+        .onDisappear {
+            onHoverChanged(false)
+        }
     }
 
     private func detailRow(icon: String, label: String, value: String) -> some View {
