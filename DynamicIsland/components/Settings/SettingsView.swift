@@ -38,10 +38,8 @@ struct SettingsView: View {
                 NavigationLink(value: "Media") {
                     Label("Media", systemImage: "play.laptopcomputer")
                 }
-                if !enableMinimalisticUI {
-                    NavigationLink(value: "Calendar") {
-                        Label("Calendar", systemImage: "calendar")
-                    }
+                NavigationLink(value: "Calendar") {
+                    Label("Calendar", systemImage: "calendar")
                 }
                 NavigationLink(value: "HUD") {
                     Label("HUDs", systemImage: "dial.medium.fill")

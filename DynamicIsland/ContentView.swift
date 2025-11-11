@@ -39,7 +39,13 @@ struct ContentView: View {
     
     // Dynamic sizing based on view type and graph count with smooth transitions
     var dynamicNotchSize: CGSize {
-        let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        var baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+
+        if Defaults[.enableMinimalisticUI] && vm.notchState == .open {
+            let reminderCount = reminderManager.activeWindowReminders.count
+            let extraHeight = ReminderLiveActivityManager.additionalHeight(forRowCount: reminderCount)
+            baseSize.height += extraHeight
+        }
         
         guard coordinator.currentView == .stats else {
             return baseSize
@@ -81,6 +87,12 @@ struct ContentView: View {
     @Default(.showNotHumanFace) var showNotHumanFace
     @Default(.useModernCloseAnimation) var useModernCloseAnimation
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
+    private var dynamicNotchResizeAnimation: Animation? {
+        if enableMinimalisticUI && reminderManager.activeWindowReminders.isEmpty == false {
+            return nil
+        }
+        return .easeInOut(duration: 0.4)
+    }
     
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
@@ -203,14 +215,14 @@ struct ContentView: View {
                 }
                 .onChange(of: vm.isBatteryPopoverActive) { _, newPopoverState in
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        if !newPopoverState && !isHovering && vm.notchState == .open && !vm.isStatsPopoverActive && !vm.isMediaOutputPopoverActive {
+                        if !newPopoverState && !isHovering && vm.notchState == .open && !vm.isStatsPopoverActive && !vm.isMediaOutputPopoverActive && !vm.isReminderPopoverActive {
                             vm.close()
                         }
                     }
                 }
                 .onChange(of: vm.isStatsPopoverActive) { _, newPopoverState in
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        if !newPopoverState && !isHovering && vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive && !vm.isMediaOutputPopoverActive {
+                        if !newPopoverState && !isHovering && vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive && !vm.isMediaOutputPopoverActive && !vm.isReminderPopoverActive {
                             vm.close()
                         }
                     }
@@ -218,7 +230,7 @@ struct ContentView: View {
                 .onChange(of: vm.shouldRecheckHover) { _, _ in
                     // Recheck hover state when popovers are closed
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        if vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive && !vm.isStatsPopoverActive && !vm.isMediaOutputPopoverActive && !isHovering {
+                        if vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive && !vm.isStatsPopoverActive && !vm.isMediaOutputPopoverActive && !vm.isReminderPopoverActive && !isHovering {
                             vm.close()
                         }
                     }
@@ -338,8 +350,8 @@ struct ContentView: View {
 //                    .keyboardShortcut("E", modifiers: .command)
                 }
         }
-        .frame(maxWidth: dynamicNotchSize.width, maxHeight: dynamicNotchSize.height, alignment: .top)
-        .animation(.easeInOut(duration: 0.4), value: dynamicNotchSize)
+    .frame(maxWidth: dynamicNotchSize.width, maxHeight: dynamicNotchSize.height, alignment: .top)
+    .animation(dynamicNotchResizeAnimation, value: dynamicNotchSize)
         .animation(.easeInOut(duration: 0.4), value: coordinator.currentView)
         .environmentObject(privacyManager)
         .onChange(of: dynamicNotchSize) { oldSize, newSize in
@@ -351,9 +363,11 @@ struct ContentView: View {
                 isViewTransitioning = true
                 let workItem = DispatchWorkItem {
                     isViewTransitioning = false
+                    vm.shouldRecheckHover.toggle()
                 }
                 sizeChangeWorkItem = workItem
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: workItem) // Frame animation + buffer
+                let delay: TimeInterval = dynamicNotchResizeAnimation == nil ? 0.25 : 1.0
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
             }
         }
         .shadow(color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow]) ? .black.opacity(0.6) : .clear, radius: Defaults[.cornerRadiusScaling] ? 10 : 5)
@@ -730,11 +744,15 @@ struct ContentView: View {
                 }
             }
         } else {
+            if vm.notchState == .open && isViewTransitioning {
+                return
+            }
             hoverTask = Task {
                 try? await Task.sleep(for: .milliseconds(100))
                 guard !Task.isCancelled else { return }
                 
                 await MainActor.run {
+                    guard !self.isViewTransitioning else { return }
                     withAnimation(.bouncy.speed(1.2)) {
                         self.isHovering = false
                     }
@@ -794,7 +812,7 @@ struct ContentView: View {
                 let stillNotHovering = !isHovering
                 let stillOpen = vm.notchState == .open
                 let stillNoPopovers = !hasAnyActivePopovers()
-                let notTransitioning = !isStatsTransitioning && !isSwitchingToStats
+                let notTransitioning = !isStatsTransitioning && !isSwitchingToStats && !isViewTransitioning
                 
                 if stillNotHovering && stillOpen && stillNoPopovers && notTransitioning {
                     vm.close()
@@ -813,7 +831,8 @@ struct ContentView: View {
          vm.isColorPickerPopoverActive || 
          vm.isStatsPopoverActive ||
          vm.isTimerPopoverActive ||
-         vm.isMediaOutputPopoverActive
+         vm.isMediaOutputPopoverActive ||
+         vm.isReminderPopoverActive
     }
     
     // Helper to prevent rapid haptic feedback

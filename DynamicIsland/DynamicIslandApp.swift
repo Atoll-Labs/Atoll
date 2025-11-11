@@ -79,6 +79,12 @@ struct DynamicNotchApp: App {
     }
 }
 
+extension AppDelegate {
+    static var shared: AppDelegate? {
+        NSApplication.shared.delegate as? AppDelegate
+    }
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     var windows: [NSScreen: NSWindow] = [:]
@@ -249,69 +255,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateWindowSizeIfNeeded() {
         // Calculate required size based on current state
         let requiredSize = calculateRequiredNotchSize()
-        
-        if Defaults[.showOnAllDisplays] {
-            // Update all windows if size has changed (multi-display mode)
-            for (screen, window) in windows {
-                if window.frame.size != requiredSize {
-                    // Calculate center position BEFORE any changes
-                    let screenFrame = screen.frame
-                    let centerX = screenFrame.origin.x + (screenFrame.width / 2)
-                    let newX = centerX - (requiredSize.width / 2)
-                    let newY = screenFrame.origin.y + screenFrame.height - requiredSize.height
-                    
-                    // Stop any existing animations first
-                    NSAnimationContext.runAnimationGroup { _ in
-                        window.animator().setFrame(window.frame, display: false)
-                    }
-                    
-                    // Animate window resize smoothly
-                    NSAnimationContext.runAnimationGroup { context in
-                        context.duration = 0.25
-                        context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                        context.allowsImplicitAnimation = true
-                        window.animator().setFrame(NSRect(
-                            x: newX,
-                            y: newY,
-                            width: requiredSize.width,
-                            height: requiredSize.height
-                        ), display: true)
-                    }
-                }
-            }
-        } else {
-            // Update single window if size has changed (single display mode)
-            if let window = window, window.frame.size != requiredSize {
-                // Find the screen this window is on
-                let currentScreen = NSScreen.screens.first { screen in
-                    screen.frame.intersects(window.frame)
-                } ?? NSScreen.main ?? NSScreen.screens.first!
-                
-                // Calculate center position BEFORE any changes
-                let screenFrame = currentScreen.frame
-                let centerX = screenFrame.origin.x + (screenFrame.width / 2)
-                let newX = centerX - (requiredSize.width / 2)
-                let newY = screenFrame.origin.y + screenFrame.height - requiredSize.height
-                
-                // Stop any existing animations first
-                NSAnimationContext.runAnimationGroup { _ in
-                    window.animator().setFrame(window.frame, display: false)
-                }
-                
-                // Animate window resize smoothly
-                NSAnimationContext.runAnimationGroup { context in
-                    context.duration = 0.25
-                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                    context.allowsImplicitAnimation = true
-                    window.animator().setFrame(NSRect(
-                        x: newX,
-                        y: newY,
-                        width: requiredSize.width,
-                        height: requiredSize.height
-                    ), display: true)
-                }
-            }
-        }
+        let animateResize = shouldAnimateResize(for: requiredSize)
+        resizeWindows(to: requiredSize, animated: animateResize, force: false)
     }
     
     private func calculateRequiredNotchSize() -> CGSize {
@@ -331,7 +276,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // Use minimalistic or normal size based on settings
-        let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        var baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+
+        if Defaults[.enableMinimalisticUI] && vm.notchState == .open {
+            let reminderCount = ReminderLiveActivityManager.shared.activeWindowReminders.count
+            let extraHeight = ReminderLiveActivityManager.additionalHeight(forRowCount: reminderCount)
+            baseSize.height += extraHeight
+        }
         
         // Only apply dynamic sizing when on stats tab and stats are enabled
         guard coordinator.currentView == .stats && Defaults[.enableStatsFeature] else {
@@ -357,6 +308,54 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Width stays constant - no horizontal expansion
         return CGSize(width: baseSize.width, height: requiredHeight)
+    }
+
+    func ensureWindowSize(_ size: CGSize, animated: Bool, force: Bool = false) {
+        resizeWindows(to: size, animated: animated, force: force)
+    }
+
+    private func resizeWindows(to size: CGSize, animated: Bool, force: Bool) {
+        guard size.width > 0, size.height > 0 else { return }
+
+        if Defaults[.showOnAllDisplays] {
+            for (screen, window) in windows {
+                if force || window.frame.size != size {
+                    resizeWindow(window, on: screen, to: size, animated: animated)
+                }
+            }
+        } else if let window {
+            let screen = window.screen ?? NSScreen.screens.first { $0.frame.intersects(window.frame) } ?? NSScreen.main ?? NSScreen.screens.first
+            guard let screen else { return }
+            if force || window.frame.size != size {
+                resizeWindow(window, on: screen, to: size, animated: animated)
+            }
+        }
+    }
+
+    private func resizeWindow(_ window: NSWindow, on screen: NSScreen, to size: CGSize, animated: Bool) {
+        let screenFrame = screen.frame
+        let centerX = screenFrame.midX
+        let newX = centerX - (size.width / 2)
+        let newY = screenFrame.origin.y + screenFrame.height - size.height
+        let targetFrame = NSRect(x: newX, y: newY, width: size.width, height: size.height)
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.25
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                context.allowsImplicitAnimation = true
+                window.animator().setFrame(targetFrame, display: true)
+            }
+        } else {
+            window.setFrame(targetFrame, display: true)
+        }
+    }
+
+    private func shouldAnimateResize(for newSize: CGSize) -> Bool {
+        if Defaults[.enableMinimalisticUI] && !ReminderLiveActivityManager.shared.activeWindowReminders.isEmpty {
+            return false
+        }
+        return true
     }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -416,6 +415,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Defaults.publisher(.showDiskGraph, options: []).sink { [weak self] _ in
             self?.debouncedUpdateWindowSize()
         }.store(in: &cancellables)
+
+        ReminderLiveActivityManager.shared.$activeWindowReminders
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.debouncedUpdateWindowSize()
+            }
+            .store(in: &cancellables)
 
         Defaults.publisher(.enableShortcuts, options: []).sink { change in
             KeyboardShortcuts.isEnabled = change.newValue

@@ -32,6 +32,7 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     @Published var isClipboardPopoverActive: Bool = false
     @Published var isColorPickerPopoverActive: Bool = false
     @Published var isStatsPopoverActive: Bool = false
+    @Published var isReminderPopoverActive: Bool = false
     @Published var isMediaOutputPopoverActive: Bool = false
     @Published var isTimerPopoverActive: Bool = false
     @Published var shouldRecheckHover: Bool = false
@@ -44,6 +45,7 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
 
     @Published var notchSize: CGSize = getClosedNotchSize()
     @Published var closedNotchSize: CGSize = getClosedNotchSize()
+    private var minimalisticReminderRowCount: Int = 0
     
     deinit {
         destroy()
@@ -71,6 +73,19 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
             .store(in: &cancellables)
         
         setupDetectorObserver()
+
+        ReminderLiveActivityManager.shared.$activeWindowReminders
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] entries in
+                guard let self else { return }
+                self.minimalisticReminderRowCount = entries.count
+                let updatedTarget = self.calculateDynamicNotchSize()
+                guard self.notchState == .open else { return }
+                guard self.notchSize != updatedTarget else { return }
+                self.notchSize = updatedTarget
+            }
+            .store(in: &cancellables)
     }
     
     private func setupDetectorObserver() {
@@ -124,8 +139,21 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     }
 
     func open() {
+        let targetSize = calculateDynamicNotchSize()
+
+        let applyWindowResize: () -> Void = {
+            guard let delegate = AppDelegate.shared else { return }
+            delegate.ensureWindowSize(targetSize, animated: false, force: true)
+        }
+
+        if Thread.isMainThread {
+            applyWindowResize()
+        } else {
+            DispatchQueue.main.async(execute: applyWindowResize)
+        }
+
         withAnimation(.bouncy) {
-            self.notchSize = calculateDynamicNotchSize()
+            self.notchSize = targetSize
             self.notchState = .open
         }
         
@@ -135,7 +163,12 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     
     private func calculateDynamicNotchSize() -> CGSize {
         // Use minimalistic size if minimalistic UI is enabled
-        let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        var baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+
+        if Defaults[.enableMinimalisticUI] {
+            let extraHeight = ReminderLiveActivityManager.additionalHeight(forRowCount: minimalisticReminderRowCount)
+            baseSize.height += extraHeight
+        }
         
         // Only apply dynamic sizing when on stats tab and stats are enabled
         guard DynamicIslandViewCoordinator.shared.currentView == .stats && Defaults[.enableStatsFeature] else {
