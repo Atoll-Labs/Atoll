@@ -188,8 +188,10 @@ struct GeneralSettings: View {
     @Default(.lockScreenWeatherWidgetStyle) var lockScreenWeatherWidgetStyle
     @Default(.lockScreenWeatherTemperatureUnit) var lockScreenWeatherTemperatureUnit
     @Default(.lockScreenWeatherShowsAQI) var lockScreenWeatherShowsAQI
+    @Default(.lockScreenWeatherAQIScale) var lockScreenWeatherAQIScale
     @Default(.lockScreenWeatherUsesGaugeTint) var lockScreenWeatherUsesGaugeTint
     @Default(.lockScreenWeatherProviderSource) var lockScreenWeatherProviderSource
+    @Default(.lockScreenWeatherBatteryUsesLaptopSymbol) var lockScreenWeatherBatteryUsesLaptopSymbol
 
     var body: some View {
         Form {
@@ -402,9 +404,26 @@ struct GeneralSettings: View {
                         Defaults.Toggle("Show charging percentage", key: .lockScreenWeatherShowsChargingPercentage)
                     }
                     Defaults.Toggle("Show battery indicator", key: .lockScreenWeatherShowsBatteryGauge)
+                    if lockScreenWeatherShowsBatteryGauge {
+                        Defaults.Toggle("Use MacBook icon when on battery", key: .lockScreenWeatherBatteryUsesLaptopSymbol)
+                            .disabled(lockScreenWeatherWidgetStyle != .circular)
+                        if lockScreenWeatherWidgetStyle != .circular {
+                            Text("MacBook icon is available in the circular layout.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     Defaults.Toggle("Show Bluetooth battery", key: .lockScreenWeatherShowsBluetooth)
                     Defaults.Toggle("Show AQI widget", key: .lockScreenWeatherShowsAQI)
                         .disabled(!lockScreenWeatherProviderSource.supportsAirQuality)
+                    if lockScreenWeatherShowsAQI && lockScreenWeatherProviderSource.supportsAirQuality {
+                        Picker("Air quality scale", selection: $lockScreenWeatherAQIScale) {
+                            ForEach(LockScreenWeatherAirQualityScale.allCases) { scale in
+                                Text(scale.displayName).tag(scale)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
                     if !lockScreenWeatherProviderSource.supportsAirQuality {
                         Text("Air quality requires the Open Meteo provider.")
                             .font(.caption)
