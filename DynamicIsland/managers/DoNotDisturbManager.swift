@@ -22,7 +22,6 @@ final class DoNotDisturbManager: ObservableObject {
 
     private let notificationCenter = DistributedNotificationCenter.default()
     private let metadataExtractionQueue = DispatchQueue(label: "com.dynamicisland.focus.metadata", qos: .userInitiated)
-    private let focusStateResolver = FocusStateResolver()
     private let focusLogStream = FocusLogStream()
 
     private init() {
@@ -286,17 +285,6 @@ final class DoNotDisturbManager: ObservableObject {
             }
         }
 
-        if identifier == nil || name == nil {
-            if let fallback = focusStateResolver.loadActiveFocusState(identifierMissing: identifier == nil, nameMissing: name == nil) {
-                if identifier == nil {
-                    identifier = fallback.identifier
-                }
-                if name == nil {
-                    name = fallback.name
-                }
-            }
-        }
-
         return (name, identifier)
     }
 
@@ -347,8 +335,8 @@ enum FocusModeType: String, CaseIterable {
         case .driving: return "car.fill"
         case .fitness: return "figure.run"
         case .gaming: return "gamecontroller.fill"
-        case .mindfulness: return "brain.head.profile"
-        case .reading: return "book.fill"
+        case .mindfulness: return "circle.hexagongrid"
+        case .reading: return "book.closed.fill"
         case .custom: return "app.badge"
         case .unknown: return "moon.fill"
         }
@@ -359,9 +347,9 @@ enum FocusModeType: String, CaseIterable {
         case .doNotDisturb:
             return Color(red: 0.370, green: 0.360, blue: 0.902)
         case .work:
-            return Color(red: 0.133, green: 0.475, blue: 0.992)
+            return Color(red: 0.414, green: 0.769, blue: 0.863, opacity: 1.0)
         case .personal:
-            return Color(red: 0.937, green: 0.282, blue: 0.624)
+            return Color(red: 0.748, green: 0.354, blue: 0.948, opacity: 1.0)
         case .sleep:
             return Color(red: 0.341, green: 0.384, blue: 0.980)
         case .driving:
@@ -369,11 +357,11 @@ enum FocusModeType: String, CaseIterable {
         case .fitness:
             return Color(red: 0.176, green: 0.804, blue: 0.459)
         case .gaming:
-            return Color(red: 0.639, green: 0.329, blue: 0.937)
+            return Color(red: 0.043, green: 0.518, blue: 1.000, opacity: 1.0)
         case .mindfulness:
-            return Color(red: 0.239, green: 0.718, blue: 0.682)
+            return Color(red: 0.361, green: 0.898, blue: 0.883, opacity: 1.0)
         case .reading:
-            return Color(red: 0.239, green: 0.596, blue: 0.965)
+            return Color(red: 1.000, green: 0.622, blue: 0.044, opacity: 1.0)
         case .custom:
             return Color(red: 0.513, green: 0.478, blue: 0.965)
         case .unknown:
@@ -659,275 +647,6 @@ private extension DoNotDisturbManager {
         }
     }
 
-}
-
-// MARK: - Filesystem fallback for Focus metadata
-
-private final class FocusStateResolver {
-    private struct CacheKey: Hashable { let url: URL }
-    private struct FocusRecord { let identifier: String?; let name: String? }
-
-    private let fileManager = FileManager.default
-
-    private let identifierKeys = [
-        "FocusModeIdentifier",
-        "focusModeIdentifier",
-        "FocusModeUUID",
-        "focusModeUUID",
-        "UUID",
-        "uuid",
-        "identifier",
-        "Identifier",
-        "activeModeIdentifier",
-        "activeModeUUID",
-        "modeIdentifier",
-        "modeUUID"
-    ]
-
-    private let nameKeys = [
-        "FocusModeName",
-        "focusModeName",
-        "FocusMode",
-        "focusMode",
-        "displayName",
-        "display_name",
-        "name",
-        "Name",
-        "modeName"
-    ]
-
-    private var cache: [CacheKey: (modified: Date, records: [FocusRecord])] = [:]
-
-    private lazy var activeStateURLs: [URL] = {
-        let home = fileManager.homeDirectoryForCurrentUser
-        return [
-            "Library/DoNotDisturb/ActiveState.plist",
-            "Library/DoNotDisturb/DB/ActiveState.plist",
-            "Library/Focus/ActiveState.plist"
-        ].map { home.appendingPathComponent($0) }
-    }()
-
-    private lazy var catalogURLs: [URL] = {
-        let home = fileManager.homeDirectoryForCurrentUser
-        return [
-            "Library/DoNotDisturb/DB/FocusPreferences.plist",
-            "Library/DoNotDisturb/DB/FocusModeDefaults.plist",
-            "Library/DoNotDisturb/DB/FocusModes.plist",
-            "Library/Focus/FocusModeDefaults.plist",
-            "Library/Preferences/com.apple.controlcenter.plist"
-        ].map { home.appendingPathComponent($0) }
-    }()
-
-    func loadActiveFocusState(identifierMissing: Bool, nameMissing: Bool) -> (identifier: String?, name: String?)? {
-        guard identifierMissing || nameMissing else { return nil }
-
-        let activeRecords = loadRecords(from: activeStateURLs)
-        let catalogRecords = loadRecords(from: catalogURLs)
-        let allRecords = activeRecords + catalogRecords
-
-        guard !allRecords.isEmpty else { return nil }
-
-        var identifier: String?
-        var name: String?
-
-        if let record = activeRecords.first(where: { record in
-            guard let id = record.identifier, !id.isEmpty else { return false }
-            guard let name = record.name, !name.isEmpty else { return false }
-            return true
-        }) {
-            identifier = record.identifier
-            name = record.name
-        }
-
-        if identifierMissing && (identifier == nil || identifier?.isEmpty == true) {
-            identifier = activeRecords.compactMap { $0.identifier?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .first(where: { !$0.isEmpty })
-
-            if identifier == nil {
-                identifier = catalogRecords.compactMap { $0.identifier?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .first(where: { !$0.isEmpty })
-            }
-        }
-
-        if nameMissing && (name == nil || name?.isEmpty == true) {
-            if let id = identifier {
-                name = allRecords.first(where: {
-                    guard let candidateIdentifier = $0.identifier else { return false }
-                    return candidateIdentifier.compare(id, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame && ($0.name?.isEmpty == false)
-                })?.name
-            }
-
-            if name == nil {
-                name = activeRecords.compactMap { $0.name?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .first(where: { !$0.isEmpty })
-            }
-
-            if name == nil {
-                name = catalogRecords.compactMap { $0.name?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .first(where: { !$0.isEmpty })
-            }
-        }
-
-        if identifier == nil && name == nil {
-            return nil
-        }
-
-        return (identifierMissing ? identifier : nil, nameMissing ? name : nil)
-    }
-
-    private func loadRecords(from urls: [URL]) -> [FocusRecord] {
-        var records: [FocusRecord] = []
-
-        for url in urls {
-            guard fileManager.fileExists(atPath: url.path) else { continue }
-
-            if let cached = cachedRecords(for: url) {
-                records.append(contentsOf: cached)
-                continue
-            }
-
-            guard let attributes = try? fileManager.attributesOfItem(atPath: url.path),
-                  let modified = attributes[.modificationDate] as? Date,
-                  let data = try? Data(contentsOf: url) else {
-                continue
-            }
-
-            let decoded = decodeData(data)
-            let extracted = extractRecords(from: decoded)
-
-            cache[CacheKey(url: url)] = (modified, extracted)
-            records.append(contentsOf: extracted)
-        }
-
-        return records
-    }
-
-    private func cachedRecords(for url: URL) -> [FocusRecord]? {
-        let key = CacheKey(url: url)
-        guard let cached = cache[key],
-              let attributes = try? fileManager.attributesOfItem(atPath: url.path),
-              let modified = attributes[.modificationDate] as? Date,
-              cached.modified == modified else {
-            cache.removeValue(forKey: key)
-            return nil
-        }
-
-        return cached.records
-    }
-
-    private func decodeData(_ data: Data) -> Any {
-        if let propertyList = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) {
-            return propertyList
-        }
-
-        if let unarchived = try? NSKeyedUnarchiver.unarchivedObject(ofClasses: [NSDictionary.self, NSArray.self, NSString.self, NSNumber.self, NSData.self], from: data) {
-            return unarchived as Any
-        }
-
-        if let unarchived = try? NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(data) {
-            return unarchived as Any
-        }
-
-        if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) {
-            return jsonObject
-        }
-
-        if let string = String(data: data, encoding: .utf8) {
-            return string
-        }
-
-        return [:]
-    }
-
-    private func extractRecords(from value: Any) -> [FocusRecord] {
-        var results: [FocusRecord] = []
-
-        if let dictionary = value as? [AnyHashable: Any] {
-            let identifier = directMatch(in: dictionary, keys: identifierKeys)
-            let name = directMatch(in: dictionary, keys: nameKeys)
-
-            if identifier != nil || name != nil {
-                results.append(FocusRecord(identifier: identifier, name: name))
-            }
-
-            for nested in dictionary.values {
-                results.append(contentsOf: extractRecords(from: nested))
-            }
-        } else if let array = value as? [Any] {
-            for element in array {
-                results.append(contentsOf: extractRecords(from: element))
-            }
-        } else if let data = value as? Data {
-            let decoded = decodeData(data)
-            results.append(contentsOf: extractRecords(from: decoded))
-        } else if let data = value as? NSData {
-            let decoded = decodeData(data as Data)
-            results.append(contentsOf: extractRecords(from: decoded))
-        } else if let string = value as? String {
-            let cleaned = FocusMetadataDecoder.cleanedString(string)
-            if !cleaned.isEmpty {
-                let identifier = matchIdentifier(in: cleaned)
-                let name = identifier == nil ? matchName(in: cleaned) : matchName(in: cleaned, matching: identifier)
-
-                if identifier != nil || name != nil {
-                    results.append(FocusRecord(identifier: identifier, name: name))
-                }
-            }
-        }
-
-        return results
-    }
-
-    private func directMatch(in dictionary: [AnyHashable: Any], keys: [String]) -> String? {
-        for key in keys {
-            if let candidate = dictionary[key], let string = normalizedString(from: candidate) {
-                return string
-            }
-        }
-        return nil
-    }
-
-    private func normalizedString(from value: Any) -> String? {
-        switch value {
-        case let string as String:
-            return FocusMetadataDecoder.cleanedString(string)
-        case let string as NSString:
-            return FocusMetadataDecoder.cleanedString(string as String)
-        case let number as NSNumber:
-            return FocusMetadataDecoder.cleanedString(number.stringValue)
-        case let data as Data:
-            if let string = String(data: data, encoding: .utf8) {
-                return FocusMetadataDecoder.cleanedString(string)
-            }
-            return nil
-        case let data as NSData:
-            return normalizedString(from: data as Data)
-        default:
-            return nil
-        }
-    }
-
-    private func matchIdentifier(in string: String) -> String? {
-        FocusMetadataDecoder.extractIdentifier(from: string)
-    }
-
-    private func matchName(in string: String, matching identifier: String? = nil) -> String? {
-        if let name = FocusMetadataDecoder.extractName(from: string) {
-            return name
-        }
-
-        if let identifier = identifier {
-            let components = identifier.split(separator: ".")
-            if let last = components.last {
-                let derived = FocusMetadataDecoder.cleanedString(String(last).replacingOccurrences(of: "_", with: " "))
-                if !derived.isEmpty {
-                    return derived.capitalized
-                }
-            }
-        }
-
-        return nil
-    }
 }
 
 private final class FocusLogStream {
