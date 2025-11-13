@@ -18,6 +18,18 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/sponsors/Ebullioscopic">
+    <img src="https://img.shields.io/badge/Sponsor-Ebullioscopic-ff69b4?style=for-the-badge&logo=github" alt="Sponsor Ebullioscopic"/>
+  </a>
+  <a href="https://github.com/Ebullioscopic/Atoll/releases/download/v1.0.2-beta/Atoll.dmg">
+    <img src="https://img.shields.io/badge/Download-Atoll%20for%20macOS-0A84FF?style=for-the-badge&logo=apple" alt="Download Atoll for macOS"/>
+  </a>
+  <a href="https://www.buymeacoffee.com/kryoscopic">
+    <img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-kryoscopic-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=000000" alt="Buy Me a Coffee for kryoscopic"/>
+  </a>
+</p>
+
+<p align="center">
   <a href="https://discord.gg/zvjB4tJBkt">Join our Discord community</a>
 </p>
 
