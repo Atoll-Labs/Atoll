@@ -141,7 +141,7 @@ struct TimerLiveActivity: View {
     }
 
     private var shouldShowControlWindow: Bool {
-        controlWindowEnabled && !shouldDisplayLabel && timerManager.isTimerActive
+        controlWindowEnabled && !shouldDisplayLabel && timerManager.isTimerActive && !timerManager.isExternalTimerActive
     }
     
     private func measureTextWidth(_ text: String, font: PlatformFont) -> CGFloat {
@@ -284,6 +284,9 @@ struct TimerLiveActivity: View {
             syncControlWindow(forceRefresh: true)
         }
         .onChange(of: progressStyle) { _, _ in
+            syncControlWindow(forceRefresh: true)
+        }
+        .onChange(of: timerManager.activeSource) { _, _ in
             syncControlWindow(forceRefresh: true)
         }
     }
