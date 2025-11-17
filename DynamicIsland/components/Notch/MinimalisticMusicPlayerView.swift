@@ -17,7 +17,8 @@ import AppKit
 struct MinimalisticMusicPlayerView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     let albumArtNamespace: Namespace.ID
-    @Default(.showMediaOutputControl) var showMediaOutputControl
+    @Default(.musicAuxLeftControl) private var leftAuxControl
+    @Default(.musicAuxRightControl) private var rightAuxControl
     @ObservedObject private var reminderManager = ReminderLiveActivityManager.shared
     @Default(.enableReminderLiveActivity) private var enableReminderLiveActivity
     @Default(.enableLyrics) private var enableLyrics
@@ -601,9 +602,7 @@ private struct MinimalisticReminderDetailsView: View {
     private var playbackControls: some View {
         HStack(spacing: 16) {
             if Defaults[.showShuffleAndRepeat] {
-                controlButton(icon: "shuffle", isActive: musicManager.isShuffled) {
-                    Task { await musicManager.toggleShuffle() }
-                }
+                auxButton(for: leftAuxControl)
             }
 
             controlButton(icon: "backward.fill", size: 18) {
@@ -616,16 +615,8 @@ private struct MinimalisticReminderDetailsView: View {
                 Task { await musicManager.nextTrack() }
             }
 
-            // (lyrics toggle removed from UI; controlled via Settings -> Media -> Enable Lyrics)
-
             if Defaults[.showShuffleAndRepeat] {
-                if showMediaOutputControl {
-                    MinimalisticMediaOutputButton()
-                } else {
-                    controlButton(icon: repeatIcon, isActive: musicManager.repeatMode != .off) {
-                        Task { await musicManager.toggleRepeat() }
-                    }
-                }
+                auxButton(for: rightAuxControl)
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -656,6 +647,26 @@ private struct MinimalisticReminderDetailsView: View {
             foregroundColor: isActive ? .red : .white.opacity(0.85),
             action: action
         )
+    }
+
+    @ViewBuilder
+    private func auxButton(for control: MusicAuxiliaryControl) -> some View {
+        switch control {
+        case .shuffle:
+            controlButton(icon: "shuffle", isActive: musicManager.isShuffled) {
+                Task { await musicManager.toggleShuffle() }
+            }
+        case .repeatMode:
+            controlButton(icon: repeatIcon, isActive: musicManager.repeatMode != .off) {
+                Task { await musicManager.toggleRepeat() }
+            }
+        case .mediaOutput:
+            MinimalisticMediaOutputButton()
+        case .lyrics:
+            controlButton(icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble", isActive: enableLyrics) {
+                enableLyrics.toggle()
+            }
+        }
     }
     private struct MinimalisticMediaOutputButton: View {
         @ObservedObject private var routeManager = AudioRouteManager.shared

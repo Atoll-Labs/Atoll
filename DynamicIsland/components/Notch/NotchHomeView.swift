@@ -120,7 +120,9 @@ struct MusicControlsView: View {
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
     let showShuffleAndRepeat: Bool
-    @Default(.showMediaOutputControl) private var showMediaOutputControl
+    @Default(.musicAuxLeftControl) private var leftAuxControl
+    @Default(.musicAuxRightControl) private var rightAuxControl
+    @Default(.enableLyrics) private var enableLyrics
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -213,12 +215,7 @@ struct MusicControlsView: View {
     private var playbackControls: some View {
         HStack(spacing: 8) {
             if showShuffleAndRepeat {
-                HoverButton(
-                    icon: "shuffle", iconColor: musicManager.isShuffled ? .red : .white,
-                    scale: .medium
-                ) {
-                    MusicManager.shared.toggleShuffle()
-                }
+                auxButton(for: leftAuxControl)
             }
             HoverButton(icon: "backward.fill", scale: .medium) {
                 MusicManager.shared.previousTrack()
@@ -230,13 +227,7 @@ struct MusicControlsView: View {
                 MusicManager.shared.nextTrack()
             }
             if showShuffleAndRepeat {
-                if showMediaOutputControl {
-                    MediaOutputPickerButton()
-                } else {
-                    HoverButton(icon: repeatIcon, iconColor: repeatIconColor, scale: .medium) {
-                        MusicManager.shared.toggleRepeat()
-                    }
-                }
+                auxButton(for: rightAuxControl)
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -259,6 +250,38 @@ struct MusicControlsView: View {
             return .white
         case .all, .one:
             return .red
+        }
+    }
+
+    @ViewBuilder
+    private func auxButton(for control: MusicAuxiliaryControl) -> some View {
+        switch control {
+        case .shuffle:
+            HoverButton(
+                icon: "shuffle",
+                iconColor: musicManager.isShuffled ? .red : .white,
+                scale: .medium
+            ) {
+                MusicManager.shared.toggleShuffle()
+            }
+        case .repeatMode:
+            HoverButton(
+                icon: repeatIcon,
+                iconColor: repeatIconColor,
+                scale: .medium
+            ) {
+                MusicManager.shared.toggleRepeat()
+            }
+        case .mediaOutput:
+            MediaOutputPickerButton()
+        case .lyrics:
+            HoverButton(
+                icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble",
+                iconColor: enableLyrics ? .accentColor : .white,
+                scale: .medium
+            ) {
+                enableLyrics.toggle()
+            }
         }
     }
 }

@@ -361,6 +361,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Migrate legacy progress bar settings
         Defaults.Keys.migrateProgressBarStyle()
+        Defaults.Keys.migrateMusicAuxControls()
         
         // Initialize idle animations (load bundled + built-in face)
         idleAnimationManager.initializeDefaultAnimations()

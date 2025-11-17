@@ -855,6 +855,8 @@ struct Media: View {
     @Default(.sneakPeekStyles) var sneakPeekStyles
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
     @Default(.showShuffleAndRepeat) private var showShuffleAndRepeat
+    @Default(.musicAuxLeftControl) private var musicAuxLeftControl
+    @Default(.musicAuxRightControl) private var musicAuxRightControl
 
     var body: some View {
         Form {
@@ -896,9 +898,21 @@ struct Media: View {
                     }
                 }
                 Defaults.Toggle(key: .showMediaOutputControl) {
-                    Text("Replace repeat button with media output control")
+                    Text("Show media output control in other layouts")
                 }
                 .disabled(!showShuffleAndRepeat)
+                if showShuffleAndRepeat {
+                    Picker("Left button", selection: $musicAuxLeftControl) {
+                        ForEach(MusicAuxiliaryControl.allCases) { control in
+                            Text(control.displayName).tag(control)
+                        }
+                    }
+                    Picker("Right button", selection: $musicAuxRightControl) {
+                        ForEach(MusicAuxiliaryControl.allCases) { control in
+                            Text(control.displayName).tag(control)
+                        }
+                    }
+                }
             } header: {
                 Text("Media controls")
             }
