@@ -16,13 +16,22 @@ let batterySneakSize: CGSize = .init(width: 160, height: 1)
 
 let openNotchSize: CGSize = .init(width: 640, height: 190)
 private let minimalisticBaseOpenNotchSize: CGSize = .init(width: 420, height: 180)
-private let minimalisticLyricsExtraHeight: CGFloat = 30
+private let minimalisticLyricsExtraHeight: CGFloat = 40
 
+@MainActor
 var minimalisticOpenNotchSize: CGSize {
     var size = minimalisticBaseOpenNotchSize
 
     if Defaults[.enableLyrics] {
         size.height += minimalisticLyricsExtraHeight
+    }
+    
+    let reminderCount = ReminderLiveActivityManager.shared.activeWindowReminders.count
+    if reminderCount > 0 {
+        let reminderHeight = ReminderLiveActivityManager.additionalHeight(forRowCount: reminderCount)
+        size.height += reminderHeight
+        size.height += ReminderLiveActivityManager.listTopPadding
+        size.height += ReminderLiveActivityManager.listBottomPadding - ReminderLiveActivityManager.baselineMinimalisticBottomPadding
     }
 
     return size

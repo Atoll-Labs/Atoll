@@ -166,7 +166,7 @@ struct MinimalisticMusicPlayerView: View {
         // Add lyrics height if enabled in settings (reserve space even while loading)
         if enableLyrics {
             let lyricsTopPadding: CGFloat = 10
-            let lyricsEstimatedHeight: CGFloat = 30
+            let lyricsEstimatedHeight: CGFloat = 34
             height += lyricsTopPadding + lyricsEstimatedHeight
         }
 

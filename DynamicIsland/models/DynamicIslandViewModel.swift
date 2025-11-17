@@ -45,7 +45,6 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
 
     @Published var notchSize: CGSize = getClosedNotchSize()
     @Published var closedNotchSize: CGSize = getClosedNotchSize()
-    private var minimalisticReminderRowCount: Int = 0
     
     deinit {
         destroy()
@@ -77,9 +76,8 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
         ReminderLiveActivityManager.shared.$activeWindowReminders
             .removeDuplicates()
             .receive(on: RunLoop.main)
-            .sink { [weak self] entries in
+            .sink { [weak self] _ in
                 guard let self else { return }
-                self.minimalisticReminderRowCount = entries.count
                 let updatedTarget = self.calculateDynamicNotchSize()
                 guard self.notchState == .open else { return }
                 guard self.notchSize != updatedTarget else { return }
@@ -194,11 +192,6 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     private func calculateDynamicNotchSize() -> CGSize {
         // Use minimalistic size if minimalistic UI is enabled
         var baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
-
-        if Defaults[.enableMinimalisticUI] {
-            let extraHeight = ReminderLiveActivityManager.additionalHeight(forRowCount: minimalisticReminderRowCount)
-            baseSize.height += extraHeight
-        }
 
         // Only apply dynamic sizing when on stats tab and stats are enabled
         guard DynamicIslandViewCoordinator.shared.currentView == .stats && Defaults[.enableStatsFeature] else {

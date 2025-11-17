@@ -162,16 +162,27 @@ struct MusicControlsView: View {
                     removal: .move(edge: .top).combined(with: .opacity)
                 )
 
-                Text(musicManager.currentLyrics)
-                    .font(.headline)
-                    .foregroundColor(.white.opacity(0.8))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                let line = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                if !line.isEmpty {
+                    let lyricsBinding = Binding<String>(
+                        get: { musicManager.currentLyrics },
+                        set: { _ in }
+                    )
+
+                    MarqueeText(
+                        lyricsBinding,
+                        font: .headline,
+                        nsFont: .headline,
+                        textColor: .white.opacity(0.8),
+                        minDuration: 0.35,
+                        frameWidth: width
+                    )
                     .padding(.top, 2)
-                    .id(musicManager.currentLyrics)
+                    .id(line)
                     .transition(transition)
-                    .animation(.easeInOut(duration: 0.32), value: musicManager.currentLyrics)
+                    .animation(.easeInOut(duration: 0.32), value: line)
+                }
             }
         }
     }
