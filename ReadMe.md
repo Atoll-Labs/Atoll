@@ -12,7 +12,7 @@
   <a href="https://github.com/Ebullioscopic/Atoll/releases">
     <img src="https://img.shields.io/github/downloads/Ebullioscopic/Atoll/total?label=Downloads" alt="GitHub downloads"/>
   </a>
-  <a href="https://discord.gg/zvjB4tJBkt">
+  <a href="https://discord.gg/PaqFkRTDF8">
     <img src="https://img.shields.io/discord/1429481472942669896?label=Discord&logo=discord&color=7289da" alt="Discord server"/>
   </a>
 </p>
@@ -30,7 +30,7 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/zvjB4tJBkt">Join our Discord community</a>
+  <a href="https://discord.gg/PaqFkRTDF8">Join our Discord community</a>
 </p>
 
 **Project rename:** DynamicIsland is now called **Atoll**. Visit the new repository at [github.com/Ebullioscopic/Atoll](https://github.com/Ebullioscopic/Atoll).

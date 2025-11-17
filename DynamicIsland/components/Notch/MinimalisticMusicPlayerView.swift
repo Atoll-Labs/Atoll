@@ -600,23 +600,25 @@ private struct MinimalisticReminderDetailsView: View {
     // MARK: - Playback Controls (Larger)
     
     private var playbackControls: some View {
-        HStack(spacing: 16) {
+        let controls = resolvedAuxControls
+
+        return HStack(spacing: 16) {
             if Defaults[.showShuffleAndRepeat] {
-                auxButton(for: leftAuxControl)
+                auxButton(for: controls.left)
             }
 
-            controlButton(icon: "backward.fill", size: 18) {
+            controlButton(icon: "backward.fill", size: 18, pressEffect: .nudge(-8)) {
                 Task { await musicManager.previousTrack() }
             }
 
             playPauseButton
 
-            controlButton(icon: "forward.fill", size: 18) {
+            controlButton(icon: "forward.fill", size: 18, pressEffect: .nudge(8)) {
                 Task { await musicManager.nextTrack() }
             }
 
             if Defaults[.showShuffleAndRepeat] {
-                auxButton(for: rightAuxControl)
+                auxButton(for: controls.right)
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -631,13 +633,22 @@ private struct MinimalisticReminderDetailsView: View {
             frameSize: CGSize(width: 54, height: 54),
             cornerRadius: 20,
             foregroundColor: .white,
+            pressEffect: .none,
+            symbolEffectStyle: .replace,
             action: {
                 Task { await musicManager.togglePlay() }
             }
         )
     }
     
-    private func controlButton(icon: String, size: CGFloat = 18, isActive: Bool = false, action: @escaping () -> Void) -> some View {
+    private func controlButton(
+        icon: String,
+        size: CGFloat = 18,
+        isActive: Bool = false,
+        pressEffect: MinimalisticSquircircleButton.PressEffect = .none,
+        symbolEffect: MinimalisticSquircircleButton.SymbolEffectStyle = .none,
+        action: @escaping () -> Void
+    ) -> some View {
         MinimalisticSquircircleButton(
             icon: icon,
             fontSize: size,
@@ -645,6 +656,8 @@ private struct MinimalisticReminderDetailsView: View {
             frameSize: CGSize(width: 40, height: 40),
             cornerRadius: 16,
             foregroundColor: isActive ? .red : .white.opacity(0.85),
+            pressEffect: pressEffect,
+            symbolEffectStyle: symbolEffect,
             action: action
         )
     }
@@ -663,10 +676,21 @@ private struct MinimalisticReminderDetailsView: View {
         case .mediaOutput:
             MinimalisticMediaOutputButton()
         case .lyrics:
-            controlButton(icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble", isActive: enableLyrics) {
+            controlButton(
+                icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble",
+                isActive: enableLyrics,
+                symbolEffect: .replace
+            ) {
                 enableLyrics.toggle()
             }
         }
+    }
+
+    private var resolvedAuxControls: (left: MusicAuxiliaryControl, right: MusicAuxiliaryControl) {
+        guard leftAuxControl == rightAuxControl else {
+            return (leftAuxControl, rightAuxControl)
+        }
+        return (leftAuxControl, MusicAuxiliaryControl.alternative(excluding: leftAuxControl))
     }
     private struct MinimalisticMediaOutputButton: View {
         @ObservedObject private var routeManager = AudioRouteManager.shared
@@ -795,15 +819,41 @@ private struct MinimalisticSquircircleButton: View {
     let frameSize: CGSize
     let cornerRadius: CGFloat
     let foregroundColor: Color
+    let pressEffect: PressEffect
+    let symbolEffectStyle: SymbolEffectStyle
     let action: () -> Void
 
     @State private var isHovering = false
+    @State private var pressOffset: CGFloat = 0
+
+    init(
+        icon: String,
+        fontSize: CGFloat,
+        fontWeight: Font.Weight,
+        frameSize: CGSize,
+        cornerRadius: CGFloat,
+        foregroundColor: Color,
+        pressEffect: PressEffect = .none,
+        symbolEffectStyle: SymbolEffectStyle = .none,
+        action: @escaping () -> Void
+    ) {
+        self.icon = icon
+        self.fontSize = fontSize
+        self.fontWeight = fontWeight
+        self.frameSize = frameSize
+        self.cornerRadius = cornerRadius
+        self.foregroundColor = foregroundColor
+        self.pressEffect = pressEffect
+        self.symbolEffectStyle = symbolEffectStyle
+        self.action = action
+    }
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: fontSize, weight: fontWeight))
-                .foregroundColor(foregroundColor)
+        Button {
+            triggerPressEffect()
+            action()
+        } label: {
+            iconView()
                 .frame(width: frameSize.width, height: frameSize.height)
                 .background(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -812,10 +862,62 @@ private struct MinimalisticSquircircleButton: View {
                 .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
         .buttonStyle(PlainButtonStyle())
+        .offset(x: pressOffset)
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.18)) {
                 isHovering = hovering
             }
         }
+    }
+
+    private func triggerPressEffect() {
+        guard case let .nudge(amount) = pressEffect else { return }
+
+        withAnimation(.spring(response: 0.16, dampingFraction: 0.72)) {
+            pressOffset = amount
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.8)) {
+                pressOffset = 0
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func iconView() -> some View {
+        let image = Image(systemName: icon)
+            .font(.system(size: fontSize, weight: fontWeight))
+            .foregroundColor(foregroundColor)
+
+        switch symbolEffectStyle {
+        case .none:
+            image
+        case .replace:
+            if #available(macOS 14.0, *) {
+                image
+                    .contentTransition(.symbolEffect(.replace))
+                    .id(icon)
+            } else {
+                image
+            }
+        case .bounce:
+            if #available(macOS 14.0, *) {
+                image.symbolEffect(.bounce, value: icon)
+            } else {
+                image
+            }
+        }
+    }
+
+    enum PressEffect {
+        case none
+        case nudge(CGFloat)
+    }
+
+    enum SymbolEffectStyle {
+        case none
+        case replace
+        case bounce
     }
 }

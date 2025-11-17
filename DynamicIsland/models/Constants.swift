@@ -213,8 +213,25 @@ enum MusicAuxiliaryControl: String, CaseIterable, Identifiable, Defaults.Seriali
         case .mediaOutput:
             return "Media Output"
         case .lyrics:
-            return "Lyrics Toggle"
+            return "Lyrics"
         }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .shuffle:
+            return "shuffle"
+        case .repeatMode:
+            return "repeat"
+        case .mediaOutput:
+            return "speaker.wave.2"
+        case .lyrics:
+            return "quote.bubble"
+        }
+    }
+
+    static func alternative(excluding control: MusicAuxiliaryControl) -> MusicAuxiliaryControl {
+        allCases.first { $0 != control } ?? .shuffle
     }
 }
 

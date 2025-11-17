@@ -158,7 +158,7 @@ struct MusicControlsView: View {
             )
             .fontWeight(.medium)
             // Lyrics shown under the author name (same font size as author) when enabled in settings
-            if Defaults[.enableLyrics] {
+            if enableLyrics {
                 let transition = AnyTransition.asymmetric(
                     insertion: .move(edge: .bottom).combined(with: .opacity),
                     removal: .move(edge: .top).combined(with: .opacity)
@@ -213,21 +213,23 @@ struct MusicControlsView: View {
     }
 
     private var playbackControls: some View {
-        HStack(spacing: 8) {
+        let controls = resolvedAuxControls
+
+        return HStack(spacing: 8) {
             if showShuffleAndRepeat {
-                auxButton(for: leftAuxControl)
+                auxButton(for: controls.left)
             }
-            HoverButton(icon: "backward.fill", scale: .medium) {
+            HoverButton(icon: "backward.fill", scale: .medium, pressEffect: .nudge(-6)) {
                 MusicManager.shared.previousTrack()
             }
             HoverButton(icon: musicManager.isPlaying ? "pause.fill" : "play.fill", scale: .large) {
                 MusicManager.shared.togglePlay()
             }
-            HoverButton(icon: "forward.fill", scale: .medium) {
+            HoverButton(icon: "forward.fill", scale: .medium, pressEffect: .nudge(6)) {
                 MusicManager.shared.nextTrack()
             }
             if showShuffleAndRepeat {
-                auxButton(for: rightAuxControl)
+                auxButton(for: controls.right)
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -251,6 +253,13 @@ struct MusicControlsView: View {
         case .all, .one:
             return .red
         }
+    }
+
+    private var resolvedAuxControls: (left: MusicAuxiliaryControl, right: MusicAuxiliaryControl) {
+        guard leftAuxControl == rightAuxControl else {
+            return (leftAuxControl, rightAuxControl)
+        }
+        return (leftAuxControl, MusicAuxiliaryControl.alternative(excluding: leftAuxControl))
     }
 
     @ViewBuilder
