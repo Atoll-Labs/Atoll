@@ -39,10 +39,12 @@ struct LockScreenMusicPanel: View {
     private let collapseTimeout: TimeInterval = 5
     private let collapsedSliderExtraHeight: CGFloat = 72
     private let expandedSliderExtraHeight: CGFloat = 88
+    private let collapsedLyricsExtraHeight: CGFloat = 64
+    private let expandedLyricsExtraHeight: CGFloat = 96
 
     private var currentSize: CGSize {
         let base = isExpanded ? Self.expandedSize : Self.collapsedSize
-        return CGSize(width: base.width, height: base.height + sliderExtraHeight)
+        return CGSize(width: base.width, height: base.height + totalExtraHeight)
     }
 
     private var panelCornerRadius: CGFloat {
@@ -74,11 +76,7 @@ struct LockScreenMusicPanel: View {
                 sliderValue = musicManager.elapsedTime
                 isActive = true
                 logPanelAppearance()
-                LockScreenPanelManager.shared.updatePanelSize(
-                    expanded: isExpanded,
-                    additionalHeight: sliderHeight(forExpanded: isExpanded, visible: shouldShowVolumeSlider),
-                    animated: false
-                )
+                updatePanelSize(animated: false)
                 routeManager.refreshDevices()
             }
             .onDisappear {
@@ -87,10 +85,7 @@ struct LockScreenMusicPanel: View {
                 isVolumeSliderVisible = false
             }
             .onChange(of: isExpanded) { _, expanded in
-                LockScreenPanelManager.shared.updatePanelSize(
-                    expanded: expanded,
-                    additionalHeight: sliderHeight(forExpanded: expanded, visible: shouldShowVolumeSlider)
-                )
+                updatePanelSize()
             }
             .onChange(of: showMediaOutputControl) { _, enabled in
                 if !enabled {
@@ -98,10 +93,12 @@ struct LockScreenMusicPanel: View {
                         isVolumeSliderVisible = false
                     }
                 }
-                LockScreenPanelManager.shared.updatePanelSize(
-                    expanded: isExpanded,
-                    additionalHeight: sliderHeight(forExpanded: isExpanded, visible: shouldShowVolumeSlider)
-                )
+                updatePanelSize()
+            }
+            .onChange(of: enableLyrics) { _, _ in
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                    updatePanelSize()
+                }
             }
     }
 
@@ -390,8 +387,9 @@ struct LockScreenMusicPanel: View {
     
     private func playbackControls(alignment: Alignment) -> some View {
         let spacing: CGFloat = isExpanded ? 24 : 20
+        let verticalSpacing: CGFloat = (shouldShowVolumeSlider || enableLyrics) ? 14 : 10
 
-        return VStack(spacing: shouldShowVolumeSlider ? 14 : 10) {
+        return VStack(spacing: verticalSpacing) {
             controlsRow(alignment: alignment, spacing: spacing)
 
             if shouldShowVolumeSlider {
@@ -399,10 +397,16 @@ struct LockScreenMusicPanel: View {
                     .frame(maxWidth: .infinity, alignment: alignment)
                     .transition(.scale(scale: 0.98, anchor: .top).combined(with: .opacity))
             }
+
+            if enableLyrics {
+                lyricsSection(alignment: alignment)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .frame(maxWidth: .infinity, alignment: alignment)
         .padding(.top, isExpanded ? 6 : 2)
         .animation(.spring(response: 0.45, dampingFraction: 0.82), value: shouldShowVolumeSlider)
+        .animation(.spring(response: 0.45, dampingFraction: 0.82), value: enableLyrics)
     }
 
     private func controlsRow(alignment: Alignment, spacing: CGFloat) -> some View {
@@ -485,6 +489,37 @@ struct LockScreenMusicPanel: View {
         .buttonStyle(PlainButtonStyle())
     }
 
+    private func lyricsSection(alignment: Alignment) -> some View {
+        let line = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
+        let transition: AnyTransition = .asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity),
+            removal: .move(edge: .top).combined(with: .opacity)
+        )
+
+        return HStack(spacing: 8) {
+            if !line.isEmpty {
+                Image(systemName: "music.note")
+                    .font(.system(size: isExpanded ? 14 : 12, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.7))
+                    .symbolRenderingMode(.monochrome)
+
+                Text(line)
+                    .font(.system(size: isExpanded ? 14 : 12, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.88))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.trailing, 6)
+                    .id(line)
+                    .transition(transition)
+            }
+        }
+        .padding(.horizontal, isExpanded ? 10 : 8)
+        .padding(.top, isExpanded ? 12 : 8)
+        .frame(maxWidth: .infinity, alignment: alignment)
+        .animation(.smooth(duration: 0.32), value: line)
+    }
+
     private var availableAuxControls: [MusicAuxiliaryControl] {
         MusicAuxiliaryControl.allCases.filter { control in
             control != .mediaOutput || showMediaOutputControl
@@ -534,7 +569,9 @@ struct LockScreenMusicPanel: View {
                 isActive: enableLyrics,
                 activeColor: .accentColor
             ) {
-                enableLyrics.toggle()
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    enableLyrics.toggle()
+                }
             }
         }
     }
@@ -590,6 +627,32 @@ struct LockScreenMusicPanel: View {
         sliderHeight(forExpanded: isExpanded, visible: shouldShowVolumeSlider)
     }
 
+    private var lyricsExtraHeight: CGFloat {
+        lyricsHeight(forExpanded: isExpanded, enabled: enableLyrics)
+    }
+
+    private var totalExtraHeight: CGFloat {
+        sliderExtraHeight + lyricsExtraHeight
+    }
+
+    private func lyricsHeight(forExpanded expanded: Bool, enabled: Bool) -> CGFloat {
+        guard enabled else { return 0 }
+        return expanded ? expandedLyricsExtraHeight : collapsedLyricsExtraHeight
+    }
+
+    private func panelAdditionalHeight(forExpanded expanded: Bool) -> CGFloat {
+        sliderHeight(forExpanded: expanded, visible: shouldShowVolumeSlider) +
+        lyricsHeight(forExpanded: expanded, enabled: enableLyrics)
+    }
+
+    private func updatePanelSize(animated: Bool = true) {
+        LockScreenPanelManager.shared.updatePanelSize(
+            expanded: isExpanded,
+            additionalHeight: panelAdditionalHeight(forExpanded: isExpanded),
+            animated: animated
+        )
+    }
+
     private var volumeIconName: String {
         if volumeModel.isMuted || volumeModel.level <= 0.001 {
             return "speaker.slash.fill"
@@ -621,11 +684,7 @@ struct LockScreenMusicPanel: View {
             isVolumeSliderVisible = newState
         }
 
-        let targetHeight = sliderHeight(forExpanded: isExpanded, visible: shouldShowVolumeSlider)
-        LockScreenPanelManager.shared.updatePanelSize(
-            expanded: isExpanded,
-            additionalHeight: targetHeight
-        )
+        updatePanelSize()
     }
 
     private func sliderHeight(forExpanded expanded: Bool, visible: Bool) -> CGFloat {
