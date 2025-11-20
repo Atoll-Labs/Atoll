@@ -1813,107 +1813,151 @@ private struct LockScreenPositioningPreview: View {
     @State private var isWeatherDragging = false
     @State private var isMusicDragging = false
 
+    private let offsetRange: ClosedRange<Double> = -160...160
+
     var body: some View {
         GeometryReader { geometry in
-            let centerX = geometry.size.width / 2
-            let weatherBaseY = geometry.size.height * 0.34
-            let musicBaseY = geometry.size.height * 0.70
+            let screenPadding: CGFloat = 26
+            let screenCornerRadius: CGFloat = 28
+            let screenRect = CGRect(
+                x: screenPadding,
+                y: screenPadding,
+                width: geometry.size.width - (screenPadding * 2),
+                height: geometry.size.height - (screenPadding * 2)
+            )
+            let centerX = screenRect.midX
+            let weatherBaseY = screenRect.minY + (screenRect.height * 0.28)
+            let musicBaseY = screenRect.minY + (screenRect.height * 0.68)
+            let weatherSize = CGSize(width: screenRect.width * 0.42, height: screenRect.height * 0.22)
+            let musicSize = CGSize(width: screenRect.width * 0.56, height: screenRect.height * 0.34)
 
             ZStack {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color(nsColor: .windowBackgroundColor).opacity(0.6))
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                RoundedRectangle(cornerRadius: screenCornerRadius, style: .continuous)
+                    .fill(Color(nsColor: .windowBackgroundColor).opacity(0.55))
+                    .frame(width: screenRect.width, height: screenRect.height)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: screenCornerRadius, style: .continuous)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.22), radius: 20, x: 0, y: 18)
+                    .position(x: screenRect.midX, y: screenRect.midY)
 
-                weatherPanel
+                weatherPanel(size: weatherSize)
                     .position(x: centerX, y: weatherBaseY - CGFloat(weatherOffset))
-                    .gesture(weatherDragGesture)
+                    .gesture(weatherDragGesture(in: screenRect, baseY: weatherBaseY, panelSize: weatherSize))
 
-                musicPanel
+                musicPanel(size: musicSize)
                     .position(x: centerX, y: musicBaseY - CGFloat(musicOffset))
-                    .gesture(musicDragGesture)
+                    .gesture(musicDragGesture(in: screenRect, baseY: musicBaseY, panelSize: musicSize))
             }
         }
         .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.82), value: weatherOffset)
         .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.82), value: musicOffset)
     }
 
-    private var weatherPanel: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
+    private func weatherPanel(size: CGSize) -> some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
             .fill(
                 LinearGradient(
-                    colors: [Color.blue.opacity(0.72), Color.blue.opacity(0.48)],
+                    colors: [Color.blue.opacity(0.78), Color.blue.opacity(0.52)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
             )
-            .frame(width: 220, height: 88)
+            .frame(width: size.width, height: size.height)
             .overlay(alignment: .leading) {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     Label("Weather", systemImage: "cloud.sun.fill")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.white)
                     Text("Inline snapshot preview")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.7))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.72))
+                }
+                .padding(.horizontal, 16)
+            }
+            .shadow(color: Color.blue.opacity(0.22), radius: 10, x: 0, y: 8)
+    }
+
+    private func musicPanel(size: CGSize) -> some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [Color.purple.opacity(0.68), Color.pink.opacity(0.5)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: size.width, height: size.height)
+            .overlay(alignment: .leading) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Media", systemImage: "play.square.stack")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.white)
+                    Text("Lock screen panel preview")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.72))
                 }
                 .padding(.horizontal, 18)
             }
-            .shadow(color: Color.blue.opacity(0.25), radius: 12, x: 0, y: 8)
+            .shadow(color: Color.purple.opacity(0.24), radius: 12, x: 0, y: 9)
     }
 
-    private var musicPanel: some View {
-        RoundedRectangle(cornerRadius: 22, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [Color.purple.opacity(0.68), Color.pink.opacity(0.52)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .frame(width: 280, height: 132)
-            .overlay(alignment: .leading) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Media", systemImage: "play.square.stack")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.white)
-                    Text("Lock screen panel preview")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.7))
-                }
-                .padding(.horizontal, 22)
-            }
-            .shadow(color: Color.purple.opacity(0.3), radius: 16, x: 0, y: 10)
-    }
-
-    private var weatherDragGesture: some Gesture {
+    private func weatherDragGesture(in screenRect: CGRect, baseY: CGFloat, panelSize: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 if !isWeatherDragging {
                     isWeatherDragging = true
                     weatherStartOffset = weatherOffset
                 }
+
                 let proposed = weatherStartOffset - Double(value.translation.height)
-                weatherOffset = proposed
+                weatherOffset = clampedOffset(
+                    proposed,
+                    baseCenterY: baseY,
+                    panelHeight: panelSize.height,
+                    screenRect: screenRect
+                )
             }
             .onEnded { _ in
                 isWeatherDragging = false
             }
     }
 
-    private var musicDragGesture: some Gesture {
+    private func musicDragGesture(in screenRect: CGRect, baseY: CGFloat, panelSize: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 if !isMusicDragging {
                     isMusicDragging = true
                     musicStartOffset = musicOffset
                 }
+
                 let proposed = musicStartOffset - Double(value.translation.height)
-                musicOffset = proposed
+                musicOffset = clampedOffset(
+                    proposed,
+                    baseCenterY: baseY,
+                    panelHeight: panelSize.height,
+                    screenRect: screenRect
+                )
             }
             .onEnded { _ in
                 isMusicDragging = false
             }
+    }
+
+    private func clampedOffset(
+        _ proposed: Double,
+        baseCenterY: CGFloat,
+        panelHeight: CGFloat,
+        screenRect: CGRect
+    ) -> Double {
+        let halfHeight = panelHeight / 2
+        let minCenterY = screenRect.minY + halfHeight
+        let maxCenterY = screenRect.maxY - halfHeight
+        let proposedCenter = baseCenterY - CGFloat(proposed)
+        let clampedCenter = min(max(proposedCenter, minCenterY), maxCenterY)
+        let derivedOffset = Double(baseCenterY - clampedCenter)
+        return min(max(derivedOffset, offsetRange.lowerBound), offsetRange.upperBound)
     }
 }
 
