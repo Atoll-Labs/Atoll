@@ -515,6 +515,18 @@ class MusicManager: ObservableObject {
         guard duration > 0 else { return }
 
         let current = estimatedPlaybackPosition()
+        let magnitude = abs(offset)
+
+        if offset < 0, current <= magnitude {
+            previousTrack()
+            return
+        }
+
+        if offset > 0, (duration - current) <= magnitude {
+            nextTrack()
+            return
+        }
+
         let target = min(max(0, current + offset), duration)
         seek(to: target)
     }
