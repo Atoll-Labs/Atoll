@@ -242,6 +242,31 @@ enum MusicAuxiliaryControl: String, CaseIterable, Identifiable, Defaults.Seriali
     }
 }
 
+enum MusicSkipBehavior: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case track
+    case tenSecond
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .track:
+            return "Track Skip"
+        case .tenSecond:
+            return "±10 Seconds"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .track:
+            return "Standard previous/next track controls"
+        case .tenSecond:
+            return "Skip forward or backward by ten seconds"
+        }
+    }
+}
+
 enum TimerIconColorMode: String, CaseIterable, Identifiable, Defaults.Serializable {
     case adaptive = "Adaptive"
     case solid = "Solid"
@@ -421,6 +446,7 @@ extension Defaults.Keys {
     static let musicAuxLeftControl = Key<MusicAuxiliaryControl>("musicAuxLeftControl", default: .shuffle)
     static let musicAuxRightControl = Key<MusicAuxiliaryControl>("musicAuxRightControl", default: .repeatMode)
     static let didMigrateMusicAuxControls = Key<Bool>("didMigrateMusicAuxControls", default: false)
+    static let musicSkipBehavior = Key<MusicSkipBehavior>("musicSkipBehavior", default: .track)
     // Enable lock screen media widget (shows the standalone panel when screen is locked)
     static let enableLockScreenMediaWidget = Key<Bool>("enableLockScreenMediaWidget", default: true)
     static let enableLockScreenWeatherWidget = Key<Bool>("enableLockScreenWeatherWidget", default: true)

@@ -17,6 +17,8 @@ struct HoverButton: View {
     
     @State private var isHovering = false
     @State private var pressOffset: CGFloat = 0
+    @State private var wiggleAngle: Double = 0
+    @State private var wiggleToken: Int = 0
 
     var body: some View {
         let size = CGFloat(scale == .large ? 40 : 30)
@@ -34,15 +36,31 @@ struct HoverButton: View {
                         .fill(isHovering ? Color.gray.opacity(0.2) : .clear)
                         .frame(width: size, height: size)
                         .overlay {
-                            Image(systemName: icon)
+                            let baseImage = Image(systemName: icon)
                                 .foregroundColor(iconColor)
                                 .contentTransition(contentTransition)
                                 .font(scale == .large ? .largeTitle : .body)
+
+                            if case .wiggle = pressEffect {
+                                if #available(macOS 14.0, *) {
+                                    baseImage
+                                        .symbolEffect(
+                                            .wiggle.byLayer,
+                                            options: .nonRepeating,
+                                            value: wiggleToken
+                                        )
+                                } else {
+                                    baseImage
+                                }
+                            } else {
+                                baseImage
+                            }
                         }
                 }
         }
         .buttonStyle(PlainButtonStyle())
         .offset(x: pressOffset)
+        .rotationEffect(.degrees(wiggleAngle))
         .onHover { hovering in
             withAnimation(.smooth(duration: 0.3)) {
                 isHovering = hovering
@@ -63,10 +81,30 @@ struct HoverButton: View {
                     pressOffset = 0
                 }
             }
+        case .wiggle(let direction):
+            guard #available(macOS 14.0, *) else { return }
+            wiggleToken += 1
+            let angle: Double = direction == .clockwise ? 10 : -10
+
+            withAnimation(.spring(response: 0.18, dampingFraction: 0.5)) {
+                wiggleAngle = angle
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                    wiggleAngle = 0
+                }
+            }
         }
     }
 
     enum PressEffect {
         case nudge(CGFloat)
+        case wiggle(WiggleDirection)
+    }
+
+    enum WiggleDirection {
+        case clockwise
+        case counterClockwise
     }
 }

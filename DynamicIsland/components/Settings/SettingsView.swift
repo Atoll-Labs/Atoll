@@ -857,6 +857,7 @@ struct Media: View {
     @Default(.showShuffleAndRepeat) private var showShuffleAndRepeat
     @Default(.musicAuxLeftControl) private var musicAuxLeftControl
     @Default(.musicAuxRightControl) private var musicAuxRightControl
+    @Default(.musicSkipBehavior) private var musicSkipBehavior
     @State private var previousLeftAuxControl: MusicAuxiliaryControl = Defaults[.musicAuxLeftControl]
     @State private var previousRightAuxControl: MusicAuxiliaryControl = Defaults[.musicAuxRightControl]
 
@@ -917,6 +918,20 @@ struct Media: View {
                 }
             } header: {
                 Text("Media controls")
+            }
+            Section {
+                Picker("Skip buttons", selection: $musicSkipBehavior) {
+                    ForEach(MusicSkipBehavior.allCases) { behavior in
+                        Text(behavior.displayName).tag(behavior)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(musicSkipBehavior.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Skip behaviour")
             }
             Section {
                 Toggle(

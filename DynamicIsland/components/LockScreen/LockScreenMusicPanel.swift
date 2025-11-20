@@ -18,6 +18,7 @@ struct LockScreenMusicPanel: View {
     @ObservedObject private var animator: LockScreenPanelAnimator
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
+    @State private var lastDragged: Date = .distantPast
     @State private var isActive = true
     @State private var isExpanded = false
     @State private var isVolumeSliderVisible = false
@@ -30,6 +31,7 @@ struct LockScreenMusicPanel: View {
     @Default(.showShuffleAndRepeat) var showShuffleAndRepeat
     @Default(.musicAuxLeftControl) private var leftAuxControl
     @Default(.musicAuxRightControl) private var rightAuxControl
+    @Default(.musicSkipBehavior) private var musicSkipBehavior
     @Default(.enableLyrics) private var enableLyrics
 
     init(animator: LockScreenPanelAnimator) {
@@ -286,64 +288,30 @@ struct LockScreenMusicPanel: View {
                 minimumInterval: (!musicManager.isLiveStream && musicManager.playbackRate > 0) ? 0.1 : nil
             )
         ) { timeline in
-            let progressValue = dragging ? sliderValue : currentSliderValue(timeline.date)
-
-            if musicManager.isLiveStream {
-                LiveStreamProgressIndicator(tint: sliderColor)
-                    .frame(maxWidth: .infinity)
-            } else {
-                HStack(spacing: 8) {
-                    // Elapsed time
-                    Text(formatTime(progressValue))
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.7))
-                        .frame(width: 42, alignment: .leading)
-
-                    // Progress bar
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            // Background track
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.white.opacity(0.2))
-                                .frame(height: 6)
-
-                            // Filled portion
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(sliderColor)
-                                .frame(
-                                    width: max(
-                                        0,
-                                        geometry.size.width * (progressValue / max(musicManager.songDuration, 1))
-                                    ),
-                                    height: 6
-                                )
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    registerInteraction()
-                                    dragging = true
-                                    let duration = max(musicManager.songDuration, 0.0001)
-                                    let clampedX = min(max(value.location.x, 0), geometry.size.width)
-                                    let newValue = Double(clampedX / geometry.size.width) * duration
-                                    sliderValue = min(max(0, newValue), musicManager.songDuration)
-                                }
-                                .onEnded { _ in
-                                    registerInteraction()
-                                    musicManager.seek(to: sliderValue)
-                                    dragging = false
-                                }
-                        )
-                    }
-                    .frame(height: 6)
-
-                    // Time remaining
-                    Text("-\(formatTime(max(musicManager.songDuration - progressValue, 0)))")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.7))
-                        .frame(width: 48, alignment: .trailing)
-                }
-            }
+            MusicSliderView(
+                sliderValue: $sliderValue,
+                duration: Binding(
+                    get: { musicManager.songDuration },
+                    set: { musicManager.songDuration = $0 }
+                ),
+                lastDragged: $lastDragged,
+                color: musicManager.avgColor,
+                dragging: $dragging,
+                currentDate: timeline.date,
+                timestampDate: musicManager.timestampDate,
+                elapsedTime: musicManager.elapsedTime,
+                playbackRate: musicManager.playbackRate,
+                isPlaying: musicManager.isPlaying,
+                isLiveStream: musicManager.isLiveStream,
+                onValueChange: { newValue in
+                    registerInteraction()
+                    musicManager.seek(to: newValue)
+                },
+                labelLayout: .inline,
+                trailingLabel: .remaining,
+                restingTrackHeight: 7,
+                draggingTrackHeight: 11
+            )
         }
         .onAppear {
             sliderValue = musicManager.elapsedTime
@@ -355,25 +323,7 @@ struct LockScreenMusicPanel: View {
             }
         }
     }
-    
-    private func currentSliderValue(_ date: Date) -> Double {
-        if dragging {
-            return sliderValue
-        }
 
-        if musicManager.isLiveStream {
-            return 0
-        }
-        
-        if musicManager.isPlaying {
-            let timeSinceLastUpdate = date.timeIntervalSince(musicManager.timestampDate)
-            let estimatedElapsed = musicManager.elapsedTime + (timeSinceLastUpdate * musicManager.playbackRate)
-            return min(estimatedElapsed, musicManager.songDuration)
-        }
-        
-        return musicManager.elapsedTime
-    }
-    
     private var sliderColor: Color {
         switch Defaults[.sliderColor] {
         case .white:
@@ -383,12 +333,6 @@ struct LockScreenMusicPanel: View {
         case .accent:
             return .accentColor
         }
-    }
-    
-    private func formatTime(_ time: TimeInterval) -> String {
-        let minutes = Int(time) / 60
-        let seconds = Int(time) % 60
-        return String(format: "%d:%02d", minutes, seconds)
     }
     
     // MARK: - Playback Controls
@@ -419,23 +363,63 @@ struct LockScreenMusicPanel: View {
 
     private func controlsRow(alignment: Alignment, spacing: CGFloat) -> some View {
         let controls = resolvedAuxControls
-
         let skipNudge: CGFloat = isExpanded ? 14 : 9
+        let seekInterval: TimeInterval = 10
+
+        let backwardConfig: (icon: String, interaction: PanelControlButton.Interaction, symbol: PanelControlButton.SymbolEffectStyle, action: () -> Void)
+        let forwardConfig: (icon: String, interaction: PanelControlButton.Interaction, symbol: PanelControlButton.SymbolEffectStyle, action: () -> Void)
+
+        switch musicSkipBehavior {
+        case .track:
+            backwardConfig = (
+                icon: "backward.fill",
+                interaction: .nudge(-skipNudge),
+                symbol: .replace,
+                action: { musicManager.previousTrack() }
+            )
+            forwardConfig = (
+                icon: "forward.fill",
+                interaction: .nudge(skipNudge),
+                symbol: .replace,
+                action: { musicManager.nextTrack() }
+            )
+        case .tenSecond:
+            backwardConfig = (
+                icon: "gobackward.10",
+                interaction: .wiggle(.counterClockwise),
+                symbol: .wiggle,
+                action: { musicManager.seek(by: -seekInterval) }
+            )
+            forwardConfig = (
+                icon: "goforward.10",
+                interaction: .wiggle(.clockwise),
+                symbol: .wiggle,
+                action: { musicManager.seek(by: seekInterval) }
+            )
+        }
 
         return HStack(spacing: spacing) {
             if let leftControl = controls.left {
                 auxButton(for: leftControl)
             }
 
-            controlButton(icon: "backward.fill", size: 18, pressNudge: -skipNudge) {
-                musicManager.previousTrack()
-            }
+            controlButton(
+                icon: backwardConfig.icon,
+                size: 18,
+                interaction: backwardConfig.interaction,
+                symbolEffect: backwardConfig.symbol,
+                action: backwardConfig.action
+            )
 
             playPauseButton
 
-            controlButton(icon: "forward.fill", size: 18, pressNudge: skipNudge) {
-                musicManager.nextTrack()
-            }
+            controlButton(
+                icon: forwardConfig.icon,
+                size: 18,
+                interaction: forwardConfig.interaction,
+                symbolEffect: forwardConfig.symbol,
+                action: forwardConfig.action
+            )
 
             if let rightControl = controls.right {
                 auxButton(for: rightControl)
@@ -467,7 +451,8 @@ struct LockScreenMusicPanel: View {
         size: CGFloat = 18,
         isActive: Bool = false,
         activeColor: Color = .red,
-        pressNudge: CGFloat? = nil,
+        interaction: PanelControlButton.Interaction = .none,
+        symbolEffect: PanelControlButton.SymbolEffectStyle = .replace,
         action: @escaping () -> Void
     ) -> some View {
         let frameSize: CGFloat = isExpanded ? 56 : 32
@@ -481,7 +466,8 @@ struct LockScreenMusicPanel: View {
             iconSize: iconSize,
             iconColor: iconColor,
             backgroundOpacity: backgroundOpacity,
-            pressNudge: pressNudge
+            interaction: interaction,
+            symbolEffect: symbolEffect
         ) {
             registerInteraction()
             action()
@@ -498,7 +484,8 @@ struct LockScreenMusicPanel: View {
             iconSize: iconSize,
             iconColor: shouldShowVolumeSlider ? .accentColor : .white.opacity(0.8),
             backgroundOpacity: shouldShowVolumeSlider ? 0.22 : 0.0,
-            pressNudge: nil,
+            interaction: .none,
+            symbolEffect: .replace,
             action: toggleVolumeSlider
         )
         .accessibilityLabel("Media output")
@@ -805,11 +792,14 @@ private struct PanelControlButton: View {
     let iconSize: CGFloat
     let iconColor: Color
     let backgroundOpacity: Double
-    let pressNudge: CGFloat?
+    let interaction: Interaction
+    let symbolEffect: SymbolEffectStyle
     let action: () -> Void
 
     @State private var isHovering = false
     @State private var pressOffset: CGFloat = 0
+    @State private var rotationAngle: Double = 0
+    @State private var wiggleToken: Int = 0
 
     var body: some View {
         Button(action: {
@@ -819,15 +809,13 @@ private struct PanelControlButton: View {
             RoundedRectangle(cornerRadius: frameSize / 2, style: .continuous)
                 .fill(backgroundColor)
                 .overlay(
-                    Image(systemName: icon)
-                        .font(.system(size: iconSize, weight: .medium))
-                        .foregroundStyle(iconColor)
-                        .contentTransition(.symbolEffect(.replace))
+                    iconView
                 )
         }
         .frame(width: frameSize, height: frameSize)
         .buttonStyle(PlainButtonStyle())
         .offset(x: pressOffset)
+        .rotationEffect(.degrees(rotationAngle))
         .onHover { hovering in
             withAnimation(.smooth(duration: 0.24)) {
                 isHovering = hovering
@@ -842,16 +830,78 @@ private struct PanelControlButton: View {
     }
 
     private func triggerPressEffect() {
-        guard let pressNudge else { return }
+        switch interaction {
+        case .none:
+            return
+        case .nudge(let amount):
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.55)) {
+                pressOffset = amount
+            }
 
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.55)) {
-            pressOffset = pressNudge
-        }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                    pressOffset = 0
+                }
+            }
+        case .wiggle(let direction):
+            guard #available(macOS 14.0, *) else { return }
+            wiggleToken += 1
+            let angle: Double = direction == .clockwise ? 10 : -10
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
-                pressOffset = 0
+            withAnimation(.spring(response: 0.18, dampingFraction: 0.5)) {
+                rotationAngle = angle
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.75)) {
+                    rotationAngle = 0
+                }
             }
         }
+    }
+
+    @ViewBuilder
+    private var iconView: some View {
+        let base = Image(systemName: icon)
+            .font(.system(size: iconSize, weight: .medium))
+            .foregroundStyle(iconColor)
+
+        switch symbolEffect {
+        case .replace:
+            base.contentTransition(.symbolEffect(.replace))
+        case .replaceAndBounce:
+            if #available(macOS 14.0, *) {
+                base
+                    .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: icon)
+            } else {
+                base.contentTransition(.symbolEffect(.replace))
+            }
+        case .wiggle:
+            if #available(macOS 14.0, *) {
+                base
+                    .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.wiggle.byLayer, options: .nonRepeating, value: wiggleToken)
+            } else {
+                base.contentTransition(.symbolEffect(.replace))
+            }
+        }
+    }
+
+    enum Interaction {
+        case none
+        case nudge(CGFloat)
+        case wiggle(WiggleDirection)
+    }
+
+    enum SymbolEffectStyle {
+        case replace
+        case replaceAndBounce
+        case wiggle
+    }
+
+    enum WiggleDirection {
+        case clockwise
+        case counterClockwise
     }
 }

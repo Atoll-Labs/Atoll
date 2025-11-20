@@ -19,6 +19,7 @@ struct MinimalisticMusicPlayerView: View {
     let albumArtNamespace: Namespace.ID
     @Default(.musicAuxLeftControl) private var leftAuxControl
     @Default(.musicAuxRightControl) private var rightAuxControl
+    @Default(.musicSkipBehavior) private var musicSkipBehavior
     @ObservedObject private var reminderManager = ReminderLiveActivityManager.shared
     @Default(.enableReminderLiveActivity) private var enableReminderLiveActivity
     @Default(.enableLyrics) private var enableLyrics
@@ -507,115 +508,107 @@ private struct MinimalisticReminderDetailsView: View {
     @State private var lastDragged: Date = .distantPast
     
     private var progressBar: some View {
-        TimelineView(.animation(minimumInterval: musicManager.playbackRate > 0 ? 0.1 : nil)) { timeline in
-            if musicManager.isLiveStream {
-                HStack(spacing: 8) {
-                    Spacer()
-                        .frame(width: 42)
-                    LiveStreamProgressIndicator(tint: sliderColor)
-                        .frame(maxWidth: .infinity, minHeight: 6, maxHeight: 6)
-                    Spacer()
-                        .frame(width: 48)
-                }
-                .allowsHitTesting(false)
-            } else {
-                let currentElapsed = currentSliderValue(timeline.date)
-
-                HStack(spacing: 8) {
-                    Text(formatTime(dragging ? sliderValue : currentElapsed))
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.7))
-                        .frame(width: 42, alignment: .leading)
-
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.white.opacity(0.2))
-                                .frame(height: 6)
-
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(sliderColor)
-                                .frame(width: max(0, geometry.size.width * (currentSliderValue(timeline.date) / max(musicManager.songDuration, 1))), height: 6)
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    dragging = true
-                                    let newValue = min(max(0, Double(value.location.x / geometry.size.width) * musicManager.songDuration), musicManager.songDuration)
-                                    sliderValue = newValue
-                                    lastDragged = Date()
-                                }
-                                .onEnded { _ in
-                                    musicManager.seek(to: sliderValue)
-                                    dragging = false
-                                }
-                        )
-                    }
-                    .frame(height: 6)
-
-                    Text("-\(formatTime(musicManager.songDuration - (dragging ? sliderValue : currentElapsed)))")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.7))
-                        .frame(width: 48, alignment: .trailing)
-                }
-            }
+        TimelineView(
+            .animation(
+                minimumInterval: (!musicManager.isLiveStream && musicManager.playbackRate > 0) ? 0.1 : nil
+            )
+        ) { timeline in
+            MusicSliderView(
+                sliderValue: $sliderValue,
+                duration: Binding(
+                    get: { musicManager.songDuration },
+                    set: { musicManager.songDuration = $0 }
+                ),
+                lastDragged: $lastDragged,
+                color: musicManager.avgColor,
+                dragging: $dragging,
+                currentDate: timeline.date,
+                timestampDate: musicManager.timestampDate,
+                elapsedTime: musicManager.elapsedTime,
+                playbackRate: musicManager.playbackRate,
+                isPlaying: musicManager.isPlaying,
+                isLiveStream: musicManager.isLiveStream,
+                onValueChange: { newValue in
+                    musicManager.seek(to: newValue)
+                },
+                labelLayout: .inline,
+                trailingLabel: .remaining,
+                restingTrackHeight: 7,
+                draggingTrackHeight: 11
+            )
         }
         .onAppear {
             sliderValue = musicManager.elapsedTime
         }
-    }
-    
-    private func currentSliderValue(_ date: Date) -> Double {
-        if dragging {
-            return sliderValue
-        }
-        
-        // Update slider value based on playback
-        if musicManager.isPlaying {
-            let timeSinceLastUpdate = date.timeIntervalSince(musicManager.timestampDate)
-            let estimatedElapsed = musicManager.elapsedTime + (timeSinceLastUpdate * musicManager.playbackRate)
-            return min(estimatedElapsed, musicManager.songDuration)
-        }
-        
-        return musicManager.elapsedTime
-    }
-    
-    private var sliderColor: Color {
-        switch Defaults[.sliderColor] {
-        case .white:
-            return .white
-        case .albumArt:
-            return Color(nsColor: musicManager.avgColor)
-        case .accent:
-            return .accentColor
+        .onChange(of: musicManager.isLiveStream) { _, isLive in
+            if isLive {
+                dragging = false
+                sliderValue = 0
+            }
         }
     }
-    
-    private func formatTime(_ time: TimeInterval) -> String {
-        let minutes = Int(time) / 60
-        let seconds = Int(time) % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-    
+
     // MARK: - Playback Controls (Larger)
     
     private var playbackControls: some View {
         let controls = resolvedAuxControls
+        let seekInterval: TimeInterval = 10
+        let skipPressMagnitude: CGFloat = 8
+
+        let backwardConfig: (icon: String, press: MinimalisticSquircircleButton.PressEffect, symbol: MinimalisticSquircircleButton.SymbolEffectStyle, action: () -> Void)
+        let forwardConfig: (icon: String, press: MinimalisticSquircircleButton.PressEffect, symbol: MinimalisticSquircircleButton.SymbolEffectStyle, action: () -> Void)
+
+        switch musicSkipBehavior {
+        case .track:
+            backwardConfig = (
+                icon: "backward.fill",
+                press: .nudge(-skipPressMagnitude),
+                symbol: .replace,
+                action: { musicManager.previousTrack() }
+            )
+            forwardConfig = (
+                icon: "forward.fill",
+                press: .nudge(skipPressMagnitude),
+                symbol: .replace,
+                action: { musicManager.nextTrack() }
+            )
+        case .tenSecond:
+            backwardConfig = (
+                icon: "gobackward.10",
+                press: .wiggle(.counterClockwise),
+                symbol: .wiggle,
+                action: { musicManager.seek(by: -seekInterval) }
+            )
+            forwardConfig = (
+                icon: "goforward.10",
+                press: .wiggle(.clockwise),
+                symbol: .wiggle,
+                action: { musicManager.seek(by: seekInterval) }
+            )
+        }
 
         return HStack(spacing: 16) {
             if Defaults[.showShuffleAndRepeat] {
                 auxButton(for: controls.left)
             }
 
-            controlButton(icon: "backward.fill", size: 18, pressEffect: .nudge(-8)) {
-                Task { await musicManager.previousTrack() }
-            }
+            controlButton(
+                icon: backwardConfig.icon,
+                size: 18,
+                pressEffect: backwardConfig.press,
+                symbolEffect: backwardConfig.symbol,
+                action: backwardConfig.action
+            )
 
             playPauseButton
 
-            controlButton(icon: "forward.fill", size: 18, pressEffect: .nudge(8)) {
-                Task { await musicManager.nextTrack() }
-            }
+            controlButton(
+                icon: forwardConfig.icon,
+                size: 18,
+                pressEffect: forwardConfig.press,
+                symbolEffect: forwardConfig.symbol,
+                action: forwardConfig.action
+            )
 
             if Defaults[.showShuffleAndRepeat] {
                 auxButton(for: controls.right)
@@ -826,6 +819,8 @@ private struct MinimalisticSquircircleButton: View {
 
     @State private var isHovering = false
     @State private var pressOffset: CGFloat = 0
+    @State private var rotationAngle: Double = 0
+    @State private var wiggleToken: Int = 0
 
     init(
         icon: String,
@@ -864,6 +859,7 @@ private struct MinimalisticSquircircleButton: View {
         }
         .buttonStyle(PlainButtonStyle())
         .offset(x: pressOffset)
+        .rotationEffect(.degrees(rotationAngle))
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.18)) {
                 isHovering = hovering
@@ -872,15 +868,32 @@ private struct MinimalisticSquircircleButton: View {
     }
 
     private func triggerPressEffect() {
-        guard case let .nudge(amount) = pressEffect else { return }
+        switch pressEffect {
+        case .none:
+            return
+        case .nudge(let amount):
+            withAnimation(.spring(response: 0.16, dampingFraction: 0.72)) {
+                pressOffset = amount
+            }
 
-        withAnimation(.spring(response: 0.16, dampingFraction: 0.72)) {
-            pressOffset = amount
-        }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                withAnimation(.spring(response: 0.26, dampingFraction: 0.8)) {
+                    pressOffset = 0
+                }
+            }
+        case .wiggle(let direction):
+            guard #available(macOS 14.0, *) else { return }
+            wiggleToken += 1
+            let angle: Double = direction == .clockwise ? 11 : -11
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.spring(response: 0.26, dampingFraction: 0.8)) {
-                pressOffset = 0
+            withAnimation(.spring(response: 0.18, dampingFraction: 0.52)) {
+                rotationAngle = angle
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+                    rotationAngle = 0
+                }
             }
         }
     }
@@ -908,17 +921,44 @@ private struct MinimalisticSquircircleButton: View {
             } else {
                 image
             }
+        case .replaceAndBounce:
+            if #available(macOS 14.0, *) {
+                image
+                    .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: icon)
+                    .id(icon)
+            } else {
+                image
+            }
+        case .wiggle:
+            if #available(macOS 14.0, *) {
+                image.symbolEffect(
+                    .wiggle.byLayer,
+                    options: .nonRepeating,
+                    value: wiggleToken
+                )
+            } else {
+                image
+            }
         }
     }
 
     enum PressEffect {
         case none
         case nudge(CGFloat)
+        case wiggle(WiggleDirection)
     }
 
     enum SymbolEffectStyle {
         case none
         case replace
         case bounce
+        case replaceAndBounce
+        case wiggle
+    }
+
+    enum WiggleDirection {
+        case clockwise
+        case counterClockwise
     }
 }
