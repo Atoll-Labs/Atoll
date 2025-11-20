@@ -486,8 +486,20 @@ class MusicManager: ObservableObject {
     }
     
     func togglePlay() {
+        let controller = activeController
+
         Task {
-            await activeController?.togglePlay()
+            await MainActor.run {
+                let newState = !isPlaying
+                withAnimation(.smooth(duration: 0.18)) {
+                    isPlaying = newState
+                    if newState {
+                        isPlayerIdle = false
+                    }
+                }
+            }
+
+            await controller?.togglePlay()
         }
     }
 
