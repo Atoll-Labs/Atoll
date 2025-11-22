@@ -1044,9 +1044,7 @@ struct ContentView: View {
 
         let interval = max(0, deadline.timeIntervalSinceNow)
 
-        musicControlHideTask = Task { @MainActor [interval] in
-            defer { musicControlHideTask = nil }
-
+        musicControlHideTask = Task { [interval] in
             if interval > 0 {
                 let nanoseconds = UInt64(interval * 1_000_000_000)
                 try? await Task.sleep(nanoseconds: nanoseconds)
@@ -1054,12 +1052,16 @@ struct ContentView: View {
 
             guard !Task.isCancelled else { return }
 
-            if let currentDeadline = musicControlVisibilityDeadline, currentDeadline <= Date() {
-                musicControlVisibilityDeadline = nil
-            }
+            await MainActor.run {
+                if let currentDeadline = musicControlVisibilityDeadline, currentDeadline <= Date() {
+                    musicControlVisibilityDeadline = nil
+                }
 
-            if vm.notchState == .closed {
-                scheduleMusicControlWindowSync(forceRefresh: false)
+                if vm.notchState == .closed {
+                    scheduleMusicControlWindowSync(forceRefresh: false)
+                }
+
+                musicControlHideTask = nil
             }
         }
     }
@@ -1101,9 +1103,7 @@ struct ContentView: View {
 
         let syncDelay = max(0, delay)
 
-        pendingMusicControlTask = Task { @MainActor [forceRefresh, syncDelay] in
-            defer { pendingMusicControlTask = nil }
-
+        pendingMusicControlTask = Task { [forceRefresh, syncDelay] in
             if syncDelay > 0 {
                 let nanoseconds = UInt64(syncDelay * 1_000_000_000)
                 try? await Task.sleep(nanoseconds: nanoseconds)
@@ -1111,10 +1111,14 @@ struct ContentView: View {
 
             guard !Task.isCancelled else { return }
 
-            if shouldShowMusicControlWindow() {
-                syncMusicControlWindow(forceRefresh: forceRefresh)
-            } else {
-                hideMusicControlWindow()
+            await MainActor.run {
+                if shouldShowMusicControlWindow() {
+                    syncMusicControlWindow(forceRefresh: forceRefresh)
+                } else {
+                    hideMusicControlWindow()
+                }
+
+                pendingMusicControlTask = nil
             }
         }
         #endif
