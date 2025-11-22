@@ -72,35 +72,27 @@ func logout() {
 }
 
 struct DynamicIslandSystemTiles: View {
-    @EnvironmentObject var vm: DynamicIslandViewModel
-    @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
-
-    struct ItemButton {
-        var icon: String
-        var onTap: () -> Void
-    }
-
     var body: some View {
-        Grid {
-            GridRow {
-//                SystemItemButton(icon: "clipboard", onTap: {
-//                    vm.openClipboard()
-//                }, label: "Clipboard History", showEmojis: Defaults[.showEmojis], emoji: "✨")
-                //                SystemItemButton(icon: "keyboard", onTap: {
-                //                    vm?.close()
-                //                    vm?.togglesneakPeek(status: true, type: .backlight, value: 1)
-                //                }, label: "💡 Keyboard Backlight")
+        VStack(alignment: .leading, spacing: 6) {
+            Label {
+                Text("Microphone privacy indicator runs automatically whenever apps access audio.")
+                    .font(.caption)
+                    .foregroundStyle(.gray)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+            } icon: {
+                Image(systemName: "shield.lefthalf.filled")
+                    .foregroundStyle(.gray)
             }
-            GridRow {
-                SystemItemButton(icon: coordinator.currentMicStatus ? "mic" : "mic.slash", onTap: {
-                    coordinator.toggleMic()
-                    vm.close()
-                }, label: "Toggle Microphone", showEmojis: Defaults[.showEmojis], emoji: coordinator.currentMicStatus ? "😀" : "🤫")
-                //                SystemItemButton(icon: "lock", onTap: {
-                //                    logout()
-                //                }, label: "🔒 Lock My Device")
-            }
+
+            Text("Manage indicator preferences from Settings → Privacy. No manual microphone toggle is required.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 4)
     }
 }
 

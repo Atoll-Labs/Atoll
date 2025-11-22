@@ -354,10 +354,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-
-        coordinator.setupWorkersNotificationObservers()
-    LockScreenLiveActivityWindowManager.shared.configure(viewModel: vm)
-    LockScreenManager.shared.configure(viewModel: vm)
+        LockScreenLiveActivityWindowManager.shared.configure(viewModel: vm)
+        LockScreenManager.shared.configure(viewModel: vm)
         
         // Migrate legacy progress bar settings
         Defaults.Keys.migrateProgressBarStyle()

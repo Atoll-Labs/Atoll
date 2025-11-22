@@ -8,7 +8,6 @@
 import Combine
 import Defaults
 import SwiftUI
-import TheBoringWorkerNotifier
 
 enum SneakContentType {
     case brightness
@@ -34,13 +33,6 @@ struct sneakPeek {
     var icon: String = ""
 }
 
-struct SharedSneakPeek: Codable {
-    var show: Bool
-    var type: String
-    var value: String
-    var icon: String
-}
-
 enum BrowserType {
     case chromium
     case safari
@@ -55,7 +47,6 @@ struct ExpandedItem {
 
 class DynamicIslandViewCoordinator: ObservableObject {
     static let shared = DynamicIslandViewCoordinator()
-    var notifier: TheBoringWorkerNotifier
     
     @Published var currentView: NotchViews = .home
     
@@ -64,7 +55,6 @@ class DynamicIslandViewCoordinator: ObservableObject {
     @AppStorage("showWhatsNew") var showWhatsNew: Bool = true
     @AppStorage("musicLiveActivityEnabled") var musicLiveActivityEnabled: Bool = true
     @AppStorage("timerLiveActivityEnabled") var timerLiveActivityEnabled: Bool = true
-    @AppStorage("currentMicStatus") var currentMicStatus: Bool = true
     
     @AppStorage("alwaysShowTabs") var alwaysShowTabs: Bool = true {
         didSet {
@@ -85,11 +75,7 @@ class DynamicIslandViewCoordinator: ObservableObject {
         }
     }
     
-    @AppStorage("hudReplacement") var hudReplacement: Bool = true {
-        didSet {
-            notifier.postNotification(name: notifier.toggleHudReplacementNotification.name, userInfo: nil)
-        }
-    }
+    @AppStorage("hudReplacement") var hudReplacement: Bool = true
     
     @AppStorage("preferred_screen_name") var preferredScreen = NSScreen.main?.localizedName ?? "Unknown" {
         didSet {
@@ -103,44 +89,7 @@ class DynamicIslandViewCoordinator: ObservableObject {
     @Published var optionKeyPressed: Bool = true
     
     private init() {
-        notifier = TheBoringWorkerNotifier()
         selectedScreen = preferredScreen
-    }
-    
-    func setupWorkersNotificationObservers() {
-            notifier.setupObserver(notification: notifier.micStatusNotification, handler: initialMicStatus)
-            notifier.setupObserver(notification: notifier.sneakPeakNotification, handler: sneakPeekEvent)
-        }
-    
-    @objc func sneakPeekEvent(_ notification: Notification) {
-        let decoder = JSONDecoder()
-        if let decodedData = try? decoder.decode(
-            SharedSneakPeek.self, from: notification.userInfo?.first?.value as! Data)
-        {
-            let contentType =
-                decodedData.type == "brightness"
-                ? SneakContentType.brightness
-                : decodedData.type == "volume"
-                    ? SneakContentType.volume
-                    : decodedData.type == "backlight"
-                        ? SneakContentType.backlight
-                        : decodedData.type == "mic"
-                            ? SneakContentType.mic 
-                            : decodedData.type == "timer"
-                                ? SneakContentType.timer : SneakContentType.brightness
-            
-            let formatter = NumberFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.numberStyle = .decimal
-            let value = CGFloat((formatter.number(from: decodedData.value) ?? 0.0).floatValue)
-            let icon = decodedData.icon
-
-            print("Decoded: \(decodedData), Parsed value: \(value)")
-
-            toggleSneakPeek(status: decodedData.show, type: contentType, value: value, icon: icon)
-        } else {
-            print("Failed to decode JSON data")
-        }
     }
     
     func toggleSneakPeek(status: Bool, type: SneakContentType, duration: TimeInterval = 1.5, value: CGFloat = 0, icon: String = "") {
@@ -167,10 +116,6 @@ class DynamicIslandViewCoordinator: ObservableObject {
                 self.sneakPeek.value = value
                 self.sneakPeek.icon = icon
             }
-        }
-
-        if type == .mic {
-            currentMicStatus = value == 1
         }
     }
     
@@ -238,14 +183,6 @@ class DynamicIslandViewCoordinator: ObservableObject {
         }
     }
 
-    
-    @objc func initialMicStatus(_ notification: Notification) {
-        currentMicStatus = notification.userInfo?.first?.value as! Bool
-    }
-    
-    func toggleMic() {
-        notifier.postNotification(name: notifier.toggleMicNotification.name, userInfo: nil)
-    }
     
     func showEmpty() {
         currentView = .home

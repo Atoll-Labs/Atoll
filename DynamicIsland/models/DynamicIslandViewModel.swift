@@ -8,7 +8,6 @@
 import Combine
 import Defaults
 import SwiftUI
-import TheBoringWorkerNotifier
 
 class DynamicIslandViewModel: NSObject, ObservableObject {
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
