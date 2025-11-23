@@ -101,7 +101,7 @@ final class MusicControlWindowManager {
             window.orderOut(nil)
             window.alphaValue = 0
             if tearDown {
-                tearDownHostingView()
+                tearDownWindowResources(using: window)
             }
             return
         }
@@ -119,17 +119,19 @@ final class MusicControlWindowManager {
             window.orderOut(nil)
             window.alphaValue = 0
             if tearDown {
-                self?.tearDownHostingView()
+                self?.tearDownWindowResources(using: window)
             }
         }
     }
 
-    private func tearDownHostingView() {
-        if let window {
-            window.contentView = nil
-        }
+    private func tearDownWindowResources(using window: NSWindow? = nil) {
+        let targetWindow = window ?? self.window
+        targetWindow?.contentView = nil
+        targetWindow?.orderOut(nil)
         hostingView = nil
         lastMetrics = nil
+        self.window = nil
+        hasDelegated = false
     }
 
     private func ensureHostingView(with overlay: MusicControlOverlay) -> NSHostingView<MusicControlOverlay> {

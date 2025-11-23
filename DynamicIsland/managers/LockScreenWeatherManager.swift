@@ -971,7 +971,7 @@ private enum WeatherSymbolMapper {
 @MainActor
 private final class LockScreenWeatherLocationProvider: NSObject, CLLocationManagerDelegate {
     private let manager: CLLocationManager
-    private var continuation: CheckedContinuation<CLLocation?, Never>?
+    private var pendingContinuations: [CheckedContinuation<CLLocation?, Never>] = []
     private var lastLocation: CLLocation?
 
     override init() {
@@ -997,7 +997,7 @@ private final class LockScreenWeatherLocationProvider: NSObject, CLLocationManag
             }
             manager.requestLocation()
             return await withCheckedContinuation { continuation in
-                self.continuation = continuation
+                self.pendingContinuations.append(continuation)
             }
         default:
             return nil
@@ -1006,12 +1006,17 @@ private final class LockScreenWeatherLocationProvider: NSObject, CLLocationManag
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         lastLocation = locations.last
-        continuation?.resume(returning: lastLocation)
-        continuation = nil
+        flushContinuations(with: lastLocation)
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        continuation?.resume(returning: nil)
-        continuation = nil
+        flushContinuations(with: nil)
+    }
+
+    private func flushContinuations(with location: CLLocation?) {
+        guard !pendingContinuations.isEmpty else { return }
+        let continuations = pendingContinuations
+        pendingContinuations.removeAll()
+        continuations.forEach { $0.resume(returning: location) }
     }
 }

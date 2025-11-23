@@ -12,6 +12,7 @@ import EventKit
 
 protocol CalendarServiceProviding {
     func requestAccess() async -> Bool
+    func requestAccess(to type: EKEntityType) async -> Bool
     func calendars() async -> [CalendarModel]
     func events(from start: Date, to end: Date, calendars: [String]) async -> [EventModel]
 }
@@ -21,17 +22,22 @@ class CalendarService: CalendarServiceProviding {
     
     @MainActor
     func requestAccess() async -> Bool {
+        let eventsAccess = await requestAccess(to: .event)
+        let remindersAccess = await requestAccess(to: .reminder)
+        return eventsAccess || remindersAccess
+    }
+
+    @MainActor
+    func requestAccess(to type: EKEntityType) async -> Bool {
         do {
-            let eventsAccess = try await requestAccess(to: .event)
-            let remindersAccess = try await requestAccess(to: .reminder)
-            return eventsAccess || remindersAccess // At least one should work
+            return try await performAccessRequest(for: type)
         } catch {
             print("Calendar access error: \(error)")
             return false
         }
     }
-    
-    private func requestAccess(to type: EKEntityType) async throws -> Bool {
+
+    private func performAccessRequest(for type: EKEntityType) async throws -> Bool {
         if #available(macOS 14.0, *) {
             switch type {
             case .event:
@@ -93,47 +99,27 @@ class CalendarService: CalendarServiceProviding {
     }
     
     private func fetchReminders(from start: Date, to end: Date, calendars: [EKCalendar]) async -> [EventModel] {
-        await withTaskGroup(of: [EKReminder].self) { group in
-            var allReminders: [EKReminder] = []
-            
-            // Fetch incomplete reminders
-            group.addTask {
-                await withCheckedContinuation { continuation in
-                    let predicate = self.store.predicateForIncompleteReminders(
-                        withDueDateStarting: start,
-                        ending: end,
-                        calendars: calendars
-                    )
-                    self.store.fetchReminders(matching: predicate) { reminders in
-                        continuation.resume(returning: reminders ?? [])
-                    }
+        guard !calendars.isEmpty else { return [] }
+
+        return await withCheckedContinuation { continuation in
+            let predicate = store.predicateForReminders(in: calendars)
+            store.fetchReminders(matching: predicate) { reminders in
+                guard let reminders else {
+                    continuation.resume(returning: [])
+                    return
                 }
-            }
-            
-            // Fetch completed reminders
-            group.addTask {
-                await withCheckedContinuation { continuation in
-                    let predicate = self.store.predicateForCompletedReminders(
-                        withCompletionDateStarting: start,
-                        ending: end,
-                        calendars: calendars
-                    )
-                    self.store.fetchReminders(matching: predicate) { reminders in
-                        continuation.resume(returning: reminders ?? [])
+
+                let filtered = reminders.compactMap { reminder -> EventModel? in
+                    guard let dueDate = reminder.dueDateComponents?.date,
+                          dueDate >= start,
+                          dueDate <= end else {
+                        return nil
                     }
+                    return EventModel(from: reminder)
                 }
+
+                continuation.resume(returning: filtered)
             }
-            
-            for await reminders in group {
-                allReminders.append(contentsOf: reminders)
-            }
-            
-            // Remove duplicates and convert to EventModel
-            let uniqueReminders = Dictionary(grouping: allReminders, by: \.calendarItemIdentifier)
-                .compactMapValues { $0.first }
-                .values
-            
-            return Array(uniqueReminders.compactMap { EventModel(from: $0) })
         }
     }
 }

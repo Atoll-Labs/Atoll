@@ -183,9 +183,6 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
         
     // Force music information update when notch is opened
     MusicManager.shared.forceUpdate()
-
-    // Refresh reminders immediately to surface the latest state when the notch opens
-    ReminderLiveActivityManager.shared.requestRefresh(force: true)
     }
     
     private func calculateDynamicNotchSize() -> CGSize {

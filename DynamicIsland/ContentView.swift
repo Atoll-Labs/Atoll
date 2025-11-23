@@ -58,16 +58,6 @@ struct ContentView: View {
 
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
-    @State private var hoverWorkItem: DispatchWorkItem?  // Used by handleSimpleHover for stats closing logic
-    @State private var debounceWorkItem: DispatchWorkItem?  // Used by handleSimpleHover
-    
-    @State private var isHoverStateChanging: Bool = false
-    @State private var isStatsTransitioning: Bool = false
-    @State private var isSwitchingToStats: Bool = false
-    @State private var isViewTransitioning: Bool = false
-    @State private var statsTransitionWorkItem: DispatchWorkItem?
-    @State private var viewTransitionWorkItem: DispatchWorkItem?
-    @State private var sizeChangeWorkItem: DispatchWorkItem?
     @State private var lastHapticTime: Date = Date()
 
     @State private var gestureProgress: CGFloat = .zero
@@ -103,6 +93,15 @@ struct ContentView: View {
 #endif
     }
 
+    private func runAfter(_ delay: TimeInterval, _ action: @escaping @Sendable @MainActor () -> Void) {
+        guard delay >= 0 else { return }
+        Task { @MainActor in
+            let nanoseconds = UInt64(delay * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: nanoseconds)
+            action()
+        }
+    }
+
     private func requestMusicControlWindowSyncIfHidden(forceRefresh: Bool = false, delay: TimeInterval = 0) {
         guard !isMusicControlWindowVisible else { return }
         enqueueMusicControlWindowSync(forceRefresh: forceRefresh, delay: delay)
@@ -114,7 +113,6 @@ struct ContentView: View {
         return .easeInOut(duration: 0.4)
     }
     
-    private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
     private let statsAdditionalRowHeight: CGFloat = 110
     private let musicControlPauseGrace: TimeInterval = 5
@@ -174,23 +172,18 @@ struct ContentView: View {
                         .animation(notchStateAnimation, value: vm.notchState)
                         .animation(viewTransitionAnimation, value: coordinator.currentView)
                 }
-                .conditionalModifier(Defaults[.openNotchOnHover] && interactionsEnabled) { view in
-                    view.onHover { hovering in
-                        handleHover(hovering)
-                    }
-                }
-                .conditionalModifier(!Defaults[.openNotchOnHover] && interactionsEnabled) { view in
+                .conditionalModifier(interactionsEnabled) { view in
                     view
                         .onHover { hovering in
-                            handleSimpleHover(hovering)
+                            handleHover(hovering)
                         }
                         .onTapGesture {
-                            if (vm.notchState == .closed) && Defaults[.enableHaptics] {
+                            if vm.notchState == .closed && Defaults[.enableHaptics] {
                                 triggerHapticIfAllowed()
                             }
-                            doOpen()
+                            openNotch()
                         }
-                        .conditionalModifier(Defaults[.enableGestures] && interactionsEnabled) { view in
+                        .conditionalModifier(Defaults[.enableGestures]) { view in
                             view
                                 .panGesture(direction: .down) { translation, phase in
                                     handleDownGesture(translation: translation, phase: phase)
@@ -204,10 +197,10 @@ struct ContentView: View {
                         }
                 }
                 .onAppear(perform: {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    runAfter(1) {
                         withAnimation(vm.animation) {
                             if coordinator.firstLaunch {
-                                doOpen()
+                                openNotch()
                             }
                         }
                     }
@@ -224,26 +217,20 @@ struct ContentView: View {
                     
                     // Reset hover state when notch state changes
                     if newState == .closed && isHovering {
-                        // Only reset visually, without triggering the hover logic again
-                        isHoverStateChanging = true
                         withAnimation {
                             isHovering = false
-                        }
-                        // Reset the flag after the animation completes
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            isHoverStateChanging = false
                         }
                     }
                 }
                 .onChange(of: vm.isBatteryPopoverActive) { _, newPopoverState in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    runAfter(0.1) {
                         if !newPopoverState && !isHovering && vm.notchState == .open && !vm.isStatsPopoverActive && !vm.isMediaOutputPopoverActive && !vm.isReminderPopoverActive {
                             vm.close()
                         }
                     }
                 }
                 .onChange(of: vm.isStatsPopoverActive) { _, newPopoverState in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    runAfter(0.1) {
                         if !newPopoverState && !isHovering && vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive && !vm.isMediaOutputPopoverActive && !vm.isReminderPopoverActive {
                             vm.close()
                         }
@@ -251,7 +238,7 @@ struct ContentView: View {
                 }
                 .onChange(of: vm.shouldRecheckHover) { _, _ in
                     // Recheck hover state when popovers are closed
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    runAfter(0.1) {
                         if vm.notchState == .open && !vm.isBatteryPopoverActive && !vm.isClipboardPopoverActive && !vm.isColorPickerPopoverActive && !vm.isStatsPopoverActive && !vm.isMediaOutputPopoverActive && !vm.isReminderPopoverActive && !isHovering {
                             vm.close()
                         }
@@ -260,99 +247,20 @@ struct ContentView: View {
                 .onChange(of: coordinator.sneakPeek.show) { _, sneakPeekShowing in
                     // When sneak peek finishes, check if user is still hovering and open notch if needed
                     if !sneakPeekShowing {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        runAfter(0.2) {
                             if isHovering && vm.notchState == .closed {
-                                doOpen()
+                                openNotch()
                             }
                         }
                     }
                 }
-                .onChange(of: coordinator.currentView) { oldValue, newValue in
-                    // Update smart monitoring based on current view change
+                .onChange(of: coordinator.currentView) { _, newValue in
                     if enableStatsFeature {
                         let currentViewString = newValue == .stats ? "stats" : "other"
                         statsManager.updateMonitoringState(
                             notchIsOpen: vm.notchState == .open,
                             currentView: currentViewString
                         )
-                    }
-                    
-                    // Cancel any pending close actions and ALL existing transition timers during view transitions
-                    hoverWorkItem?.cancel()
-                    statsTransitionWorkItem?.cancel()
-                    viewTransitionWorkItem?.cancel()
-                    sizeChangeWorkItem?.cancel()
-                    
-                    // Reset all transition flags immediately to prevent conflicts
-                    isStatsTransitioning = false
-                    isSwitchingToStats = false
-                    isViewTransitioning = false
-                    
-                    // Check if this transition will cause a size change
-                    let baseOpenSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
-                    let expandedHeight = baseOpenSize.height + statsAdditionalRowHeight
-                    let oldSize = oldValue == .stats && statsTabHasExpandedHeight() ?
-                        CGSize(width: baseOpenSize.width, height: expandedHeight) : baseOpenSize
-                    let newSize = newValue == .stats && statsTabHasExpandedHeight() ?
-                        CGSize(width: baseOpenSize.width, height: expandedHeight) : baseOpenSize
-                    let sizeWillChange = oldSize != newSize
-                    
-                    // Set flags for transition tracking
-                    isSwitchingToStats = (oldValue != .stats && newValue == .stats)
-                    
-                    // Set view transition flag if size will change with proper cleanup
-                    if sizeWillChange {
-                        isViewTransitioning = true
-                        // Clear after animation duration + generous buffer
-                        let workItem = DispatchWorkItem {
-                            isViewTransitioning = false
-                        }
-                        viewTransitionWorkItem = workItem
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: workItem)
-                    }
-                    
-                    // Provide protection when switching to stats tab with proper cleanup
-                    if newValue == .stats {
-                        isStatsTransitioning = true
-                        
-                        // Much longer delay if stats tab has expanded height (4+ graphs)
-                        let hasExpandedHeight = statsTabHasExpandedHeight()
-                        let protectionDelay: Double = hasExpandedHeight ? 4.0 : 2.0 // Much longer delays
-                        
-                        let workItem = DispatchWorkItem {
-                            isStatsTransitioning = false
-                            isSwitchingToStats = false
-                        }
-                        statsTransitionWorkItem = workItem
-                        DispatchQueue.main.asyncAfter(deadline: .now() + protectionDelay, execute: workItem)
-                    }
-                    
-                    // Also provide brief protection when switching FROM stats to prevent premature closure
-                    if oldValue == .stats && newValue != .stats {
-                        isStatsTransitioning = true
-                        let workItem = DispatchWorkItem {
-                            isStatsTransitioning = false
-                        }
-                        statsTransitionWorkItem = workItem
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: workItem)
-                    }
-                }
-                .onChange(of: [showCpuGraph, showMemoryGraph, showGpuGraph, showNetworkGraph, showDiskGraph]) { _, _ in
-                    // Protect during graph count changes that might affect size
-                    if coordinator.currentView == .stats {
-                        // Cancel existing transition timers to prevent conflicts
-                        viewTransitionWorkItem?.cancel()
-                        statsTransitionWorkItem?.cancel()
-                        
-                        isViewTransitioning = true
-                        isStatsTransitioning = true
-                        // Clear after animation duration + generous buffer
-                        let workItem = DispatchWorkItem {
-                            isViewTransitioning = false
-                            isStatsTransitioning = false
-                        }
-                        viewTransitionWorkItem = workItem
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: workItem)
                     }
                 }
                 .sensoryFeedback(.alignment, trigger: haptics)
@@ -377,19 +285,10 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.4), value: coordinator.currentView)
         .environmentObject(privacyManager)
         .onChange(of: dynamicNotchSize) { oldSize, newSize in
-            // Protect against hover interference during frame size changes
-            if oldSize != newSize {
-                // Cancel existing size change timer to prevent conflicts
-                sizeChangeWorkItem?.cancel()
-                
-                isViewTransitioning = true
-                let workItem = DispatchWorkItem {
-                    isViewTransitioning = false
-                    vm.shouldRecheckHover.toggle()
-                }
-                sizeChangeWorkItem = workItem
-                let delay: TimeInterval = dynamicNotchResizeAnimation == nil ? 0.25 : 1.0
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+            guard oldSize != newSize else { return }
+            let delay: TimeInterval = dynamicNotchResizeAnimation == nil ? 0.25 : 1.0
+            runAfter(delay) {
+                vm.shouldRecheckHover.toggle()
             }
         }
         .shadow(color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow]) ? .black.opacity(0.6) : .clear, radius: Defaults[.cornerRadiusScaling] ? 10 : 5)
@@ -486,12 +385,7 @@ struct ContentView: View {
             }
         }
         .onDisappear {
-            // Clean up all timer work items to prevent memory leaks and conflicts
-            hoverWorkItem?.cancel()
-            debounceWorkItem?.cancel()
-            statsTransitionWorkItem?.cancel()
-            viewTransitionWorkItem?.cancel()
-            sizeChangeWorkItem?.cancel()
+            hoverTask?.cancel()
             cancelMusicControlWindowSync()
             hideMusicControlWindow()
             cancelMusicControlVisibilityTimer()
@@ -804,7 +698,7 @@ struct ContentView: View {
                 .onChange(of: vm.anyDropZoneTargeting) { _, isTargeted in
                     if isTargeted, vm.notchState == .closed {
                         coordinator.currentView = .shelf
-                        doOpen()
+                        openNotch()
                     } else if !isTargeted {
                         print("DROP EVENT", vm.dropEvent)
                         if vm.dropEvent {
@@ -822,7 +716,7 @@ struct ContentView: View {
     }
 
     // MARK: - Private Methods
-    private func doOpen() {
+    private func openNotch() {
         withAnimation(.bouncy.speed(1.2)) {
             vm.open()
         }
@@ -833,110 +727,47 @@ struct ContentView: View {
     /// Handle hover state changes with debouncing
     private func handleHover(_ hovering: Bool) {
         hoverTask?.cancel()
-        
+
         if hovering {
             withAnimation(.bouncy.speed(1.2)) {
                 isHovering = true
             }
-            
+
             if vm.notchState == .closed && Defaults[.enableHaptics] {
                 triggerHapticIfAllowed()
             }
-            
+
             guard vm.notchState == .closed,
                   !coordinator.sneakPeek.show,
                   Defaults[.openNotchOnHover] else { return }
-            
+
             hoverTask = Task {
                 try? await Task.sleep(for: .seconds(Defaults[.minimumHoverDuration]))
                 guard !Task.isCancelled else { return }
-                
+
                 await MainActor.run {
                     guard self.vm.notchState == .closed,
                           self.isHovering,
                           !self.coordinator.sneakPeek.show else { return }
-                    
-                    self.doOpen()
+
+                    self.openNotch()
                 }
             }
         } else {
-            if vm.notchState == .open && isViewTransitioning {
-                return
-            }
             hoverTask = Task {
                 try? await Task.sleep(for: .milliseconds(100))
                 guard !Task.isCancelled else { return }
-                
+
                 await MainActor.run {
-                    guard !self.isViewTransitioning else { return }
                     withAnimation(.bouncy.speed(1.2)) {
                         self.isHovering = false
                     }
-                    
+
                     if self.vm.notchState == .open && !self.hasAnyActivePopovers() {
                         self.vm.close()
                     }
                 }
             }
-        }
-    }
-    
-    // Simple hover handler for non-openNotchOnHover mode
-    private func handleSimpleHover(_ hovering: Bool) {
-        // Cancel any existing work items first
-        hoverWorkItem?.cancel()
-        debounceWorkItem?.cancel()
-        
-        if hovering {
-            // Mouse entered - always update visual state immediately
-            withAnimation(vm.animation) {
-                isHovering = true
-            }
-            return
-        }
-        
-        // Mouse exited - always update visual state immediately
-        withAnimation(vm.animation) {
-            isHovering = false
-        }
-        
-        // Apply stronger protection when switching to stats, especially with 4+ graphs
-        // Also protect during any size change animations
-        if isStatsTransitioning || (isSwitchingToStats && statsTabHasExpandedHeight()) || isViewTransitioning {
-            return // Skip closing during transitions, but allow visual updates
-        }
-        
-        // Check if we should close after a delay
-        let hasPopovers = hasAnyActivePopovers()
-        
-        if vm.notchState == .open && !hasPopovers {
-            let isStatsTab = coordinator.currentView == .stats
-            let hasExpandedHeight = isStatsTab && statsTabHasExpandedHeight()
-            
-            // Much longer delays for stats tab, especially when it has expanded height
-            let delay: Double
-            if hasExpandedHeight {
-                delay = 2.0  // Very long for stats with 4+ graphs
-            } else if isStatsTab {
-                delay = 1.0  // Long for stats with 1-3 graphs
-            } else {
-                delay = 0.2  // Short for other tabs
-            }
-            
-            let closeTask = DispatchWorkItem {
-                // Triple-check conditions including transition state
-                let stillNotHovering = !isHovering
-                let stillOpen = vm.notchState == .open
-                let stillNoPopovers = !hasAnyActivePopovers()
-                let notTransitioning = !isStatsTransitioning && !isSwitchingToStats && !isViewTransitioning
-                
-                if stillNotHovering && stillOpen && stillNoPopovers && notTransitioning {
-                    vm.close()
-                }
-            }
-            
-            hoverWorkItem = closeTask
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: closeTask)
         }
     }
     
@@ -961,10 +792,6 @@ struct ContentView: View {
     }
     
     // Helper to check if stats tab has 4+ graphs (needs expanded height)
-    private func statsTabHasExpandedHeight() -> Bool {
-        return statsRowCount() > 1
-    }
-
     private func enabledStatsGraphCount() -> Int {
         var enabledCount = 0
         if showCpuGraph { enabledCount += 1 }
@@ -1003,7 +830,7 @@ struct ContentView: View {
             withAnimation(.smooth) {
                 gestureProgress = .zero
             }
-            doOpen()
+            openNotch()
         }
     }
     

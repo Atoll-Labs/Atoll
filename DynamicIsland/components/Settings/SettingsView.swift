@@ -1063,8 +1063,8 @@ struct CalendarSettings: View {
 
     var body: some View {
         Form {
-            if calendarManager.calendarAuthorizationStatus != .fullAccess {
-                Text("Calendar access is denied. Please enable it in System Settings.")
+            if !calendarManager.hasCalendarAccess || !calendarManager.hasReminderAccess {
+                Text("Calendar or Reminder access is denied. Please enable it in System Settings.")
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
                     .padding()
@@ -1072,7 +1072,8 @@ struct CalendarSettings: View {
                 HStack {
                     Button("Request Access") {
                         Task {
-                            await calendarManager.checkCalendarAuthorization()
+                            await calendarManager.checkCalendarAuthorization(forceReload: true)
+                            await calendarManager.checkReminderAuthorization(forceReload: true)
                         }
                     }
                     .buttonStyle(.borderedProminent)
@@ -1179,6 +1180,7 @@ struct CalendarSettings: View {
         .onAppear {
             Task {
                 await calendarManager.checkCalendarAuthorization()
+                await calendarManager.checkReminderAuthorization()
             }
         }
         .navigationTitle("Calendar")
@@ -1186,7 +1188,7 @@ struct CalendarSettings: View {
     
     private func statusText(for status: EKAuthorizationStatus) -> String {
         switch status {
-        case .fullAccess: return "Full Access"
+        case .fullAccess, .authorized: return "Full Access"
         case .writeOnly: return "Write Only"
         case .denied: return "Denied"
         case .restricted: return "Restricted"
@@ -1197,7 +1199,7 @@ struct CalendarSettings: View {
     
     private func color(for status: EKAuthorizationStatus) -> Color {
         switch status {
-        case .fullAccess: return .green
+        case .fullAccess, .authorized: return .green
         case .writeOnly: return .yellow
         case .denied, .restricted: return .red
         case .notDetermined: return .secondary

@@ -419,6 +419,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationUsageDescription = "Dynamic Island uses your location to display accurate lock screen weather.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Dynamic Island uses your location to display accurate lock screen weather.";
+				INFOPLIST_KEY_NSRemindersUsageDescription = "Atoll needs Reminders access to show your reminders";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -487,6 +488,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationUsageDescription = "Dynamic Island uses your location to display accurate lock screen weather.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Dynamic Island uses your location to display accurate lock screen weather.";
+				INFOPLIST_KEY_NSRemindersUsageDescription = "Atoll needs Reminders access to show your reminders";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

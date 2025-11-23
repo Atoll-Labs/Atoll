@@ -27,11 +27,14 @@ class CalendarManager: ObservableObject {
 
     private var eventStoreChangedObserver: NSObjectProtocol?
 
+    var hasCalendarAccess: Bool { isAuthorized(calendarAuthorizationStatus) }
+    var hasReminderAccess: Bool { isAuthorized(reminderAuthorizationStatus) }
+
     private init() {
         self.currentWeekStartDate = CalendarManager.startOfDay(Date())
         setupEventStoreChangedObserver()
         Task {
-            await reloadCalendarAndReminderLists()
+            await self.bootstrapAuthorizations()
         }
     }
 
@@ -62,41 +65,83 @@ class CalendarManager: ObservableObject {
         updateSelectedCalendars()
     }
 
-    func checkCalendarAuthorization() async {
-        let status = EKEventStore.authorizationStatus(for: .event)
-        let reminderStatus = EKEventStore.authorizationStatus(for: .reminder)
-        DispatchQueue.main.async {
-            print("📅 Current calendar authorization status: \(status)")
-            self.calendarAuthorizationStatus = status
-            self.reminderAuthorizationStatus = reminderStatus
+    private func bootstrapAuthorizations() async {
+        await checkCalendarAuthorization(forceReload: true)
+        await checkReminderAuthorization(forceReload: true)
+    }
+
+    private func refreshAuthorizationStatuses() {
+        calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
+        reminderAuthorizationStatus = EKEventStore.authorizationStatus(for: .reminder)
+    }
+
+    private func isAuthorized(_ status: EKAuthorizationStatus) -> Bool {
+        switch status {
+        case .fullAccess, .authorized:
+            return true
+        default:
+            return false
         }
+    }
+
+    func checkCalendarAuthorization(forceReload: Bool = false) async {
+        refreshAuthorizationStatuses()
+        let status = calendarAuthorizationStatus
+        print("📅 Current calendar authorization status: \(status.rawValue)")
 
         switch status {
         case .notDetermined:
-            let granted = await calendarService.requestAccess()
-            let newEventStatus = EKEventStore.authorizationStatus(for: .event)
-            let newReminderStatus = EKEventStore.authorizationStatus(for: .reminder)
-            self.calendarAuthorizationStatus = newEventStatus
-            self.reminderAuthorizationStatus = newReminderStatus
-            if granted {
+            let granted = await calendarService.requestAccess(to: .event)
+            refreshAuthorizationStatuses()
+            if granted || hasCalendarAccess {
                 await reloadCalendarAndReminderLists()
-                events = await calendarService.events(
-                    from: currentWeekStartDate,
-                    to: Calendar.current.date(byAdding: .day, value: 1, to: currentWeekStartDate)!,
-                    calendars: selectedCalendars.map { $0.id }
-                )
+                await updateEvents()
             }
         case .restricted, .denied:
-            // Handle the case where the user has denied or restricted access
             NSLog("Calendar access denied or restricted")
+        case .writeOnly:
+            NSLog("Calendar write-only access")
         case .fullAccess:
-            NSLog("Full access")
+            guard forceReload else { return }
             await reloadCalendarAndReminderLists()
             await updateEvents()
-        case .writeOnly:
-            NSLog("Write only")
         @unknown default:
-            print("Unknown authorization status")
+            if isAuthorized(status) {
+                guard forceReload else { return }
+                await reloadCalendarAndReminderLists()
+                await updateEvents()
+            } else {
+                print("Unknown authorization status: \(status.rawValue)")
+            }
+        }
+    }
+
+    func checkReminderAuthorization(forceReload: Bool = false) async {
+        refreshAuthorizationStatuses()
+        let status = reminderAuthorizationStatus
+        print("📅 Current reminder authorization status: \(status.rawValue)")
+
+        switch status {
+        case .notDetermined:
+            let granted = await calendarService.requestAccess(to: .reminder)
+            refreshAuthorizationStatuses()
+            if granted || hasReminderAccess {
+                await reloadCalendarAndReminderLists()
+            }
+        case .restricted, .denied:
+            NSLog("Reminder access denied or restricted")
+        case .writeOnly:
+            NSLog("Reminder write-only access")
+        case .fullAccess:
+            guard forceReload else { return }
+            await reloadCalendarAndReminderLists()
+        @unknown default:
+            if isAuthorized(status) {
+                guard forceReload else { return }
+                await reloadCalendarAndReminderLists()
+            } else {
+                print("Unknown reminder authorization status: \(status.rawValue)")
+            }
         }
     }
 
