@@ -379,6 +379,7 @@ struct GeneralSettings: View {
                 Defaults.Toggle("Enable blur", key: .lockScreenPanelUsesBlur)
                 Defaults.Toggle("Show lock screen media panel", key: .enableLockScreenMediaWidget)
                 Defaults.Toggle("Show lock screen weather", key: .enableLockScreenWeatherWidget)
+                Defaults.Toggle("Show lock screen timer", key: .enableLockScreenTimerWidget)
                 if enableLockScreenWeatherWidget {
                     Picker("Widget layout", selection: $lockScreenWeatherWidgetStyle) {
                         ForEach(LockScreenWeatherWidgetStyle.allCases) { style in
@@ -1723,6 +1724,7 @@ struct Appearance: View {
 private struct LockScreenPositioningControls: View {
     @Default(.lockScreenWeatherVerticalOffset) private var weatherOffset
     @Default(.lockScreenMusicVerticalOffset) private var musicOffset
+    @Default(.lockScreenTimerVerticalOffset) private var timerOffset
     private let offsetRange: ClosedRange<Double> = -160...160
 
     var body: some View {
@@ -1738,6 +1740,17 @@ private struct LockScreenPositioningControls: View {
                 }
             )
 
+            let timerBinding = Binding<Double>(
+                get: { timerOffset },
+                set: { newValue in
+                    let clampedValue = clamp(newValue)
+                    if timerOffset != clampedValue {
+                        timerOffset = clampedValue
+                    }
+                    propagateTimerOffsetChange(animated: false)
+                }
+            )
+
             let musicBinding = Binding<Double>(
                 get: { musicOffset },
                 set: { newValue in
@@ -1749,7 +1762,7 @@ private struct LockScreenPositioningControls: View {
                 }
             )
 
-            LockScreenPositioningPreview(weatherOffset: weatherBinding, musicOffset: musicBinding)
+            LockScreenPositioningPreview(weatherOffset: weatherBinding, timerOffset: timerBinding, musicOffset: musicBinding)
                 .frame(height: 260)
                 .padding(.vertical, 8)
 
@@ -1759,6 +1772,16 @@ private struct LockScreenPositioningControls: View {
                     value: weatherOffset,
                     resetTitle: "Reset Weather",
                     resetAction: resetWeatherOffset
+                )
+
+                Divider()
+                    .frame(height: 64)
+
+                offsetColumn(
+                    title: "Timer",
+                    value: timerOffset,
+                    resetTitle: "Reset Timer",
+                    resetAction: resetTimerOffset
                 )
 
                 Divider()
@@ -1790,6 +1813,11 @@ private struct LockScreenPositioningControls: View {
         propagateWeatherOffsetChange(animated: true)
     }
 
+    private func resetTimerOffset() {
+        timerOffset = 0
+        propagateTimerOffsetChange(animated: true)
+    }
+
     private func resetMusicOffset() {
         musicOffset = 0
         propagateMusicOffsetChange(animated: true)
@@ -1798,6 +1826,12 @@ private struct LockScreenPositioningControls: View {
     private func propagateWeatherOffsetChange(animated: Bool) {
         Task { @MainActor in
             LockScreenWeatherPanelManager.shared.refreshPositionForOffsets(animated: animated)
+        }
+    }
+
+    private func propagateTimerOffsetChange(animated: Bool) {
+        Task { @MainActor in
+            LockScreenTimerWidgetManager.shared.refreshPositionForOffsets(animated: animated)
         }
     }
 
@@ -1831,11 +1865,14 @@ private struct LockScreenPositioningControls: View {
 
 private struct LockScreenPositioningPreview: View {
     @Binding var weatherOffset: Double
+    @Binding var timerOffset: Double
     @Binding var musicOffset: Double
 
     @State private var weatherStartOffset: Double = 0
+    @State private var timerStartOffset: Double = 0
     @State private var musicStartOffset: Double = 0
     @State private var isWeatherDragging = false
+    @State private var isTimerDragging = false
     @State private var isMusicDragging = false
 
     private let offsetRange: ClosedRange<Double> = -160...160
@@ -1852,8 +1889,10 @@ private struct LockScreenPositioningPreview: View {
             )
             let centerX = screenRect.midX
             let weatherBaseY = screenRect.minY + (screenRect.height * 0.28)
-            let musicBaseY = screenRect.minY + (screenRect.height * 0.68)
+            let timerBaseY = screenRect.minY + (screenRect.height * 0.5)
+            let musicBaseY = screenRect.minY + (screenRect.height * 0.78)
             let weatherSize = CGSize(width: screenRect.width * 0.42, height: screenRect.height * 0.22)
+            let timerSize = CGSize(width: screenRect.width * 0.5, height: screenRect.height * 0.2)
             let musicSize = CGSize(width: screenRect.width * 0.56, height: screenRect.height * 0.34)
 
             ZStack {
@@ -1870,6 +1909,10 @@ private struct LockScreenPositioningPreview: View {
                 weatherPanel(size: weatherSize)
                     .position(x: centerX, y: weatherBaseY - CGFloat(weatherOffset))
                     .gesture(weatherDragGesture(in: screenRect, baseY: weatherBaseY, panelSize: weatherSize))
+
+                timerPanel(size: timerSize)
+                    .position(x: centerX, y: timerBaseY - CGFloat(timerOffset))
+                    .gesture(timerDragGesture(in: screenRect, baseY: timerBaseY, panelSize: timerSize))
 
                 musicPanel(size: musicSize)
                     .position(x: centerX, y: musicBaseY - CGFloat(musicOffset))
@@ -1928,6 +1971,29 @@ private struct LockScreenPositioningPreview: View {
             .shadow(color: Color.purple.opacity(0.24), radius: 12, x: 0, y: 9)
     }
 
+    private func timerPanel(size: CGSize) -> some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [Color.orange.opacity(0.75), Color.purple.opacity(0.55)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: size.width, height: size.height)
+            .overlay {
+                VStack(spacing: 6) {
+                    Text("Timer")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text("00:05:00")
+                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
+                }
+            }
+            .shadow(color: Color.orange.opacity(0.3), radius: 12, x: 0, y: 8)
+    }
+
     private func weatherDragGesture(in screenRect: CGRect, baseY: CGFloat, panelSize: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
@@ -1967,6 +2033,27 @@ private struct LockScreenPositioningPreview: View {
             }
             .onEnded { _ in
                 isMusicDragging = false
+            }
+    }
+
+    private func timerDragGesture(in screenRect: CGRect, baseY: CGFloat, panelSize: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                if !isTimerDragging {
+                    isTimerDragging = true
+                    timerStartOffset = timerOffset
+                }
+
+                let proposed = timerStartOffset - Double(value.translation.height)
+                timerOffset = clampedOffset(
+                    proposed,
+                    baseCenterY: baseY,
+                    panelHeight: panelSize.height,
+                    screenRect: screenRect
+                )
+            }
+            .onEnded { _ in
+                isTimerDragging = false
             }
     }
 

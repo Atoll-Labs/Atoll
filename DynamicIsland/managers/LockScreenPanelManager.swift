@@ -92,6 +92,7 @@ class LockScreenPanelManager {
         latestFrame = targetFrame
         hideTask?.cancel()
         panelAnimator.isPresented = false
+        LockScreenTimerWidgetManager.shared.notifyMusicPanelFrameChanged(animated: false)
 
         let hosting = NSHostingView(rootView: LockScreenMusicPanel(animator: panelAnimator))
         hosting.frame = NSRect(origin: .zero, size: targetFrame.size)
@@ -144,6 +145,8 @@ class LockScreenPanelManager {
 
         latestFrame = targetFrame
 
+        LockScreenTimerWidgetManager.shared.notifyMusicPanelFrameChanged(animated: animated)
+
         // Update corner radius to match the SwiftUI panel's style
         let targetRadius = expanded ? expandedPanelCornerRadius : collapsedPanelCornerRadius
         if animated {
@@ -167,6 +170,7 @@ class LockScreenPanelManager {
 
         guard panelWindow != nil else { return }
         updatePanelSize(expanded: isPanelExpanded, additionalHeight: currentAdditionalHeight, animated: animated)
+        LockScreenTimerWidgetManager.shared.notifyMusicPanelFrameChanged(animated: animated)
     }
 
     func hidePanel() {
@@ -197,9 +201,10 @@ class LockScreenPanelManager {
         let collapsedSize = LockScreenMusicPanel.collapsedSize
         let originX = screenFrame.midX - (collapsedSize.width / 2)
         let baseOriginY = screenFrame.origin.y + (screenFrame.height / 2) - collapsedSize.height - 32
+        let defaultLowering: CGFloat = -28
         let userOffset = CGFloat(Defaults[.lockScreenMusicVerticalOffset])
         let clampedOffset = min(max(userOffset, -160), 160)
-        let originY = baseOriginY + clampedOffset
+        let originY = baseOriginY + defaultLowering + clampedOffset
         return NSRect(x: originX, y: originY, width: collapsedSize.width, height: collapsedSize.height)
     }
 }

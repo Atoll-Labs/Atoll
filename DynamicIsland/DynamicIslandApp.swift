@@ -618,6 +618,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 await LockScreenWeatherManager.shared.refresh(force: true)
             }
         }
+
+        // Warm up the lock screen timer widget manager so it can observe timer/default
+        // changes immediately instead of waiting for the first lock event.
+        let timerWidgetManager = LockScreenTimerWidgetManager.shared
+        timerWidgetManager.handleLockStateChange(isLocked: LockScreenManager.shared.currentLockStatus)
     }
     
     func playWelcomeSound() {

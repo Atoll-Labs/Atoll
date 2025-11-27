@@ -395,7 +395,8 @@ class TimerManager: ObservableObject {
         
         // Fall back to default sound if no custom sound or custom sound doesn't exist
         if soundURL == nil {
-            soundURL = Bundle.main.url(forResource: "dynamic", withExtension: "m4a")
+            soundURL = Bundle.main.url(forResource: "timer", withExtension: "mp3")
+                ?? Bundle.main.url(forResource: "dynamic", withExtension: "m4a")
         }
         
         guard let finalSoundURL = soundURL else {

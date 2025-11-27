@@ -25,6 +25,10 @@ final class TimerControlWindowManager {
 
     @discardableResult
     func present(using viewModel: DynamicIslandViewModel, metrics: TimerControlWindowMetrics) -> Bool {
+        guard !LockScreenManager.shared.currentLockStatus else {
+            hide(animated: false)
+            return false
+        }
         guard let screen = resolveScreen(from: viewModel) else { return false }
         guard viewModel.effectiveClosedNotchHeight > 0, viewModel.closedNotchSize.width > 0 else {
             hide()

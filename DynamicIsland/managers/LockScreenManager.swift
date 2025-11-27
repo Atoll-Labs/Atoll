@@ -108,6 +108,8 @@ class LockScreenManager: ObservableObject {
         LockScreenLiveActivityWindowManager.shared.showLocked()
         LockScreenWeatherManager.shared.showWeatherWidget()
         LockScreenReminderWidgetManager.shared.showReminderWidget()
+        LockScreenTimerWidgetManager.shared.handleLockStateChange(isLocked: true)
+        TimerControlWindowManager.shared.hide(animated: false)
         
         // THEN trigger lock icon in Dynamic Island (only if enabled in settings)
         if Defaults[.enableLockScreenLiveActivity] {
@@ -130,6 +132,7 @@ class LockScreenManager: ObservableObject {
         LockScreenLiveActivityWindowManager.shared.showUnlockAndScheduleHide()
         LockScreenWeatherManager.shared.hideWeatherWidget()
         LockScreenReminderWidgetManager.shared.hideReminderWidget()
+        LockScreenTimerWidgetManager.shared.handleLockStateChange(isLocked: false)
         
         // Update state immediately
         if Defaults[.enableLockScreenLiveActivity] {

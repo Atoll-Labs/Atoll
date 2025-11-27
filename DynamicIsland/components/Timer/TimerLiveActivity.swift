@@ -140,9 +140,18 @@ struct TimerLiveActivity: View {
         return timerPresets.first { $0.id == presetId }?.color
     }
 
-    private var shouldShowControlWindow: Bool {
-        controlWindowEnabled && !shouldDisplayLabel && timerManager.isTimerActive && !timerManager.isExternalTimerActive
-    }
+        private var shouldShowControlWindow: Bool {
+    #if os(macOS)
+        let lockSuppressed = !LockScreenManager.shared.currentLockStatus
+    #else
+        let lockSuppressed = true
+    #endif
+        return controlWindowEnabled
+            && !shouldDisplayLabel
+            && timerManager.isTimerActive
+            && !timerManager.isExternalTimerActive
+            && lockSuppressed
+        }
     
     private func measureTextWidth(_ text: String, font: PlatformFont) -> CGFloat {
         let attributes: [NSAttributedString.Key: Any] = [.font: font]
