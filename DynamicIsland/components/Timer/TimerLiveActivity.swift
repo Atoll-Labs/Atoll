@@ -19,10 +19,16 @@ typealias PlatformFont = UIFont
 struct TimerLiveActivity: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var timerManager = TimerManager.shared
+    @ObservedObject var lockScreenManager = LockScreenManager.shared
     @State private var isHovering: Bool = false
     @State private var showTransientLabel: Bool = false
     @State private var labelHideTask: DispatchWorkItem?
     @State private var isControlWindowVisible: Bool = false
+    @State private var pendingControlWindowTask: Task<Void, Never>?
+    @State private var controlWindowSuppressionTask: Task<Void, Never>?
+    @State private var hasPendingControlWindowSync: Bool = false
+    @State private var pendingControlWindowForceRefresh: Bool = false
+    @State private var isControlWindowSuppressed: Bool = false
     @Default(.timerShowsCountdown) private var showsCountdown
     @Default(.timerShowsProgress) private var showsProgress
     @Default(.timerShowsLabel) private var showsLabel
@@ -39,6 +45,25 @@ struct TimerLiveActivity: View {
     private var wingPadding: CGFloat { 22 }
     private var ringStrokeWidth: CGFloat { 3 }
     private var transientLabelDuration: TimeInterval { 4 }
+    private let controlWindowResumeDelay: TimeInterval = 0.22
+
+    private struct ControlWindowSyncKey: Equatable {
+        var isTimerActive: Bool
+        var timerNameSignature: Int
+        var isFinished: Bool
+        var isOvertime: Bool
+        var isPaused: Bool
+        var closedNotchSize: CGSize
+        var screenName: String?
+        var hideOnClosed: Bool
+        var controlWindowEnabled: Bool
+        var showsLabel: Bool
+        var showTransientLabel: Bool
+        var showsCountdown: Bool
+        var showsProgress: Bool
+        var progressStyleIdentifier: String
+        var activeSourceIdentifier: String
+    }
 
     private var ringWrapsIcon: Bool {
         showsRingProgress && showsCountdown
@@ -140,17 +165,48 @@ struct TimerLiveActivity: View {
         return timerPresets.first { $0.id == presetId }?.color
     }
 
+    private var middleSectionWidth: CGFloat {
+        vm.closedNotchSize.width + (isHovering ? 8 : 0)
+    }
+
+    private var adjustedNotchHeight: CGFloat {
+        vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0)
+    }
+
+    private var controlWindowSyncKey: ControlWindowSyncKey {
+        ControlWindowSyncKey(
+            isTimerActive: timerManager.isTimerActive,
+            timerNameSignature: timerManager.timerName.hashValue,
+            isFinished: timerManager.isFinished,
+            isOvertime: timerManager.isOvertime,
+            isPaused: timerManager.isPaused,
+            closedNotchSize: vm.closedNotchSize,
+            screenName: vm.screen,
+            hideOnClosed: vm.hideOnClosed,
+            controlWindowEnabled: controlWindowEnabled,
+            showsLabel: showsLabel,
+            showTransientLabel: showTransientLabel,
+            showsCountdown: showsCountdown,
+            showsProgress: showsProgress,
+            progressStyleIdentifier: progressStyle.rawValue,
+            activeSourceIdentifier: timerManager.activeSource.rawValue
+        )
+    }
+
         private var shouldShowControlWindow: Bool {
-    #if os(macOS)
-        let lockSuppressed = !LockScreenManager.shared.currentLockStatus
-    #else
-        let lockSuppressed = true
-    #endif
-        return controlWindowEnabled
-            && !shouldDisplayLabel
-            && timerManager.isTimerActive
-            && !timerManager.isExternalTimerActive
-            && lockSuppressed
+        if !controlWindowEnabled { return false }
+        if shouldDisplayLabel { return false }
+
+        let timerEligible = timerManager.isTimerActive && !timerManager.isExternalTimerActive
+        if !timerEligible { return false }
+
+        let notchReady = vm.notchState == .closed && !vm.hideOnClosed
+        if !notchReady { return false }
+
+        if isControlWindowSuppressed { return false }
+        if lockScreenManager.isLocked { return false }
+
+        return true
         }
     
     private func measureTextWidth(_ text: String, font: PlatformFont) -> CGFloat {
@@ -176,60 +232,28 @@ struct TimerLiveActivity: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            Color.clear
-                .frame(width: leftWingWidth, height: notchContentHeight)
-                .background(alignment: .leading) {
-                    HStack(spacing: showsInfoSection ? 8 : 0) {
-                        iconSection
-                        if showsInfoSection {
-                            infoSection
-                        }
-                    }
-                    .padding(.leading, wingPadding / 2)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                }
-
-            Rectangle()
-                .fill(.black)
-                .frame(width: vm.closedNotchSize.width + (isHovering ? 8 : 0), height: notchContentHeight)
-
-            Color.clear
-                .frame(width: rightWingWidth, height: notchContentHeight)
-                .background(alignment: .trailing) {
-                    HStack(spacing: ringOnRight && showsCountdown ? 8 : 0) {
-                        if ringOnRight {
-                            ringSection
-                        }
-                        if showsCountdown {
-                            countdownSection
-                        }
-                    }
-                    .padding(.trailing, wingPadding / 2)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-                }
-        }
-        .frame(height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
-        .contentShape(Rectangle())
+        baseTimerLayout
         .onHover { hovering in
             withAnimation(.smooth(duration: 0.18)) {
                 isHovering = hovering
             }
-            syncControlWindow(forceRefresh: true)
+            requestControlWindowSync(forceRefresh: true, delay: hovering ? 0.05 : 0)
         }
         .onAppear {
-            syncControlWindow(forceRefresh: true)
+            requestControlWindowSync(forceRefresh: true)
             if timerManager.isTimerActive && !timerManager.isFinished && !timerManager.isOvertime {
                 triggerTransientLabel()
             }
         }
         .onDisappear {
             hideControlWindow()
+            cancelControlWindowSync()
+            cancelControlWindowSuppressionTask()
         }
         .onChange(of: timerManager.isTimerActive) { _, isActive in
             if isActive {
                 if !timerManager.isFinished && !timerManager.isOvertime {
-                    syncControlWindow(forceRefresh: true)
+                    requestControlWindowSync(forceRefresh: true)
                     triggerTransientLabel()
                 }
             } else {
@@ -237,11 +261,13 @@ struct TimerLiveActivity: View {
                 cancelTransientLabel()
                 showTransientLabel = false
                 isHovering = false
+                cancelControlWindowSync()
+                resetPendingControlWindowFlags()
             }
         }
         .onChange(of: timerManager.timerName) { _, _ in
             if timerManager.isTimerActive && !timerManager.isFinished && !timerManager.isOvertime {
-                syncControlWindow(forceRefresh: true)
+                requestControlWindowSync(forceRefresh: true)
                 triggerTransientLabel()
             }
         }
@@ -252,7 +278,7 @@ struct TimerLiveActivity: View {
                     showTransientLabel = true
                     isHovering = false
                 }
-                syncControlWindow()
+                requestControlWindowSync()
             }
         }
         .onChange(of: timerManager.isOvertime) { _, overtime in
@@ -262,42 +288,72 @@ struct TimerLiveActivity: View {
                     showTransientLabel = true
                     isHovering = false
                 }
-                syncControlWindow()
+                requestControlWindowSync()
             }
         }
         .onChange(of: timerManager.isPaused) { _, _ in
-            syncControlWindow(forceRefresh: true)
+            requestControlWindowSync(forceRefresh: true)
         }
-        .onChange(of: vm.closedNotchSize) { _, _ in
-            syncControlWindow(forceRefresh: true)
+        .onChange(of: controlWindowSyncKey) { _, _ in
+            requestControlWindowSync(forceRefresh: true)
         }
-        .onChange(of: vm.screen) { _, _ in
-            syncControlWindow(forceRefresh: true)
+        .onChange(of: vm.notchState) { _, state in
+            handleControlWindowNotchStateChange(state)
         }
-        .onChange(of: vm.hideOnClosed) { _, _ in
-            syncControlWindow(forceRefresh: true)
+        .onChange(of: lockScreenManager.isLocked) { _, locked in
+            handleControlWindowLockStateChange(locked)
         }
-        .onChange(of: controlWindowEnabled) { _, _ in
-            syncControlWindow(forceRefresh: true)
+    }
+
+    private var baseTimerLayout: some View {
+        HStack(spacing: 0) {
+            leftWingView()
+            middleSectionView()
+            rightWingView()
         }
-        .onChange(of: showsLabel) { _, _ in
-            syncControlWindow(forceRefresh: true)
-        }
-        .onChange(of: showTransientLabel) { _, _ in
-            syncControlWindow(forceRefresh: true)
-        }
-        .onChange(of: showsCountdown) { _, _ in
-            syncControlWindow(forceRefresh: true)
-        }
-        .onChange(of: showsProgress) { _, _ in
-            syncControlWindow(forceRefresh: true)
-        }
-        .onChange(of: progressStyle) { _, _ in
-            syncControlWindow(forceRefresh: true)
-        }
-        .onChange(of: timerManager.activeSource) { _, _ in
-            syncControlWindow(forceRefresh: true)
-        }
+        .frame(height: adjustedNotchHeight, alignment: .center)
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private func leftWingView() -> some View {
+        Color.clear
+            .frame(width: leftWingWidth, height: notchContentHeight)
+            .background(alignment: .leading) {
+                HStack(spacing: showsInfoSection ? 8 : 0) {
+                    iconSection
+                    if showsInfoSection {
+                        infoSection
+                    }
+                }
+                .padding(.leading, wingPadding / 2)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            }
+    }
+
+    @ViewBuilder
+    private func middleSectionView() -> some View {
+        Rectangle()
+            .fill(.black)
+            .frame(width: middleSectionWidth, height: notchContentHeight)
+    }
+
+    @ViewBuilder
+    private func rightWingView() -> some View {
+        Color.clear
+            .frame(width: rightWingWidth, height: notchContentHeight)
+            .background(alignment: .trailing) {
+                HStack(spacing: ringOnRight && showsCountdown ? 8 : 0) {
+                    if ringOnRight {
+                        ringSection
+                    }
+                    if showsCountdown {
+                        countdownSection
+                    }
+                }
+                .padding(.trailing, wingPadding / 2)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            }
     }
     
     private var iconSection: some View {
@@ -423,6 +479,139 @@ struct TimerLiveActivity: View {
          height: notchContentHeight, alignment: .center)
     }
 
+    private func requestControlWindowSync(forceRefresh: Bool = false, delay: TimeInterval = 0) {
+        enqueueControlWindowSync(forceRefresh: forceRefresh, delay: delay)
+    }
+
+    private func enqueueControlWindowSync(forceRefresh: Bool, delay: TimeInterval = 0) {
+        if shouldDeferControlWindowSync() {
+            hasPendingControlWindowSync = true
+            if forceRefresh {
+                pendingControlWindowForceRefresh = true
+            }
+            return
+        }
+
+        scheduleControlWindowSync(forceRefresh: forceRefresh, delay: delay)
+    }
+
+    private func scheduleControlWindowSync(forceRefresh: Bool, delay: TimeInterval = 0, bypassSuppression: Bool = false) {
+        cancelControlWindowSync()
+
+        guard shouldShowControlWindow else {
+            resetPendingControlWindowFlags()
+            hideControlWindow()
+            return
+        }
+
+        if !bypassSuppression && shouldDeferControlWindowSync() {
+            hasPendingControlWindowSync = true
+            if forceRefresh {
+                pendingControlWindowForceRefresh = true
+            }
+            return
+        }
+
+        resetPendingControlWindowFlags()
+
+        let syncDelay = max(0, delay)
+
+        pendingControlWindowTask = Task.detached(priority: .userInitiated) { [syncDelay, forceRefresh] in
+            if syncDelay > 0 {
+                let nanoseconds = UInt64(syncDelay * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: nanoseconds)
+            }
+
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                if shouldShowControlWindow {
+                    syncControlWindow(forceRefresh: forceRefresh)
+                } else {
+                    hideControlWindow()
+                }
+
+                pendingControlWindowTask = nil
+            }
+        }
+    }
+
+    private func cancelControlWindowSync() {
+        pendingControlWindowTask?.cancel()
+        pendingControlWindowTask = nil
+    }
+
+    private func resetPendingControlWindowFlags() {
+        hasPendingControlWindowSync = false
+        pendingControlWindowForceRefresh = false
+    }
+
+    private func shouldDeferControlWindowSync() -> Bool {
+        vm.notchState != .closed || lockScreenManager.isLocked || isControlWindowSuppressed
+    }
+
+    private func triggerPendingControlWindowSyncIfNeeded() {
+        guard hasPendingControlWindowSync else { return }
+        let shouldForce = pendingControlWindowForceRefresh
+        resetPendingControlWindowFlags()
+        scheduleControlWindowSync(forceRefresh: shouldForce, delay: 0, bypassSuppression: true)
+    }
+
+    private func suppressControlWindowUpdates() {
+        isControlWindowSuppressed = true
+        cancelControlWindowSuppressionTask()
+    }
+
+    private func releaseControlWindowUpdates(after delay: TimeInterval) {
+        cancelControlWindowSuppressionTask()
+        controlWindowSuppressionTask = Task { [delay] in
+            if delay > 0 {
+                let nanoseconds = UInt64(delay * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: nanoseconds)
+            }
+
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                if vm.notchState == .closed && !lockScreenManager.isLocked {
+                    isControlWindowSuppressed = false
+                    triggerPendingControlWindowSyncIfNeeded()
+                } else {
+                    isControlWindowSuppressed = true
+                }
+
+                controlWindowSuppressionTask = nil
+            }
+        }
+    }
+
+    private func cancelControlWindowSuppressionTask() {
+        controlWindowSuppressionTask?.cancel()
+        controlWindowSuppressionTask = nil
+    }
+
+    private func handleControlWindowNotchStateChange(_ state: NotchState) {
+        if state == .open {
+            suppressControlWindowUpdates()
+            cancelControlWindowSync()
+            hideControlWindow()
+        } else {
+            releaseControlWindowUpdates(after: controlWindowResumeDelay)
+            requestControlWindowSync(forceRefresh: true, delay: 0.05)
+        }
+    }
+
+    private func handleControlWindowLockStateChange(_ locked: Bool) {
+        if locked {
+            suppressControlWindowUpdates()
+            cancelControlWindowSync()
+            hideControlWindow()
+        } else {
+            releaseControlWindowUpdates(after: controlWindowResumeDelay)
+            requestControlWindowSync(forceRefresh: true, delay: 0.05)
+        }
+    }
+
     private func triggerTransientLabel() {
         guard !showsLabel else { return }
         cancelTransientLabel()
@@ -433,7 +622,7 @@ struct TimerLiveActivity: View {
             withAnimation(.smooth) {
                 showTransientLabel = false
             }
-            syncControlWindow(forceRefresh: true)
+            requestControlWindowSync(forceRefresh: true)
         }
         labelHideTask = task
         DispatchQueue.main.asyncAfter(deadline: .now() + transientLabelDuration, execute: task)
