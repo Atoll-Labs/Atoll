@@ -179,6 +179,7 @@ struct GeneralSettings: View {
     @Default(.lockScreenShowAppIcon) var lockScreenShowAppIcon
     @Default(.lockScreenPanelShowsBorder) var lockScreenPanelShowsBorder
     @Default(.lockScreenPanelUsesBlur) var lockScreenPanelUsesBlur
+    @Default(.enableLockScreenTimerWidget) var enableLockScreenTimerWidget
     @Default(.enableLockScreenWeatherWidget) var enableLockScreenWeatherWidget
     @Default(.lockScreenWeatherShowsLocation) var lockScreenWeatherShowsLocation
     @Default(.lockScreenWeatherShowsCharging) var lockScreenWeatherShowsCharging
@@ -380,6 +381,8 @@ struct GeneralSettings: View {
                 Defaults.Toggle("Show lock screen media panel", key: .enableLockScreenMediaWidget)
                 Defaults.Toggle("Show lock screen weather", key: .enableLockScreenWeatherWidget)
                 Defaults.Toggle("Show lock screen timer", key: .enableLockScreenTimerWidget)
+                Defaults.Toggle("Enable timer blur", key: .lockScreenTimerWidgetUsesBlur)
+                    .disabled(!enableLockScreenTimerWidget)
                 if enableLockScreenWeatherWidget {
                     Picker("Widget layout", selection: $lockScreenWeatherWidgetStyle) {
                         ForEach(LockScreenWeatherWidgetStyle.allCases) { style in

@@ -2,13 +2,13 @@ import SwiftUI
 import Defaults
 
 struct LockScreenTimerWidget: View {
-    static let preferredSize = CGSize(width: 420, height: 104)
+    static let preferredSize = CGSize(width: 420, height: 96)
     static let cornerRadius: CGFloat = 26
 
     @ObservedObject private var animator: LockScreenTimerWidgetAnimator
     @ObservedObject private var timerManager = TimerManager.shared
     @Default(.lockScreenGlassStyle) private var glassStyle
-    @Default(.lockScreenPanelUsesBlur) private var enableBlur
+    @Default(.lockScreenTimerWidgetUsesBlur) private var enableTimerBlur
     @Default(.timerPresets) private var timerPresets
 
     @MainActor
@@ -20,13 +20,11 @@ struct LockScreenTimerWidget: View {
         }
     }
 
-    private var clampedProgress: Double {
-        min(max(timerManager.progress, 0), 1)
-    }
+    private var countdownFont: Font { displayFont(size: 56) }
 
-    private var titleFont: Font { .system(size: 18, weight: .semibold, design: .rounded) }
-    private var statusFont: Font { .system(size: 12, weight: .medium, design: .rounded) }
-    private var countdownFont: Font { .system(size: 42, weight: .semibold, design: .default) }
+    private func displayFont(size: CGFloat) -> Font {
+        .custom("SF Pro Display", size: size)
+    }
 
     private var timerLabel: String {
         timerManager.timerName.isEmpty ? "Timer" : timerManager.timerName
@@ -44,10 +42,6 @@ struct LockScreenTimerWidget: View {
     private var accentColor: Color {
         (activePresetColor ?? timerManager.timerColor)
             .ensureMinimumBrightness(factor: 0.75)
-    }
-
-    private var secondaryAccentColor: Color {
-        accentColor.ensureMinimumBrightness(factor: 0.55).opacity(0.45)
     }
 
     private var accentGradient: LinearGradient {
@@ -70,7 +64,7 @@ struct LockScreenTimerWidget: View {
 
     @ViewBuilder
     private var widgetBackground: some View {
-        if enableBlur {
+        if enableTimerBlur {
             if usesLiquidGlass {
                 liquidBackground
             } else {
@@ -110,7 +104,7 @@ struct LockScreenTimerWidget: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            HStack(alignment: .center, spacing: 20) {
+            HStack(alignment: .center, spacing: 18) {
                 controlButtons
 
                 titleSection
@@ -141,9 +135,8 @@ struct LockScreenTimerWidget: View {
         HStack(spacing: 10) {
             CircleButton(
                 icon: pauseIcon,
-                foreground: accentColor,
-                background: Color.white.opacity(0.15),
-                borderColor: accentColor.opacity(0.8),
+                foreground: Color.white.opacity(0.95),
+                background: accentColor.opacity(0.32),
                 action: togglePause,
                 isEnabled: timerManager.allowsManualInteraction,
                 helpText: pauseLabel
@@ -151,9 +144,8 @@ struct LockScreenTimerWidget: View {
 
             CircleButton(
                 icon: "xmark",
-                foreground: Color.white.opacity(0.92),
-                background: Color.white.opacity(0.18),
-                borderColor: Color.white.opacity(0.35),
+                foreground: Color.white.opacity(0.95),
+                background: Color.black.opacity(0.35),
                 action: stopTimer,
                 isEnabled: timerManager.allowsManualInteraction,
                 helpText: "Stop"
@@ -161,39 +153,33 @@ struct LockScreenTimerWidget: View {
         }
     }
 
-    private var titleSection: some View {
-        Group {
-            if timerManager.timerName.count > 18 {
-                MarqueeText(
-                    .constant(timerLabel),
-                    font: .system(size: 18, weight: .semibold, design: .rounded),
-                    nsFont: .title3,
-                    textColor: accentColor,
-                    minDuration: 0.18,
-                    frameWidth: Self.preferredSize.width * 0.4
-                )
-            } else {
-                Text(timerLabel)
-                    .font(titleFont)
-                    .foregroundStyle(accentColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-    }
-
     private var countdownSection: some View {
-        VStack(alignment: .trailing, spacing: 6) {
+        VStack(alignment: .trailing, spacing: 0) {
             Text(countdownText)
                 .font(countdownFont)
+                .monospacedDigit()
                 .foregroundStyle(timerManager.isOvertime ? Color.red : accentColor)
                 .contentTransition(.numericText())
                 .animation(.smooth(duration: 0.25), value: timerManager.remainingTime)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .frame(minWidth: 140, maxWidth: 180, alignment: .trailing)
+        .frame(width: 220, alignment: .center)
         .padding(.trailing, 2)
+    }
+
+    private var titleSection: some View {
+        VStack(alignment: .center, spacing: 0) {
+            MarqueeText(
+                .constant(timerLabel),
+                font: displayFont(size: 18),
+                nsFont: .title3,
+                textColor: accentColor,
+                minDuration: 0.18,
+                frameWidth: Self.preferredSize.width * 0.35
+            )
+            .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
     private var accentRibbon: some View {
@@ -227,7 +213,6 @@ struct LockScreenTimerWidget: View {
         let icon: String
         let foreground: Color
         let background: Color
-        let borderColor: Color?
         let action: () -> Void
         let isEnabled: Bool
         let helpText: String
@@ -240,13 +225,6 @@ struct LockScreenTimerWidget: View {
                     .frame(width: 48, height: 48)
                     .background(background.opacity(isEnabled ? 1 : 0.25))
                     .clipShape(Circle())
-                    .overlay {
-                        if let borderColor {
-                            Circle()
-                                .stroke(borderColor.opacity(isEnabled ? 1 : 0.35), lineWidth: 1)
-                        }
-                    }
-                    .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 4)
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
