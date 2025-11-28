@@ -95,6 +95,7 @@ final class LockScreenTimerWidgetManager {
 @MainActor
 final class LockScreenTimerWidgetPanelManager {
     static let shared = LockScreenTimerWidgetPanelManager()
+    static let hideAnimationDurationNanoseconds: UInt64 = 360_000_000
 
     private var window: NSWindow?
     private var hasDelegated = false
@@ -120,7 +121,7 @@ final class LockScreenTimerWidgetPanelManager {
         hideTask?.cancel()
         animator.isPresented = false
 
-        let delay: UInt64 = animated ? 360_000_000 : 0
+        let delay: UInt64 = animated ? Self.hideAnimationDurationNanoseconds : 0
         if delay == 0 {
             window.orderOut(nil)
             hideTask = nil

@@ -201,12 +201,23 @@ struct LockScreenTimerWidget: View {
     }
 
     private func stopTimer() {
-        guard timerManager.allowsManualInteraction else {
-            timerManager.endExternalTimer(triggerSmoothClose: false)
-            return
+        let stopAction: @MainActor () -> Void = {
+            if timerManager.allowsManualInteraction {
+                timerManager.stopTimer()
+            } else {
+                timerManager.endExternalTimer(triggerSmoothClose: false)
+            }
         }
-        timerManager.stopTimer()
-        LockScreenTimerWidgetPanelManager.shared.hide()
+
+        Task { @MainActor in
+            // Trigger the scale-out animation first so the dismissal mirrors the unlock flow.
+            LockScreenTimerWidgetPanelManager.shared.hide()
+
+            try? await Task.sleep(nanoseconds: LockScreenTimerWidgetPanelManager.hideAnimationDurationNanoseconds)
+
+            guard !Task.isCancelled else { return }
+            stopAction()
+        }
     }
 
     private struct CircleButton: View {
