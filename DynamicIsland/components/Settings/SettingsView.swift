@@ -15,9 +15,106 @@ import SwiftUI
 import SwiftUIIntrospect
 import UniformTypeIdentifiers
 
+private enum SettingsTab: String, CaseIterable, Identifiable {
+    case general
+    case appearance
+    case lockScreen
+    case media
+    case timer
+    case calendar
+    case hud
+    case battery
+    case stats
+    case clipboard
+    case screenAssistant
+    case colorPicker
+    case downloads
+    case shelf
+    case shortcuts
+    case extensions
+    case about
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: return "General"
+        case .appearance: return "Appearance"
+        case .lockScreen: return "Lock Screen"
+        case .media: return "Media"
+        case .timer: return "Timer"
+        case .calendar: return "Calendar"
+        case .hud: return "HUDs"
+        case .battery: return "Battery"
+        case .stats: return "Stats"
+        case .clipboard: return "Clipboard"
+        case .screenAssistant: return "Screen Assistant"
+        case .colorPicker: return "Color Picker"
+        case .downloads: return "Downloads"
+        case .shelf: return "Shelf"
+        case .shortcuts: return "Shortcuts"
+        case .extensions: return "Extensions"
+        case .about: return "About"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .general: return "gear"
+        case .appearance: return "paintpalette"
+        case .lockScreen: return "lock.laptopcomputer"
+        case .media: return "play.laptopcomputer"
+        case .timer: return "timer"
+        case .calendar: return "calendar"
+        case .hud: return "dial.medium.fill"
+        case .battery: return "battery.100.bolt"
+        case .stats: return "chart.xyaxis.line"
+        case .clipboard: return "clipboard"
+        case .screenAssistant: return "brain.head.profile"
+        case .colorPicker: return "eyedropper"
+        case .downloads: return "square.and.arrow.down"
+        case .shelf: return "books.vertical"
+        case .shortcuts: return "keyboard"
+        case .extensions: return "puzzlepiece.extension"
+        case .about: return "info.circle"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .general: return Color.blue
+        case .appearance: return Color.purple
+        case .lockScreen: return Color.orange
+        case .media: return Color.green
+        case .timer: return Color.red
+        case .calendar: return Color.cyan
+        case .hud: return Color.indigo
+        case .battery: return Color.yellow
+        case .stats: return Color.teal
+        case .clipboard: return Color.mint
+        case .screenAssistant: return Color.pink
+        case .colorPicker: return Color.accentColor
+        case .downloads: return Color.gray
+        case .shelf: return Color.brown
+        case .shortcuts: return Color.orange
+        case .extensions: return Color.blue
+        case .about: return Color.secondary
+        }
+    }
+}
+
+private struct SettingsSearchEntry: Identifiable {
+    let tab: SettingsTab
+    let title: String
+    let keywords: [String]
+
+    var id: String { "\(tab.rawValue)-\(title)" }
+}
+
 struct SettingsView: View {
     @StateObject var extensionManager = DynamicIslandExtensionManager()
-    @State private var selectedTab = "General"
+    @State private var selectedTab: SettingsTab = .general
+    @State private var searchText: String = ""
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
 
     let updaterController: SPUStandardUpdaterController?
@@ -28,111 +125,40 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selectedTab) {
-                NavigationLink(value: "General") {
-                    Label("General", systemImage: "gear")
-                }
-                NavigationLink(value: "Appearance") {
-                    Label("Appearance", systemImage: "eye")
-                }
-                NavigationLink(value: "Media") {
-                    Label("Media", systemImage: "play.laptopcomputer")
-                }
-                NavigationLink(value: "Calendar") {
-                    Label("Calendar", systemImage: "calendar")
-                }
-                NavigationLink(value: "HUD") {
-                    Label("HUDs", systemImage: "dial.medium.fill")
-                }
-                NavigationLink(value: "Battery") {
-                    Label("Battery", systemImage: "battery.100.bolt")
-                }
-                if !enableMinimalisticUI {
-                    NavigationLink(value: "Timer") {
-                        Label("Timer", systemImage: "timer")
+            List(filteredTabs, selection: selectionBinding) { tab in
+                NavigationLink(value: tab) {
+                    HStack(spacing: 10) {
+                        sidebarIcon(for: tab)
+                        Text(tab.title)
+                            .foregroundStyle(Color.primary)
                     }
-                    NavigationLink(value: "Stats") {
-                        Label("Stats", systemImage: "chart.xyaxis.line")
-                    }
-                    NavigationLink(value: "Clipboard") {
-                        Label("Clipboard", systemImage: "clipboard")
-                    }
-                    NavigationLink(value: "ScreenAssistant") {
-                        Label("Screen Assistant", systemImage: "brain.head.profile")
-                    }
-                    NavigationLink(value: "ColorPicker") {
-                        Label("Color Picker", systemImage: "eyedropper")
-                    }
+                    .padding(.vertical, 4)
                 }
-                if extensionManager.installedExtensions
-                    .contains(where: { $0.bundleIdentifier == downloadManagerExtension }) {
-                    NavigationLink(value: "Downloads") {
-                        Label("Downloads", systemImage: "square.and.arrow.down")
-                    }
-                }
-                if !enableMinimalisticUI {
-                    NavigationLink(value: "Shelf") {
-                        Label("Shelf", systemImage: "books.vertical")
-                    }
-                }
-                NavigationLink(value: "Shortcuts") {
-                    Label("Shortcuts", systemImage: "keyboard")
-                }
-                NavigationLink(value: "Extensions") {
-                    Label("Extensions", systemImage: "puzzlepiece.extension")
-                }
-                NavigationLink(value: "About") {
-                    Label("About", systemImage: "info.circle")
-                }
+                .tag(tab)
+                .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 10))
             }
             .listStyle(SidebarListStyle())
+            .frame(minWidth: 205)
             .toolbar(removing: .sidebarToggle)
-            .navigationSplitViewColumnWidth(200)
-        } detail: {
-            Group {
-                switch selectedTab {
-                case "General":
-                    GeneralSettings()
-                case "Appearance":
-                    Appearance()
-                case "Media":
-                    Media()
-                case "Calendar":
-                    CalendarSettings()
-                case "HUD":
-                    HUD()
-                case "Battery":
-                    Charge()
-                case "Timer":
-                    TimerSettings()
-                case "Stats":
-                    StatsSettings()
-                case "Clipboard":
-                    ClipboardSettings()
-                case "ScreenAssistant":
-                    ScreenAssistantSettings()
-                case "ColorPicker":
-                    ColorPickerSettings()
-                case "Downloads":
-                    Downloads()
-                case "Shelf":
-                    Shelf()
-                case "Shortcuts":
-                    Shortcuts()
-                case "Extensions":
-                    Extensions()
-                case "About":
-                    if let controller = updaterController {
-                        About(updaterController: controller)
-                    } else {
-                        // Fallback with a default controller
-                        About(updaterController: SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil))
+            .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 360)
+            .searchable(text: $searchText, placement: .sidebar, prompt: Text("Search Settings"))
+            .searchSuggestions {
+                ForEach(searchSuggestions) { suggestion in
+                    Button {
+                        selectedTab = suggestion.tab
+                    } label: {
+                        Label {
+                            Text("\(suggestion.title) — \(suggestion.tab.title)")
+                        } icon: {
+                            Image(systemName: suggestion.tab.systemImage)
+                        }
                     }
-                default:
-                    GeneralSettings()
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .environment(\.defaultMinListRowHeight, 44)
+        } detail: {
+            detailView(for: resolvedSelection)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar(removing: .sidebarToggle)
@@ -145,7 +171,311 @@ struct SettingsView: View {
         .environmentObject(extensionManager)
         .formStyle(.grouped)
         .frame(width: 700)
-        .background(Color(NSColor.windowBackgroundColor))
+        .onChange(of: searchText) { _, newValue in
+            let matches = tabsMatchingSearch(newValue)
+            guard let firstMatch = matches.first else { return }
+            if !matches.contains(resolvedSelection) {
+                selectedTab = firstMatch
+            }
+        }
+        .background {
+            Group {
+                if #available(macOS 26.0, *) {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .glassEffect(
+                            .clear
+                                .tint(Color.white.opacity(0.1))
+                                .interactive(),
+                            in: .rect(cornerRadius: 18)
+                        )
+                } else {
+                    ZStack {
+                        Color(NSColor.windowBackgroundColor)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    }
+                }
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    private var resolvedSelection: SettingsTab {
+        availableTabs.contains(selectedTab) ? selectedTab : (availableTabs.first ?? .general)
+    }
+
+    private var filteredTabs: [SettingsTab] {
+        tabsMatchingSearch(searchText)
+    }
+
+    private var selectionBinding: Binding<SettingsTab> {
+        Binding(
+            get: { resolvedSelection },
+            set: { selectedTab = $0 }
+        )
+    }
+
+    @ViewBuilder
+    private func sidebarIcon(for tab: SettingsTab) -> some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(tab.tint)
+            .frame(width: 26, height: 26)
+            .overlay {
+                Image(systemName: tab.systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.white)
+            }
+    }
+
+    private var availableTabs: [SettingsTab] {
+        let ordered: [SettingsTab] = [
+            .general,
+            .appearance,
+            .lockScreen,
+            .media,
+            .timer,
+            .calendar,
+            .hud,
+            .battery,
+            .stats,
+            .clipboard,
+            .screenAssistant,
+            .colorPicker,
+            .downloads,
+            .shelf,
+            .shortcuts,
+            .extensions,
+            .about
+        ]
+
+        return ordered.filter { isTabVisible($0) }
+    }
+
+    private func tabsMatchingSearch(_ query: String) -> [SettingsTab] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return availableTabs }
+
+        let entryMatches = searchEntries(matching: trimmed)
+        let matchingTabs = Set(entryMatches.map(\.tab))
+
+        return availableTabs.filter { tab in
+            tab.title.localizedCaseInsensitiveContains(trimmed) || matchingTabs.contains(tab)
+        }
+    }
+
+    private var searchSuggestions: [SettingsSearchEntry] {
+        Array(searchEntries(matching: searchText).prefix(8))
+    }
+
+    private func searchEntries(matching query: String) -> [SettingsSearchEntry] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        return settingsSearchIndex
+            .filter { availableTabs.contains($0.tab) }
+            .filter { entry in
+                entry.title.localizedCaseInsensitiveContains(trimmed) ||
+                entry.keywords.contains { $0.localizedCaseInsensitiveContains(trimmed) }
+            }
+    }
+
+    private var settingsSearchIndex: [SettingsSearchEntry] {
+        [
+            // General
+            SettingsSearchEntry(tab: .general, title: "Enable Minimalistic UI", keywords: ["minimalistic", "ui mode", "general"]),
+            SettingsSearchEntry(tab: .general, title: "Menubar icon", keywords: ["menu bar", "status bar", "icon"]),
+            SettingsSearchEntry(tab: .general, title: "Launch at login", keywords: ["autostart", "startup"]),
+            SettingsSearchEntry(tab: .general, title: "Show on all displays", keywords: ["multi-display", "external monitor"]),
+            SettingsSearchEntry(tab: .general, title: "Show on a specific display", keywords: ["preferred screen", "display picker"]),
+            SettingsSearchEntry(tab: .general, title: "Automatically switch displays", keywords: ["auto switch", "displays"]),
+            SettingsSearchEntry(tab: .general, title: "Hide Dynamic Island during screenshots & recordings", keywords: ["privacy", "screenshot", "recording"]),
+            SettingsSearchEntry(tab: .general, title: "Enable Screen Recording Detection", keywords: ["screen recording", "indicator"]),
+            SettingsSearchEntry(tab: .general, title: "Show Recording Indicator", keywords: ["recording indicator", "red dot"]),
+            SettingsSearchEntry(tab: .general, title: "Enable Focus Detection", keywords: ["focus", "do not disturb", "dnd"]),
+            SettingsSearchEntry(tab: .general, title: "Show Focus Indicator", keywords: ["focus icon", "moon"]),
+            SettingsSearchEntry(tab: .general, title: "Show Focus Label", keywords: ["focus label", "text"]),
+            SettingsSearchEntry(tab: .general, title: "Enable Camera Detection", keywords: ["camera", "privacy indicator"]),
+            SettingsSearchEntry(tab: .general, title: "Enable Microphone Detection", keywords: ["microphone", "privacy"]),
+            SettingsSearchEntry(tab: .general, title: "Enable gestures", keywords: ["gestures", "trackpad"]),
+            SettingsSearchEntry(tab: .general, title: "Close gesture", keywords: ["pinch", "swipe"]),
+            SettingsSearchEntry(tab: .general, title: "Extend hover area", keywords: ["hover", "cursor"]),
+            SettingsSearchEntry(tab: .general, title: "Enable haptics", keywords: ["haptic", "feedback"]),
+            SettingsSearchEntry(tab: .general, title: "Open notch on hover", keywords: ["hover to open", "auto open"]),
+            SettingsSearchEntry(tab: .general, title: "Non-notch display height", keywords: ["display height", "menu bar size"]),
+
+            // Battery (Charge)
+            SettingsSearchEntry(tab: .battery, title: "Show battery indicator", keywords: ["battery hud", "charge"]),
+            SettingsSearchEntry(tab: .battery, title: "Show battery percentage", keywords: ["battery percent"]),
+            SettingsSearchEntry(tab: .battery, title: "Show power status notifications", keywords: ["notifications", "power"]),
+            SettingsSearchEntry(tab: .battery, title: "Show power status icons", keywords: ["power icons", "charging icon"]),
+
+            // Downloads
+            SettingsSearchEntry(tab: .downloads, title: "Show download progress", keywords: ["downloads", "progress"]),
+            SettingsSearchEntry(tab: .downloads, title: "Enable Safari Downloads", keywords: ["safari", "browser"]),
+            SettingsSearchEntry(tab: .downloads, title: "Download indicator style", keywords: ["indicator", "style"]),
+            SettingsSearchEntry(tab: .downloads, title: "Download icon style", keywords: ["icon", "style"]),
+
+            // HUDs
+            SettingsSearchEntry(tab: .hud, title: "Show Bluetooth device connections", keywords: ["bluetooth", "hud"]),
+            SettingsSearchEntry(tab: .hud, title: "Use circular battery indicator", keywords: ["battery", "circular"]),
+            SettingsSearchEntry(tab: .hud, title: "Show battery percentage text in HUD", keywords: ["battery text"]),
+            SettingsSearchEntry(tab: .hud, title: "Scroll device name in HUD", keywords: ["marquee", "device name"]),
+            SettingsSearchEntry(tab: .hud, title: "Color-coded battery display", keywords: ["color", "battery"]),
+            SettingsSearchEntry(tab: .hud, title: "Color-coded volume display", keywords: ["volume", "color"]),
+            SettingsSearchEntry(tab: .hud, title: "Smooth color transitions", keywords: ["gradient", "smooth"]),
+            SettingsSearchEntry(tab: .hud, title: "Show percentages beside progress bars", keywords: ["percentages", "progress"]),
+            SettingsSearchEntry(tab: .hud, title: "HUD style", keywords: ["inline", "compact"]),
+            SettingsSearchEntry(tab: .hud, title: "Progressbar style", keywords: ["progress", "style"]),
+            SettingsSearchEntry(tab: .hud, title: "Enable glowing effect", keywords: ["glow", "indicator"]),
+            SettingsSearchEntry(tab: .hud, title: "Use accent color", keywords: ["accent", "color"]),
+
+            // Media
+            SettingsSearchEntry(tab: .media, title: "Music Source", keywords: ["media source", "controller"]),
+            SettingsSearchEntry(tab: .media, title: "Skip buttons", keywords: ["skip", "controls", "±10"]),
+            SettingsSearchEntry(tab: .media, title: "Sneak Peek Style", keywords: ["sneak peek", "preview"]),
+            SettingsSearchEntry(tab: .media, title: "Enable lyrics", keywords: ["lyrics", "song text"]),
+
+            // Calendar
+            SettingsSearchEntry(tab: .calendar, title: "Show calendar", keywords: ["calendar", "events"]),
+            SettingsSearchEntry(tab: .calendar, title: "Enable reminder live activity", keywords: ["reminder", "live activity"]),
+            SettingsSearchEntry(tab: .calendar, title: "Countdown style", keywords: ["reminder countdown"]),
+            SettingsSearchEntry(tab: .calendar, title: "Show lock screen reminder", keywords: ["lock screen", "reminder widget"]),
+            SettingsSearchEntry(tab: .calendar, title: "Chip color", keywords: ["reminder chip", "color"]),
+
+            // Shelf
+            SettingsSearchEntry(tab: .shelf, title: "Enable shelf", keywords: ["shelf", "dock"]),
+            SettingsSearchEntry(tab: .shelf, title: "Open shelf tab by default if items added", keywords: ["auto open", "shelf tab"]),
+
+            // Appearance
+            SettingsSearchEntry(tab: .appearance, title: "Settings icon in notch", keywords: ["settings button", "toolbar"]),
+            SettingsSearchEntry(tab: .appearance, title: "Enable window shadow", keywords: ["shadow", "appearance"]),
+            SettingsSearchEntry(tab: .appearance, title: "Corner radius scaling", keywords: ["corner radius", "shape"]),
+            SettingsSearchEntry(tab: .appearance, title: "Use simpler close animation", keywords: ["close animation", "notch"]),
+            SettingsSearchEntry(tab: .appearance, title: "Enable colored spectrograms", keywords: ["spectrogram", "audio"]),
+            SettingsSearchEntry(tab: .appearance, title: "Enable blur effect behind album art", keywords: ["blur", "album art"]),
+            SettingsSearchEntry(tab: .appearance, title: "Slider color", keywords: ["slider", "accent"]),
+            SettingsSearchEntry(tab: .appearance, title: "Enable Dynamic mirror", keywords: ["mirror", "reflection"]),
+            SettingsSearchEntry(tab: .appearance, title: "Mirror shape", keywords: ["mirror shape", "circle", "rectangle"]),
+            SettingsSearchEntry(tab: .appearance, title: "Show cool face animation while inactivity", keywords: ["face animation", "idle"]),
+
+            // Lock Screen
+            SettingsSearchEntry(tab: .lockScreen, title: "Enable lock screen live activity", keywords: ["lock screen", "live activity"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Play lock/unlock sounds", keywords: ["chime", "sound"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Material", keywords: ["glass", "frosted", "liquid"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show lock screen media panel", keywords: ["media panel", "lock screen media"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show media app icon", keywords: ["app icon", "media"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show panel border", keywords: ["panel border"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Enable media panel blur", keywords: ["blur", "media panel"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show lock screen timer", keywords: ["timer widget", "lock screen timer"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Enable timer blur", keywords: ["timer blur"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show lock screen weather", keywords: ["weather widget"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Layout", keywords: ["inline", "circular", "weather layout"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Weather data provider", keywords: ["wttr", "open meteo"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Temperature unit", keywords: ["celsius", "fahrenheit"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show location label", keywords: ["location", "weather"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show charging status", keywords: ["charging", "weather"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show charging percentage", keywords: ["charging percentage"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show battery indicator", keywords: ["battery gauge", "weather"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Use MacBook icon when on battery", keywords: ["laptop icon", "battery"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show Bluetooth battery", keywords: ["bluetooth", "gauge"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show AQI widget", keywords: ["air quality", "aqi"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Air quality scale", keywords: ["aqi", "scale"]),
+            SettingsSearchEntry(tab: .lockScreen, title: "Use colored gauges", keywords: ["gauge tint", "monochrome"]),
+
+            // Shortcuts
+            SettingsSearchEntry(tab: .shortcuts, title: "Enable global keyboard shortcuts", keywords: ["keyboard", "shortcut"]),
+
+            // Timer
+            SettingsSearchEntry(tab: .timer, title: "Enable timer feature", keywords: ["timer", "enable"]),
+            SettingsSearchEntry(tab: .timer, title: "Mirror macOS Clock timers", keywords: ["system timer", "clock app"]),
+            SettingsSearchEntry(tab: .timer, title: "Show lock screen timer widget", keywords: ["lock screen", "timer widget"]),
+            SettingsSearchEntry(tab: .timer, title: "Enable timer blur", keywords: ["timer blur", "lock screen"]),
+            SettingsSearchEntry(tab: .timer, title: "Timer tint", keywords: ["timer colour", "preset"]),
+            SettingsSearchEntry(tab: .timer, title: "Solid colour", keywords: ["timer colour", "custom"]),
+            SettingsSearchEntry(tab: .timer, title: "Progress style", keywords: ["progress", "bar", "ring"]),
+            SettingsSearchEntry(tab: .timer, title: "Accent colour", keywords: ["accent", "timer"]),
+
+            // Stats
+            SettingsSearchEntry(tab: .stats, title: "Enable system stats monitoring", keywords: ["stats", "monitoring"]),
+            SettingsSearchEntry(tab: .stats, title: "Stop monitoring after closing the notch", keywords: ["stats", "auto stop"]),
+            SettingsSearchEntry(tab: .stats, title: "CPU Usage", keywords: ["cpu", "graph"]),
+            SettingsSearchEntry(tab: .stats, title: "Memory Usage", keywords: ["memory", "ram"]),
+            SettingsSearchEntry(tab: .stats, title: "GPU Usage", keywords: ["gpu", "graphics"]),
+            SettingsSearchEntry(tab: .stats, title: "Network Activity", keywords: ["network", "graph"]),
+            SettingsSearchEntry(tab: .stats, title: "Disk I/O", keywords: ["disk", "io"]),
+
+            // Clipboard
+            SettingsSearchEntry(tab: .clipboard, title: "Enable Clipboard Manager", keywords: ["clipboard", "manager"]),
+            SettingsSearchEntry(tab: .clipboard, title: "Show Clipboard Icon", keywords: ["icon", "clipboard"]),
+            SettingsSearchEntry(tab: .clipboard, title: "Display Mode", keywords: ["list", "grid", "clipboard"]),
+            SettingsSearchEntry(tab: .clipboard, title: "History Size", keywords: ["history", "clipboard"]),
+
+            // Screen Assistant
+            SettingsSearchEntry(tab: .screenAssistant, title: "Enable Screen Assistant", keywords: ["screen assistant", "ai"]),
+            SettingsSearchEntry(tab: .screenAssistant, title: "Display Mode", keywords: ["screen assistant", "mode"]),
+
+            // Color Picker
+            SettingsSearchEntry(tab: .colorPicker, title: "Enable Color Picker", keywords: ["color picker", "eyedropper"]),
+            SettingsSearchEntry(tab: .colorPicker, title: "Show Color Picker Icon", keywords: ["color icon", "toolbar"]),
+            SettingsSearchEntry(tab: .colorPicker, title: "Display Mode", keywords: ["color", "list"]),
+            SettingsSearchEntry(tab: .colorPicker, title: "History Size", keywords: ["color history"]),
+            SettingsSearchEntry(tab: .colorPicker, title: "Show All Color Formats", keywords: ["hex", "hsl", "color formats"])
+        ]
+    }
+
+    private func isTabVisible(_ tab: SettingsTab) -> Bool {
+        switch tab {
+        case .timer, .stats, .clipboard, .screenAssistant, .colorPicker, .shelf:
+            return !enableMinimalisticUI
+        case .downloads:
+            return extensionManager.installedExtensions.contains { $0.bundleIdentifier == downloadManagerExtension }
+        default:
+            return true
+        }
+    }
+
+    @ViewBuilder
+    private func detailView(for tab: SettingsTab) -> some View {
+        switch tab {
+        case .general:
+            GeneralSettings()
+        case .appearance:
+            Appearance()
+        case .lockScreen:
+            LockScreenSettings()
+        case .media:
+            Media()
+        case .timer:
+            TimerSettings()
+        case .calendar:
+            CalendarSettings()
+        case .hud:
+            HUD()
+        case .battery:
+            Charge()
+        case .stats:
+            StatsSettings()
+        case .clipboard:
+            ClipboardSettings()
+        case .screenAssistant:
+            ScreenAssistantSettings()
+        case .colorPicker:
+            ColorPickerSettings()
+        case .downloads:
+            Downloads()
+        case .shelf:
+            Shelf()
+        case .shortcuts:
+            Shortcuts()
+        case .extensions:
+            Extensions()
+        case .about:
+            if let controller = updaterController {
+                About(updaterController: controller)
+            } else {
+                About(updaterController: SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil))
+            }
+        }
     }
 }
 
@@ -175,24 +505,6 @@ struct GeneralSettings: View {
     @Default(.showDoNotDisturbIndicator) var showDoNotDisturbIndicator
     @Default(.showDoNotDisturbLabel) var showDoNotDisturbLabel
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
-    @Default(.lockScreenGlassStyle) var lockScreenGlassStyle
-    @Default(.lockScreenShowAppIcon) var lockScreenShowAppIcon
-    @Default(.lockScreenPanelShowsBorder) var lockScreenPanelShowsBorder
-    @Default(.lockScreenPanelUsesBlur) var lockScreenPanelUsesBlur
-    @Default(.enableLockScreenTimerWidget) var enableLockScreenTimerWidget
-    @Default(.enableLockScreenWeatherWidget) var enableLockScreenWeatherWidget
-    @Default(.lockScreenWeatherShowsLocation) var lockScreenWeatherShowsLocation
-    @Default(.lockScreenWeatherShowsCharging) var lockScreenWeatherShowsCharging
-    @Default(.lockScreenWeatherShowsChargingPercentage) var lockScreenWeatherShowsChargingPercentage
-    @Default(.lockScreenWeatherShowsBluetooth) var lockScreenWeatherShowsBluetooth
-    @Default(.lockScreenWeatherShowsBatteryGauge) var lockScreenWeatherShowsBatteryGauge
-    @Default(.lockScreenWeatherWidgetStyle) var lockScreenWeatherWidgetStyle
-    @Default(.lockScreenWeatherTemperatureUnit) var lockScreenWeatherTemperatureUnit
-    @Default(.lockScreenWeatherShowsAQI) var lockScreenWeatherShowsAQI
-    @Default(.lockScreenWeatherAQIScale) var lockScreenWeatherAQIScale
-    @Default(.lockScreenWeatherUsesGaugeTint) var lockScreenWeatherUsesGaugeTint
-    @Default(.lockScreenWeatherProviderSource) var lockScreenWeatherProviderSource
-    @Default(.lockScreenWeatherBatteryUsesLaptopSymbol) var lockScreenWeatherBatteryUsesLaptopSymbol
 
     var body: some View {
         Form {
@@ -356,97 +668,6 @@ struct GeneralSettings: View {
             }
             
             Section {
-                Defaults.Toggle("Enable Lock Screen Live Activity", key: .enableLockScreenLiveActivity)
-                Defaults.Toggle("Play lock/unlock sounds", key: .enableLockSounds)
-                if #available(macOS 26.0, *) {
-                    Picker("Lock screen material", selection: $lockScreenGlassStyle) {
-                        ForEach(LockScreenGlassStyle.allCases) { style in
-                            Text(style.rawValue).tag(style)
-                        }
-                    }
-                } else {
-                    Picker("Lock screen material", selection: $lockScreenGlassStyle) {
-                        ForEach(LockScreenGlassStyle.allCases) { style in
-                            Text(style.rawValue).tag(style)
-                        }
-                    }
-                    .disabled(true)
-                    Text("Liquid Glass requires macOS 26 or later.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Defaults.Toggle("Show media app icon", key: .lockScreenShowAppIcon)
-                Defaults.Toggle("Show panel border", key: .lockScreenPanelShowsBorder)
-                Defaults.Toggle("Enable blur", key: .lockScreenPanelUsesBlur)
-                Defaults.Toggle("Show lock screen media panel", key: .enableLockScreenMediaWidget)
-                Defaults.Toggle("Show lock screen weather", key: .enableLockScreenWeatherWidget)
-                Defaults.Toggle("Show lock screen timer", key: .enableLockScreenTimerWidget)
-                Defaults.Toggle("Enable timer blur", key: .lockScreenTimerWidgetUsesBlur)
-                    .disabled(!enableLockScreenTimerWidget)
-                if enableLockScreenWeatherWidget {
-                    Picker("Widget layout", selection: $lockScreenWeatherWidgetStyle) {
-                        ForEach(LockScreenWeatherWidgetStyle.allCases) { style in
-                            Text(style.rawValue).tag(style)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    Picker("Weather data provider", selection: $lockScreenWeatherProviderSource) {
-                        ForEach(LockScreenWeatherProviderSource.allCases) { source in
-                            Text(source.displayName).tag(source)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    Picker("Temperature unit", selection: $lockScreenWeatherTemperatureUnit) {
-                        ForEach(LockScreenWeatherTemperatureUnit.allCases) { unit in
-                            Text(unit.rawValue).tag(unit)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    Defaults.Toggle("Show location label", key: .lockScreenWeatherShowsLocation)
-                        .disabled(lockScreenWeatherWidgetStyle == .circular)
-                    Defaults.Toggle("Show charging status", key: .lockScreenWeatherShowsCharging)
-                    if lockScreenWeatherShowsCharging {
-                        Defaults.Toggle("Show charging percentage", key: .lockScreenWeatherShowsChargingPercentage)
-                    }
-                    Defaults.Toggle("Show battery indicator", key: .lockScreenWeatherShowsBatteryGauge)
-                    if lockScreenWeatherShowsBatteryGauge {
-                        Defaults.Toggle("Use MacBook icon when on battery", key: .lockScreenWeatherBatteryUsesLaptopSymbol)
-                            .disabled(lockScreenWeatherWidgetStyle != .circular)
-                        if lockScreenWeatherWidgetStyle != .circular {
-                            Text("MacBook icon is available in the circular layout.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Defaults.Toggle("Show Bluetooth battery", key: .lockScreenWeatherShowsBluetooth)
-                    Defaults.Toggle("Show AQI widget", key: .lockScreenWeatherShowsAQI)
-                        .disabled(!lockScreenWeatherProviderSource.supportsAirQuality)
-                    if lockScreenWeatherShowsAQI && lockScreenWeatherProviderSource.supportsAirQuality {
-                        Picker("Air quality scale", selection: $lockScreenWeatherAQIScale) {
-                            ForEach(LockScreenWeatherAirQualityScale.allCases) { scale in
-                                Text(scale.displayName).tag(scale)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                    if !lockScreenWeatherProviderSource.supportsAirQuality {
-                        Text("Air quality requires the Open Meteo provider.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Defaults.Toggle("Use colored gauges", key: .lockScreenWeatherUsesGaugeTint)
-                }
-                
-                Button("Copy Latest Crash Report") {
-                    copyLatestCrashReport()
-                }
-            } header: {
-                Text("Lock Screen")
-            } footer: {
-                Text("Shows a lock icon in the Dynamic Island when the screen is locked. Use the toggles above to control the lock screen media panel and weather capsule.")
-            }
-
-            Section {
                 Picker(selection: $notchHeightMode, label:
                     Text("Notch display height")) {
                         Text("Match real notch size")
@@ -524,43 +745,6 @@ struct GeneralSettings: View {
         }
     }
     
-    private func copyLatestCrashReport() {
-        let crashReportsPath = NSString(string: "~/Library/Logs/DiagnosticReports").expandingTildeInPath
-        let fileManager = FileManager.default
-        
-        do {
-            let files = try fileManager.contentsOfDirectory(atPath: crashReportsPath)
-            let crashFiles = files.filter { $0.contains("DynamicIsland") && $0.hasSuffix(".crash") }
-            
-            guard let latestCrash = crashFiles.sorted(by: >).first else {
-                let alert = NSAlert()
-                alert.messageText = "No Crash Reports Found"
-                alert.informativeText = "No crash reports found for DynamicIsland"
-                alert.alertStyle = .informational
-                alert.runModal()
-                return
-            }
-            
-            let crashPath = (crashReportsPath as NSString).appendingPathComponent(latestCrash)
-            let crashContent = try String(contentsOfFile: crashPath, encoding: .utf8)
-            
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(crashContent, forType: .string)
-            
-            let alert = NSAlert()
-            alert.messageText = "Crash Report Copied"
-            alert.informativeText = "Crash report '\(latestCrash)' has been copied to clipboard"
-            alert.alertStyle = .informational
-            alert.runModal()
-        } catch {
-            let alert = NSAlert()
-            alert.messageText = "Error"
-            alert.informativeText = "Failed to read crash reports: \(error.localizedDescription)"
-            alert.alertStyle = .warning
-            alert.runModal()
-        }
-    }
-
     @ViewBuilder
     func gestureControls() -> some View {
         Section {
@@ -864,6 +1048,7 @@ struct Media: View {
     @Default(.musicAuxRightControl) private var musicAuxRightControl
     @Default(.musicSkipBehavior) private var musicSkipBehavior
     @Default(.musicControlWindowEnabled) private var musicControlWindowEnabled
+    @Default(.enableLockScreenMediaWidget) private var enableLockScreenMediaWidget
     @State private var previousLeftAuxControl: MusicAuxiliaryControl = Defaults[.musicAuxLeftControl]
     @State private var previousRightAuxControl: MusicAuxiliaryControl = Defaults[.musicAuxRightControl]
 
@@ -974,6 +1159,20 @@ struct Media: View {
                 }
             } header: {
                 Text("Media playback live activity")
+            }
+
+            Section {
+                Defaults.Toggle("Show lock screen media panel", key: .enableLockScreenMediaWidget)
+                Defaults.Toggle("Show media app icon", key: .lockScreenShowAppIcon)
+                    .disabled(!enableLockScreenMediaWidget)
+                Defaults.Toggle("Show panel border", key: .lockScreenPanelShowsBorder)
+                    .disabled(!enableLockScreenMediaWidget)
+                Defaults.Toggle("Enable media panel blur", key: .lockScreenPanelUsesBlur)
+                    .disabled(!enableLockScreenMediaWidget)
+            } header: {
+                Text("Lock Screen Integration")
+            } footer: {
+                Text("These controls mirror the Lock Screen tab so you can tune the media overlay while focusing on playback settings.")
             }
 
             Picker(selection: $hideNotchOption, label:
@@ -1370,7 +1569,7 @@ struct About: View {
             }
             VStack(spacing: 0) {
                 Divider()
-                Text("Made ❤️ by Ebullioscopic")
+                Text("Made with ❤️ by Ebullioscopic")
                     .foregroundStyle(.secondary)
                     .padding(.top, 5)
                     .padding(.bottom, 7)
@@ -1551,8 +1750,6 @@ struct Appearance: View {
             } header: {
                 Text("General")
             }
-
-            LockScreenPositioningControls()
 
             Section {
                 Defaults.Toggle("Enable colored spectrograms", key: .coloredSpectrogram)
@@ -1808,6 +2005,162 @@ struct Appearance: View {
         }
 
         return false
+    }
+}
+
+struct LockScreenSettings: View {
+    @Default(.lockScreenGlassStyle) private var lockScreenGlassStyle
+    @Default(.enableLockScreenMediaWidget) private var enableLockScreenMediaWidget
+    @Default(.enableLockScreenTimerWidget) private var enableLockScreenTimerWidget
+    @Default(.enableLockScreenWeatherWidget) private var enableLockScreenWeatherWidget
+    @Default(.lockScreenWeatherWidgetStyle) private var lockScreenWeatherWidgetStyle
+    @Default(.lockScreenWeatherProviderSource) private var lockScreenWeatherProviderSource
+    @Default(.lockScreenWeatherTemperatureUnit) private var lockScreenWeatherTemperatureUnit
+    @Default(.lockScreenWeatherShowsCharging) private var lockScreenWeatherShowsCharging
+    @Default(.lockScreenWeatherShowsBatteryGauge) private var lockScreenWeatherShowsBatteryGauge
+    @Default(.lockScreenWeatherShowsAQI) private var lockScreenWeatherShowsAQI
+    @Default(.lockScreenWeatherAQIScale) private var lockScreenWeatherAQIScale
+
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle("Enable lock screen live activity", key: .enableLockScreenLiveActivity)
+                Defaults.Toggle("Play lock/unlock sounds", key: .enableLockSounds)
+            } header: {
+                Text("Live Activity & Feedback")
+            } footer: {
+                Text("Controls whether Dynamic Island mirrors lock/unlock events with its own live activity and audible chimes.")
+            }
+
+            Section {
+                if #available(macOS 26.0, *) {
+                    Picker("Material", selection: $lockScreenGlassStyle) {
+                        ForEach(LockScreenGlassStyle.allCases) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                } else {
+                    Picker("Material", selection: $lockScreenGlassStyle) {
+                        ForEach(LockScreenGlassStyle.allCases) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                    .disabled(true)
+                    Text("Liquid Glass requires macOS 26 or later.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Defaults.Toggle("Show lock screen media panel", key: .enableLockScreenMediaWidget)
+                Defaults.Toggle("Show media app icon", key: .lockScreenShowAppIcon)
+                    .disabled(!enableLockScreenMediaWidget)
+                Defaults.Toggle("Show panel border", key: .lockScreenPanelShowsBorder)
+                    .disabled(!enableLockScreenMediaWidget)
+                Defaults.Toggle("Enable media panel blur", key: .lockScreenPanelUsesBlur)
+                    .disabled(!enableLockScreenMediaWidget)
+            } header: {
+                Text("Media Panel")
+            } footer: {
+                Text("Enable and style the media controls that appear above the system clock when the screen is locked.")
+            }
+
+            Section {
+                Defaults.Toggle("Show lock screen timer", key: .enableLockScreenTimerWidget)
+                Defaults.Toggle("Enable timer blur", key: .lockScreenTimerWidgetUsesBlur)
+                    .disabled(!enableLockScreenTimerWidget)
+            } header: {
+                Text("Timer Widget")
+            } footer: {
+                Text("Controls the optional timer widget that floats above the media panel. Blur adds a frosted finish behind the compact view.")
+            }
+
+            Section {
+                Defaults.Toggle("Show lock screen weather", key: .enableLockScreenWeatherWidget)
+
+                if enableLockScreenWeatherWidget {
+                    Picker("Layout", selection: $lockScreenWeatherWidgetStyle) {
+                        ForEach(LockScreenWeatherWidgetStyle.allCases) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Picker("Weather data provider", selection: $lockScreenWeatherProviderSource) {
+                        ForEach(LockScreenWeatherProviderSource.allCases) { source in
+                            Text(source.displayName).tag(source)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Picker("Temperature unit", selection: $lockScreenWeatherTemperatureUnit) {
+                        ForEach(LockScreenWeatherTemperatureUnit.allCases) { unit in
+                            Text(unit.rawValue).tag(unit)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Defaults.Toggle("Show location label", key: .lockScreenWeatherShowsLocation)
+                        .disabled(lockScreenWeatherWidgetStyle == .circular)
+
+                    Defaults.Toggle("Show charging status", key: .lockScreenWeatherShowsCharging)
+
+                    if lockScreenWeatherShowsCharging {
+                        Defaults.Toggle("Show charging percentage", key: .lockScreenWeatherShowsChargingPercentage)
+                    }
+
+                    Defaults.Toggle("Show battery indicator", key: .lockScreenWeatherShowsBatteryGauge)
+
+                    if lockScreenWeatherShowsBatteryGauge {
+                        Defaults.Toggle("Use MacBook icon when on battery", key: .lockScreenWeatherBatteryUsesLaptopSymbol)
+                            .disabled(lockScreenWeatherWidgetStyle != .circular)
+
+                        if lockScreenWeatherWidgetStyle != .circular {
+                            Text("The MacBook icon is available only in the circular layout.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Defaults.Toggle("Show Bluetooth battery", key: .lockScreenWeatherShowsBluetooth)
+
+                    Defaults.Toggle("Show AQI widget", key: .lockScreenWeatherShowsAQI)
+                        .disabled(!lockScreenWeatherProviderSource.supportsAirQuality)
+
+                    if lockScreenWeatherShowsAQI && lockScreenWeatherProviderSource.supportsAirQuality {
+                        Picker("Air quality scale", selection: $lockScreenWeatherAQIScale) {
+                            ForEach(LockScreenWeatherAirQualityScale.allCases) { scale in
+                                Text(scale.displayName).tag(scale)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
+                    if !lockScreenWeatherProviderSource.supportsAirQuality {
+                        Text("Air quality requires the Open Meteo provider.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Defaults.Toggle("Use colored gauges", key: .lockScreenWeatherUsesGaugeTint)
+                }
+            } header: {
+                Text("Weather Widget")
+            } footer: {
+                Text("Enable the weather capsule and configure its layout, provider, units, and optional battery/AQI indicators.")
+            }
+
+            LockScreenPositioningControls()
+
+            Section {
+                Button("Copy Latest Crash Report") {
+                    copyLatestCrashReport()
+                }
+            } header: {
+                Text("Diagnostics")
+            } footer: {
+                Text("Collect the latest crash report to share with the developer when reporting lock screen or overlay issues.")
+            }
+        }
+        .navigationTitle("Lock Screen")
     }
 }
 
@@ -2163,6 +2516,43 @@ private struct LockScreenPositioningPreview: View {
     }
 }
 
+private func copyLatestCrashReport() {
+    let crashReportsPath = NSString(string: "~/Library/Logs/DiagnosticReports").expandingTildeInPath
+    let fileManager = FileManager.default
+
+    do {
+        let files = try fileManager.contentsOfDirectory(atPath: crashReportsPath)
+        let crashFiles = files.filter { $0.contains("DynamicIsland") && $0.hasSuffix(".crash") }
+
+        guard let latestCrash = crashFiles.sorted(by: >).first else {
+            let alert = NSAlert()
+            alert.messageText = "No Crash Reports Found"
+            alert.informativeText = "No crash reports found for DynamicIsland"
+            alert.alertStyle = .informational
+            alert.runModal()
+            return
+        }
+
+        let crashPath = (crashReportsPath as NSString).appendingPathComponent(latestCrash)
+        let crashContent = try String(contentsOfFile: crashPath, encoding: .utf8)
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(crashContent, forType: .string)
+
+        let alert = NSAlert()
+        alert.messageText = "Crash Report Copied"
+        alert.informativeText = "Crash report '\(latestCrash)' has been copied to clipboard"
+        alert.alertStyle = .informational
+        alert.runModal()
+    } catch {
+        let alert = NSAlert()
+        alert.messageText = "Error"
+        alert.informativeText = "Failed to read crash reports: \(error.localizedDescription)"
+        alert.alertStyle = .warning
+        alert.runModal()
+    }
+}
+
 struct Shortcuts: View {
     @Default(.enableTimerFeature) var enableTimerFeature
     @Default(.enableClipboardManager) var enableClipboardManager
@@ -2376,6 +2766,7 @@ struct TimerSettings: View {
     @Default(.timerProgressStyle) private var progressStyle
     @Default(.timerControlWindowEnabled) private var controlWindowEnabled
     @Default(.mirrorSystemTimer) private var mirrorSystemTimer
+    @Default(.enableLockScreenTimerWidget) private var enableLockScreenTimerWidget
     @AppStorage("customTimerDuration") private var customTimerDuration: Double = 600
     @State private var customHours: Int = 0
     @State private var customMinutes: Int = 10
@@ -2401,6 +2792,16 @@ struct TimerSettings: View {
             
             if enableTimerFeature {
                 Group {
+                    Section {
+                        Defaults.Toggle("Show lock screen timer widget", key: .enableLockScreenTimerWidget)
+                        Defaults.Toggle("Enable timer blur", key: .lockScreenTimerWidgetUsesBlur)
+                            .disabled(!enableLockScreenTimerWidget)
+                    } header: {
+                        Text("Lock Screen Integration")
+                    } footer: {
+                        Text("Mirrors the toggle found under Lock Screen settings so timer-specific workflows can enable or disable the widget without switching tabs.")
+                    }
+
                     Section {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Default Custom Timer")
