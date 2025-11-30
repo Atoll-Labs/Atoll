@@ -225,7 +225,7 @@ func applyProfileSettings(_ profiles: Set<String>) {
         Defaults[.showMirror] = false
         Defaults[.enableStatsFeature] = false
         Defaults[.enableTimerFeature] = true
-        Defaults[.inlineHUD] = false
+        Defaults[.inlineHUD] = true
         Defaults[.enableScreenAssistant] = false
         Defaults[.enableLyrics] = false
     }
