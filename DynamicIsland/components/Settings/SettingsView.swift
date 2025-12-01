@@ -614,6 +614,10 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .calendar, title: "Countdown style", keywords: ["reminder countdown"], highlightID: SettingsTab.calendar.highlightID(for: "Countdown style")),
             SettingsSearchEntry(tab: .calendar, title: "Show lock screen reminder", keywords: ["lock screen", "reminder widget"], highlightID: SettingsTab.calendar.highlightID(for: "Show lock screen reminder")),
             SettingsSearchEntry(tab: .calendar, title: "Chip color", keywords: ["reminder chip", "color"], highlightID: SettingsTab.calendar.highlightID(for: "Chip color")),
+            SettingsSearchEntry(tab: .calendar, title: "Hide all-day events", keywords: ["calendar", "all-day"], highlightID: SettingsTab.calendar.highlightID(for: "Hide all-day events")),
+            SettingsSearchEntry(tab: .calendar, title: "Hide completed reminders", keywords: ["reminder", "completed"], highlightID: SettingsTab.calendar.highlightID(for: "Hide completed reminders")),
+            SettingsSearchEntry(tab: .calendar, title: "Show full event titles", keywords: ["calendar", "titles"], highlightID: SettingsTab.calendar.highlightID(for: "Show full event titles")),
+            SettingsSearchEntry(tab: .calendar, title: "Auto-scroll to next event", keywords: ["calendar", "scroll"], highlightID: SettingsTab.calendar.highlightID(for: "Auto-scroll to next event")),
 
             // Shelf
             SettingsSearchEntry(tab: .shelf, title: "Enable shelf", keywords: ["shelf", "dock"], highlightID: SettingsTab.shelf.highlightID(for: "Enable shelf")),
@@ -1730,6 +1734,10 @@ struct CalendarSettings: View {
     @Default(.reminderSneakPeekDuration) var reminderSneakPeekDuration
     @Default(.enableLockScreenReminderWidget) var enableLockScreenReminderWidget
     @Default(.lockScreenReminderChipStyle) var lockScreenReminderChipStyle
+    @Default(.hideAllDayEvents) var hideAllDayEvents
+    @Default(.hideCompletedReminders) var hideCompletedReminders
+    @Default(.showFullEventTitles) var showFullEventTitles
+    @Default(.autoScrollToNextEvent) var autoScrollToNextEvent
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.calendar.highlightID(for: title)
@@ -1779,6 +1787,17 @@ struct CalendarSettings: View {
                 
                 Defaults.Toggle("Show calendar", key: .showCalendar)
                     .settingsHighlight(id: highlightID("Show calendar"))
+
+                Section(header: Text("Event List")) {
+                    Toggle("Hide all-day events", isOn: $hideAllDayEvents)
+                        .settingsHighlight(id: highlightID("Hide all-day events"))
+                    Toggle("Hide completed reminders", isOn: $hideCompletedReminders)
+                        .settingsHighlight(id: highlightID("Hide completed reminders"))
+                    Toggle("Show full event titles", isOn: $showFullEventTitles)
+                        .settingsHighlight(id: highlightID("Show full event titles"))
+                    Toggle("Auto-scroll to next event", isOn: $autoScrollToNextEvent)
+                        .settingsHighlight(id: highlightID("Auto-scroll to next event"))
+                }
                 
                 Section(header: Text("Reminder Live Activity")) {
                     Defaults.Toggle("Enable reminder live activity", key: .enableReminderLiveActivity)

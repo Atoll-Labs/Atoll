@@ -15,6 +15,7 @@ protocol CalendarServiceProviding {
     func requestAccess(to type: EKEntityType) async -> Bool
     func calendars() async -> [CalendarModel]
     func events(from start: Date, to end: Date, calendars: [String]) async -> [EventModel]
+    func setReminderCompleted(reminderID: String, completed: Bool) async
 }
 
 class CalendarService: CalendarServiceProviding {
@@ -120,6 +121,17 @@ class CalendarService: CalendarServiceProviding {
 
                 continuation.resume(returning: filtered)
             }
+        }
+    }
+
+    @MainActor
+    func setReminderCompleted(reminderID: String, completed: Bool) async {
+        guard let reminder = store.calendarItem(withIdentifier: reminderID) as? EKReminder else { return }
+        reminder.isCompleted = completed
+        do {
+            try store.save(reminder, commit: true)
+        } catch {
+            print("Failed to update reminder completion: \(error)")
         }
     }
 }
