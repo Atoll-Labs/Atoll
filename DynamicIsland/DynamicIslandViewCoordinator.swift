@@ -135,7 +135,7 @@ class DynamicIslandViewCoordinator: ObservableObject {
         sneakPeekDuration = resolvedDuration
         if type != .music && type != .timer && type != .reminder {
             // close()
-            if !hudReplacement {
+            if !Defaults[.enableSystemHUD] {
                 return
             }
         }

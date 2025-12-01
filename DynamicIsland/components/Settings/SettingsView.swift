@@ -24,6 +24,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case timer
     case calendar
     case hud
+    case osd
     case battery
     case stats
     case clipboard
@@ -46,6 +47,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .timer: return "Timer"
         case .calendar: return "Calendar"
         case .hud: return "HUDs"
+        case .osd: return "Custom OSD"
         case .battery: return "Battery"
         case .stats: return "Stats"
         case .clipboard: return "Clipboard"
@@ -68,6 +70,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .timer: return "timer"
         case .calendar: return "calendar"
         case .hud: return "dial.medium.fill"
+        case .osd: return "square.fill.on.square.fill"
         case .battery: return "battery.100.bolt"
         case .stats: return "chart.xyaxis.line"
         case .clipboard: return "clipboard"
@@ -90,6 +93,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .timer: return .red
         case .calendar: return .cyan
         case .hud: return .indigo
+        case .osd: return .teal
         case .battery: return .yellow
         case .stats: return .teal
         case .clipboard: return .mint
@@ -257,6 +261,18 @@ struct SettingsView: View {
                             sidebarIcon(for: tab)
                             Text(tab.title)
                                 .foregroundStyle(Color.primary)
+                            if tab == .osd {
+                                Spacer()
+                                Text("ALPHA")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.orange)
+                                    )
+                            }
                         }
                         .padding(.vertical, 4)
                     }
@@ -352,6 +368,7 @@ struct SettingsView: View {
             .timer,
             .calendar,
             .hud,
+            .osd,
             .battery,
             .stats,
             .clipboard,
@@ -536,7 +553,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .general, title: "Show on all displays", keywords: ["multi-display", "external monitor"], highlightID: SettingsTab.general.highlightID(for: "Show on all displays")),
             SettingsSearchEntry(tab: .general, title: "Show on a specific display", keywords: ["preferred screen", "display picker"], highlightID: SettingsTab.general.highlightID(for: "Show on a specific display")),
             SettingsSearchEntry(tab: .general, title: "Automatically switch displays", keywords: ["auto switch", "displays"], highlightID: SettingsTab.general.highlightID(for: "Automatically switch displays")),
-            SettingsSearchEntry(tab: .general, title: "Hide Atoll during screenshots & recordings", keywords: ["privacy", "screenshot", "recording"], highlightID: SettingsTab.general.highlightID(for: "Hide Atoll during screenshots & recordings")),
+            SettingsSearchEntry(tab: .general, title: "Hide Dynamic Island during screenshots & recordings", keywords: ["privacy", "screenshot", "recording"], highlightID: SettingsTab.general.highlightID(for: "Hide Dynamic Island during screenshots & recordings")),
             SettingsSearchEntry(tab: .general, title: "Enable Screen Recording Detection", keywords: ["screen recording", "indicator"], highlightID: SettingsTab.general.highlightID(for: "Enable Screen Recording Detection")),
             SettingsSearchEntry(tab: .general, title: "Show Recording Indicator", keywords: ["recording indicator", "red dot"], highlightID: SettingsTab.general.highlightID(for: "Show Recording Indicator")),
             SettingsSearchEntry(tab: .general, title: "Enable Focus Detection", keywords: ["focus", "do not disturb", "dnd"], highlightID: SettingsTab.general.highlightID(for: "Enable Focus Detection")),
@@ -577,6 +594,14 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .hud, title: "Enable glowing effect", keywords: ["glow", "indicator"], highlightID: SettingsTab.hud.highlightID(for: "Enable glowing effect")),
             SettingsSearchEntry(tab: .hud, title: "Use accent color", keywords: ["accent", "color"], highlightID: SettingsTab.hud.highlightID(for: "Use accent color")),
 
+            // Custom OSD
+            SettingsSearchEntry(tab: .osd, title: "Enable Custom OSD", keywords: ["osd", "on-screen display", "custom osd"], highlightID: SettingsTab.osd.highlightID(for: "Enable Custom OSD")),
+            SettingsSearchEntry(tab: .osd, title: "Volume OSD", keywords: ["volume", "osd"], highlightID: SettingsTab.osd.highlightID(for: "Volume OSD")),
+            SettingsSearchEntry(tab: .osd, title: "Brightness OSD", keywords: ["brightness", "osd"], highlightID: SettingsTab.osd.highlightID(for: "Brightness OSD")),
+            SettingsSearchEntry(tab: .osd, title: "Keyboard Backlight OSD", keywords: ["keyboard", "backlight", "osd"], highlightID: SettingsTab.osd.highlightID(for: "Keyboard Backlight OSD")),
+            SettingsSearchEntry(tab: .osd, title: "Material", keywords: ["material", "frosted", "liquid", "glass", "solid", "osd"], highlightID: SettingsTab.osd.highlightID(for: "Material")),
+            SettingsSearchEntry(tab: .osd, title: "Icon & Progress Color", keywords: ["color", "icon", "white", "black", "gray", "osd"], highlightID: SettingsTab.osd.highlightID(for: "Icon & Progress Color")),
+
             // Media
             SettingsSearchEntry(tab: .media, title: "Music Source", keywords: ["media source", "controller"], highlightID: SettingsTab.media.highlightID(for: "Music Source")),
             SettingsSearchEntry(tab: .media, title: "Skip buttons", keywords: ["skip", "controls", "±10"], highlightID: SettingsTab.media.highlightID(for: "Skip buttons")),
@@ -589,6 +614,10 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .calendar, title: "Countdown style", keywords: ["reminder countdown"], highlightID: SettingsTab.calendar.highlightID(for: "Countdown style")),
             SettingsSearchEntry(tab: .calendar, title: "Show lock screen reminder", keywords: ["lock screen", "reminder widget"], highlightID: SettingsTab.calendar.highlightID(for: "Show lock screen reminder")),
             SettingsSearchEntry(tab: .calendar, title: "Chip color", keywords: ["reminder chip", "color"], highlightID: SettingsTab.calendar.highlightID(for: "Chip color")),
+            SettingsSearchEntry(tab: .calendar, title: "Hide all-day events", keywords: ["calendar", "all-day"], highlightID: SettingsTab.calendar.highlightID(for: "Hide all-day events")),
+            SettingsSearchEntry(tab: .calendar, title: "Hide completed reminders", keywords: ["reminder", "completed"], highlightID: SettingsTab.calendar.highlightID(for: "Hide completed reminders")),
+            SettingsSearchEntry(tab: .calendar, title: "Show full event titles", keywords: ["calendar", "titles"], highlightID: SettingsTab.calendar.highlightID(for: "Show full event titles")),
+            SettingsSearchEntry(tab: .calendar, title: "Auto-scroll to next event", keywords: ["calendar", "scroll"], highlightID: SettingsTab.calendar.highlightID(for: "Auto-scroll to next event")),
 
             // Shelf
             SettingsSearchEntry(tab: .shelf, title: "Enable shelf", keywords: ["shelf", "dock"], highlightID: SettingsTab.shelf.highlightID(for: "Enable shelf")),
@@ -712,6 +741,28 @@ struct SettingsView: View {
         case .hud:
             SettingsForm(tab: .hud) {
                 HUD()
+            }
+        case .osd:
+            SettingsForm(tab: .osd) {
+                if #available(macOS 15.0, *) {
+                    CustomOSDSettings()
+                } else {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.orange)
+                        
+                        Text("macOS 15 or later required")
+                            .font(.headline)
+                        
+                        Text("Custom OSD feature requires macOS 15 or later.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding()
+                }
             }
         case .battery:
             SettingsForm(tab: .battery) {
@@ -839,8 +890,8 @@ struct GeneralSettings: View {
                 }
                 .disabled(showOnAllDisplays)
                 .settingsHighlight(id: highlightID("Automatically switch displays"))
-                Defaults.Toggle("Hide Atoll during screenshots & recordings", key: .hideDynamicIslandFromScreenCapture)
-                    .settingsHighlight(id: highlightID("Hide Atoll during screenshots & recordings"))
+                Defaults.Toggle("Hide Dynamic Island during screenshots & recordings", key: .hideDynamicIslandFromScreenCapture)
+                    .settingsHighlight(id: highlightID("Hide Dynamic Island during screenshots & recordings"))
             } header: {
                 Text("System features")
             }
@@ -1231,56 +1282,60 @@ struct HUD: View {
     @Default(.enableKeyboardBacklightHUD) var enableKeyboardBacklightHUD
     @Default(.systemHUDSensitivity) var systemHUDSensitivity
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
+    @ObservedObject private var accessibilityPermission = AccessibilityPermissionStore.shared
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.hud.highlightID(for: title)
     }
+
+    private var hasAccessibilityPermission: Bool {
+        accessibilityPermission.isAuthorized
+    }
     
     var body: some View {
         Form {
+            if !hasAccessibilityPermission {
+                Section {
+                    SettingsPermissionCallout(
+                        message: "Accessibility permission lets Dynamic Island replace the native volume, brightness, and keyboard HUDs.",
+                        requestAction: { accessibilityPermission.requestAuthorizationPrompt() },
+                        openSettingsAction: { accessibilityPermission.openSystemSettings() }
+                    )
+                } header: {
+                    Text("Accessibility")
+                }
+            }
+
             Section {
-                Toggle("Enable HUD replacement", isOn: $coordinator.hudReplacement)
+                Toggle("Enable HUDs", isOn: $enableSystemHUD)
+                    .disabled(Defaults[.enableCustomOSD] || !hasAccessibilityPermission)
             } header: {
                 Text("General")
             } footer: {
-                Text("Replaces system HUD notifications with Atoll displays.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-            }
-            
-            Section {
-                Toggle("Enable Built-in System HUD", isOn: $enableSystemHUD)
-                
-                if enableSystemHUD {
-                    Toggle("Volume HUD", isOn: $enableVolumeHUD)
-                    Toggle("Brightness HUD", isOn: $enableBrightnessHUD)
-                    Toggle("Keyboard Backlight HUD", isOn: $enableKeyboardBacklightHUD)
-                    
-                    HStack {
-                        Text("Sensitivity")
-                        Spacer()
-                        Slider(value: Binding(
-                            get: { Double(systemHUDSensitivity) },
-                            set: { systemHUDSensitivity = Int($0) }
-                        ), in: 1...10, step: 1) {
-                            Text("Sensitivity")
-                        }
-                        .frame(width: 120)
-                        Text("\(systemHUDSensitivity)")
-                            .foregroundStyle(.secondary)
-                            .font(.caption)
-                            .frame(width: 20)
-                    }
-                }
-            } header: {
-                Text("Built-in System Monitoring")
-            } footer: {
-                if enableSystemHUD {
-                    Text("Built-in system monitoring detects volume, brightness, and keyboard backlight changes directly without requiring external apps.")
+                if Defaults[.enableCustomOSD] {
+                    Text("HUDs are disabled because Custom OSD is enabled. Disable Custom OSD in the Custom OSD tab to use HUDs.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } else if !hasAccessibilityPermission {
+                    Text("Grant Accessibility permission in System Settings to control macOS HUD replacements from here.")
                         .foregroundStyle(.secondary)
                         .font(.caption)
                 } else {
-                    Text("Enable built-in system monitoring to replace macOS HUD notifications with Atoll displays.")
+                    Text("Replaces macOS system HUD with Dynamic Island displays for volume, brightness, and keyboard backlight.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+            }
+            
+            if enableSystemHUD && !Defaults[.enableCustomOSD] && hasAccessibilityPermission {
+                Section {
+                    Toggle("Volume HUD", isOn: $enableVolumeHUD)
+                    Toggle("Brightness HUD", isOn: $enableBrightnessHUD)
+                    Toggle("Keyboard Backlight HUD", isOn: $enableKeyboardBacklightHUD)
+                } header: {
+                    Text("Controls")
+                } footer: {
+                    Text("Choose which system controls should display HUD notifications.")
                         .foregroundStyle(.secondary)
                         .font(.caption)
                 }
@@ -1373,6 +1428,14 @@ struct HUD: View {
             }
         }
         .navigationTitle("HUDs")
+        .onAppear {
+            accessibilityPermission.refreshStatus()
+        }
+        .onChange(of: accessibilityPermission.isAuthorized) { _, granted in
+            if !granted {
+                enableSystemHUD = false
+            }
+        }
     }
 }
 
@@ -1700,6 +1763,10 @@ struct CalendarSettings: View {
     @Default(.reminderSneakPeekDuration) var reminderSneakPeekDuration
     @Default(.enableLockScreenReminderWidget) var enableLockScreenReminderWidget
     @Default(.lockScreenReminderChipStyle) var lockScreenReminderChipStyle
+    @Default(.hideAllDayEvents) var hideAllDayEvents
+    @Default(.hideCompletedReminders) var hideCompletedReminders
+    @Default(.showFullEventTitles) var showFullEventTitles
+    @Default(.autoScrollToNextEvent) var autoScrollToNextEvent
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.calendar.highlightID(for: title)
@@ -1749,6 +1816,17 @@ struct CalendarSettings: View {
                 
                 Defaults.Toggle("Show calendar", key: .showCalendar)
                     .settingsHighlight(id: highlightID("Show calendar"))
+
+                Section(header: Text("Event List")) {
+                    Toggle("Hide all-day events", isOn: $hideAllDayEvents)
+                        .settingsHighlight(id: highlightID("Hide all-day events"))
+                    Toggle("Hide completed reminders", isOn: $hideCompletedReminders)
+                        .settingsHighlight(id: highlightID("Hide completed reminders"))
+                    Toggle("Show full event titles", isOn: $showFullEventTitles)
+                        .settingsHighlight(id: highlightID("Show full event titles"))
+                    Toggle("Auto-scroll to next event", isOn: $autoScrollToNextEvent)
+                        .settingsHighlight(id: highlightID("Auto-scroll to next event"))
+                }
                 
                 Section(header: Text("Reminder Live Activity")) {
                     Defaults.Toggle("Enable reminder live activity", key: .enableReminderLiveActivity)
@@ -2414,7 +2492,7 @@ struct LockScreenSettings: View {
             } header: {
                 Text("Live Activity & Feedback")
             } footer: {
-                Text("Controls whether Atoll mirrors lock/unlock events with its own live activity and audible chimes.")
+                Text("Controls whether Dynamic Island mirrors lock/unlock events with its own live activity and audible chimes.")
             }
 
             Section {
@@ -3003,7 +3081,7 @@ struct Shortcuts: View {
                 } header: {
                     Text("Navigation")
                 } footer: {
-                    Text("Toggle the Atoll open or closed from anywhere.")
+                    Text("Toggle the Dynamic Island open or closed from anywhere.")
                         .multilineTextAlignment(.trailing)
                         .foregroundStyle(.secondary)
                         .font(.caption)
@@ -3777,7 +3855,7 @@ struct StatsSettings: View {
                     Text("Graph Visibility")
                 } footer: {
                     if enabledGraphsCount >= 4 {
-                        Text("With \(enabledGraphsCount) graphs enabled, the Atoll will expand horizontally to accommodate all graphs in a single row.")
+                        Text("With \(enabledGraphsCount) graphs enabled, the Dynamic Island will expand horizontally to accommodate all graphs in a single row.")
                             .multilineTextAlignment(.trailing)
                             .foregroundStyle(.secondary)
                             .font(.caption)
@@ -4357,6 +4435,240 @@ struct ColorPickerSettings: View {
             }
         }
         .navigationTitle("Color Picker")
+    }
+}
+
+struct CustomOSDSettings: View {
+    @Default(.enableCustomOSD) var enableCustomOSD
+    @Default(.hasSeenOSDAlphaWarning) var hasSeenOSDAlphaWarning
+    @Default(.enableOSDVolume) var enableOSDVolume
+    @Default(.enableOSDBrightness) var enableOSDBrightness
+    @Default(.enableOSDKeyboardBacklight) var enableOSDKeyboardBacklight
+    @Default(.osdMaterial) var osdMaterial
+    @Default(.osdIconColorStyle) var osdIconColorStyle
+    @Default(.enableSystemHUD) var enableSystemHUD
+    @ObservedObject private var accessibilityPermission = AccessibilityPermissionStore.shared
+    
+    @State private var showAlphaWarning = false
+    @State private var previewValue: CGFloat = 0.65
+    @State private var previewType: SneakContentType = .volume
+    
+    private func highlightID(_ title: String) -> String {
+        SettingsTab.osd.highlightID(for: title)
+    }
+
+    private var hasAccessibilityPermission: Bool {
+        accessibilityPermission.isAuthorized
+    }
+    
+    var body: some View {
+        Form {
+            if !hasAccessibilityPermission {
+                Section {
+                    SettingsPermissionCallout(
+                        message: "Accessibility permission is needed to intercept system controls for the Custom OSD.",
+                        requestAction: { accessibilityPermission.requestAuthorizationPrompt() },
+                        openSettingsAction: { accessibilityPermission.openSystemSettings() }
+                    )
+                } header: {
+                    Text("Accessibility")
+                }
+            }
+
+            Section {
+                Toggle("Enable Custom OSD", isOn: Binding(
+                    get: { enableCustomOSD },
+                    set: { newValue in
+                        guard hasAccessibilityPermission else {
+                            enableCustomOSD = false
+                            return
+                        }
+                        if newValue && !hasSeenOSDAlphaWarning {
+                            showAlphaWarning = true
+                        } else {
+                            enableCustomOSD = newValue
+                            if newValue {
+                                // Disable System HUD when OSD is enabled
+                                enableSystemHUD = false
+                            }
+                        }
+                    }
+                ))
+                    .settingsHighlight(id: highlightID("Enable Custom OSD"))
+                    .disabled(enableSystemHUD || !hasAccessibilityPermission)
+            } header: {
+                Text("General")
+            } footer: {
+                if enableSystemHUD {
+                    Text("Custom OSD is disabled because HUDs are enabled. Disable HUDs in the HUDs tab to use Custom OSD.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } else if !hasAccessibilityPermission {
+                    Text("Grant Accessibility permission in System Settings to customize the on-screen display replacements here.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } else {
+                    Text("Display custom macOS-style OSD windows at the bottom center of the screen when adjusting volume, brightness, or keyboard backlight.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+            }
+            
+            if enableCustomOSD && hasAccessibilityPermission {
+                Section {
+                    Toggle("Volume OSD", isOn: $enableOSDVolume)
+                        .settingsHighlight(id: highlightID("Volume OSD"))
+                    Toggle("Brightness OSD", isOn: $enableOSDBrightness)
+                        .settingsHighlight(id: highlightID("Brightness OSD"))
+                    Toggle("Keyboard Backlight OSD", isOn: $enableOSDKeyboardBacklight)
+                        .settingsHighlight(id: highlightID("Keyboard Backlight OSD"))
+                } header: {
+                    Text("Controls")
+                } footer: {
+                    Text("Choose which system controls should display custom OSD windows.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+                
+                Section {
+                    Picker("Material", selection: $osdMaterial) {
+                        ForEach(OSDMaterial.allCases, id: \.self) { material in
+                            Text(material.rawValue).tag(material)
+                        }
+                    }
+                    .settingsHighlight(id: highlightID("Material"))
+                    .onChange(of: osdMaterial) { _, _ in
+                        previewValue = previewValue == 0.65 ? 0.651 : 0.65
+                    }
+                    
+                    Picker("Icon & Progress Color", selection: $osdIconColorStyle) {
+                        ForEach(OSDIconColorStyle.allCases, id: \.self) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                    .settingsHighlight(id: highlightID("Icon & Progress Color"))
+                    .onChange(of: osdIconColorStyle) { _, _ in
+                        previewValue = previewValue == 0.65 ? 0.651 : 0.65
+                    }
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Material Options:")
+                        Text("• Frosted Glass: Translucent blur effect")
+                        Text("• Liquid Glass: Modern glass effect (macOS 26+)")
+                        Text("• Solid Dark/Light/Auto: Opaque backgrounds")
+                        Text("")
+                        Text("Color options control the icon and progress bar appearance. Auto adapts to system theme.")
+                    }
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                }
+                
+                Section {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 16) {
+                            Text("Live Preview")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            
+                            CustomOSDView(
+                                type: .constant(previewType),
+                                value: .constant(previewValue),
+                                icon: .constant("")
+                            )
+                            .frame(width: 200, height: 200)
+                            
+                            HStack(spacing: 8) {
+                                Button("Volume") {
+                                    previewType = .volume
+                                }
+                                .buttonStyle(.bordered)
+                                
+                                Button("Brightness") {
+                                    previewType = .brightness
+                                }
+                                .buttonStyle(.bordered)
+                                
+                                Button("Backlight") {
+                                    previewType = .backlight
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                            .controlSize(.small)
+                            
+                            Slider(value: $previewValue, in: 0...1)
+                                .frame(width: 160)
+                        }
+                        .padding(.vertical, 12)
+                        Spacer()
+                    }
+                } header: {
+                    Text("Preview")
+                } footer: {
+                    Text("Adjust settings above to see changes in real-time. The actual OSD appears at the bottom center of your screen.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+            }
+        }
+        .alert("Alpha Feature Warning", isPresented: $showAlphaWarning) {
+            Button("Cancel", role: .cancel) {
+                enableCustomOSD = false
+            }
+            Button("Enable Anyway") {
+                hasSeenOSDAlphaWarning = true
+                enableCustomOSD = true
+                enableSystemHUD = false
+            }
+        } message: {
+            Text("Custom OSD is an experimental alpha feature and may contain bugs or unexpected behavior.\n\nThis feature requires macOS 15 or later and is still under active development. It's recommended to keep it disabled unless you want to help test it.")
+        }
+        .navigationTitle("Custom OSD")
+        .onAppear {
+            accessibilityPermission.refreshStatus()
+        }
+        .onChange(of: accessibilityPermission.isAuthorized) { _, granted in
+            if !granted {
+                enableCustomOSD = false
+            }
+        }
+    }
+}
+
+struct SettingsPermissionCallout: View {
+    let message: String
+    let requestAction: () -> Void
+    let openSettingsAction: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Accessibility permission required", systemImage: "exclamationmark.triangle.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.orange)
+
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                Button("Request Access") {
+                    requestAction()
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("Open Settings") {
+                    openSettingsAction()
+                }
+                .buttonStyle(.bordered)
+            }
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.secondary.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

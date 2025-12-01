@@ -203,4 +203,9 @@ class CalendarManager: ObservableObject {
         )
         self.events = eventsResult
     }
+
+    func setReminderCompleted(reminderID: String, completed: Bool) async {
+        await calendarService.setReminderCompleted(reminderID: reminderID, completed: completed)
+        await updateEvents()
+    }
 }

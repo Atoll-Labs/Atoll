@@ -145,30 +145,61 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
         if HUDSuppressionCoordinator.shared.shouldSuppressVolumeHUD {
             return
         }
-        coordinator?.toggleSneakPeek(
-            status: true,
-            type: .volume,
-            value: CGFloat(value),
-            icon: ""
-        )
+        
+        // Send to custom OSD if enabled
+        if Defaults[.enableCustomOSD] && Defaults[.enableOSDVolume] {
+            Task { @MainActor in
+                CustomOSDWindowManager.shared.showVolume(value: CGFloat(value))
+            }
+        }
+        
+        // Send to notch HUD if enabled and OSD is not enabled
+        if Defaults[.enableSystemHUD] && !Defaults[.enableCustomOSD] && Defaults[.enableVolumeHUD] {
+            coordinator?.toggleSneakPeek(
+                status: true,
+                type: .volume,
+                value: CGFloat(value),
+                icon: ""
+            )
+        }
     }
 
     private func sendBrightnessNotification(value: Float) {
-        coordinator?.toggleSneakPeek(
-            status: true,
-            type: .brightness,
-            value: CGFloat(value),
-            icon: ""
-        )
+        // Send to custom OSD if enabled
+        if Defaults[.enableCustomOSD] && Defaults[.enableOSDBrightness] {
+            Task { @MainActor in
+                CustomOSDWindowManager.shared.showBrightness(value: CGFloat(value))
+            }
+        }
+        
+        // Send to notch HUD if enabled and OSD is not enabled
+        if Defaults[.enableSystemHUD] && !Defaults[.enableCustomOSD] && Defaults[.enableBrightnessHUD] {
+            coordinator?.toggleSneakPeek(
+                status: true,
+                type: .brightness,
+                value: CGFloat(value),
+                icon: ""
+            )
+        }
     }
 
     private func sendKeyboardBacklightNotification(value: Float) {
-        coordinator?.toggleSneakPeek(
-            status: true,
-            type: .backlight,
-            value: CGFloat(value),
-            icon: ""
-        )
+        // Send to custom OSD if enabled
+        if Defaults[.enableCustomOSD] && Defaults[.enableOSDKeyboardBacklight] {
+            Task { @MainActor in
+                CustomOSDWindowManager.shared.showBacklight(value: CGFloat(value))
+            }
+        }
+        
+        // Send to notch HUD if enabled and OSD is not enabled
+        if Defaults[.enableSystemHUD] && !Defaults[.enableCustomOSD] && Defaults[.enableKeyboardBacklightHUD] {
+            coordinator?.toggleSneakPeek(
+                status: true,
+                type: .backlight,
+                value: CGFloat(value),
+                icon: ""
+            )
+        }
     }
 
     private func configureKeyboardBacklightCallback() {

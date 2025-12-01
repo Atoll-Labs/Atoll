@@ -503,6 +503,8 @@ extension Defaults.Keys {
     
         // MARK: Calendar
     static let calendarSelectionState = Key<CalendarSelectionState>("calendarSelectionState", default: .all)
+        static let showFullEventTitles = Key<Bool>("showFullEventTitles", default: false)
+        static let autoScrollToNextEvent = Key<Bool>("autoScrollToNextEvent", default: true)
     
         // MARK: Fullscreen Media Detection
     static let alwaysHideInFullscreen = Key<Bool>("alwaysHideInFullscreen", default: false)
@@ -586,6 +588,15 @@ extension Defaults.Keys {
     static let enableBrightnessHUD = Key<Bool>("enableBrightnessHUD", default: true)
     static let enableKeyboardBacklightHUD = Key<Bool>("enableKeyboardBacklightHUD", default: true)
     static let systemHUDSensitivity = Key<Int>("systemHUDSensitivity", default: 5)
+    
+    // MARK: Custom OSD Window Feature
+    static let enableCustomOSD = Key<Bool>("enableCustomOSD", default: false)
+    static let hasSeenOSDAlphaWarning = Key<Bool>("hasSeenOSDAlphaWarning", default: false)
+    static let enableOSDVolume = Key<Bool>("enableOSDVolume", default: true)
+    static let enableOSDBrightness = Key<Bool>("enableOSDBrightness", default: true)
+    static let enableOSDKeyboardBacklight = Key<Bool>("enableOSDKeyboardBacklight", default: true)
+    static let osdMaterial = Key<OSDMaterial>("osdMaterial", default: .frosted)
+    static let osdIconColorStyle = Key<OSDIconColorStyle>("osdIconColorStyle", default: .white)
     
     // MARK: Screen Recording Detection Feature
     static let enableScreenRecordingDetection = Key<Bool>("enableScreenRecordingDetection", default: true)
