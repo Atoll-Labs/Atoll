@@ -20,6 +20,7 @@ class CalendarManager: ObservableObject {
     @Published var allCalendars: [CalendarModel] = []
     @Published var eventCalendars: [CalendarModel] = []
     @Published var reminderLists: [CalendarModel] = []
+    @Published var selectedCalendarIDs: Set<String> = []
     @Published var calendarAuthorizationStatus: EKAuthorizationStatus = .notDetermined
     @Published var reminderAuthorizationStatus: EKAuthorizationStatus = .notDetermined
     private var selectedCalendars: [CalendarModel] = []
@@ -63,6 +64,7 @@ class CalendarManager: ObservableObject {
         self.reminderLists = all.filter { $0.isReminder }
         self.allCalendars = all // for legacy compatibility, can be removed if not needed
         updateSelectedCalendars()
+        await updateEvents()
     }
 
     private func bootstrapAuthorizations() async {
@@ -146,16 +148,18 @@ class CalendarManager: ObservableObject {
     }
 
     func updateSelectedCalendars() {
-        selectedCalendars = allCalendars.filter { getCalendarSelected($0) }
+        switch Defaults[.calendarSelectionState] {
+        case .all:
+            selectedCalendarIDs = Set(allCalendars.map { $0.id })
+        case .selected(let identifiers):
+            selectedCalendarIDs = identifiers
+        }
+
+        selectedCalendars = allCalendars.filter { selectedCalendarIDs.contains($0.id) }
     }
 
     func getCalendarSelected(_ calendar: CalendarModel) -> Bool {
-        switch Defaults[.calendarSelectionState] {
-        case .all:
-            return true
-        case .selected(let identifiers):
-            return identifiers.contains(calendar.id)
-        }
+        selectedCalendarIDs.contains(calendar.id)
     }
 
     func setCalendarSelected(_ calendar: CalendarModel, isSelected: Bool) async {
