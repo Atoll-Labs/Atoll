@@ -44,6 +44,9 @@ class BluetoothAudioManager: ObservableObject {
     private var isPmsetRefreshInFlight = false
     private var lastPmsetRefreshDate: Date?
     private let pmsetRefreshCooldown: TimeInterval = 5
+    private var hudBatteryWaitTasks: [UUID: Task<Void, Never>] = [:]
+    private let hudBatteryWaitInterval: TimeInterval = 0.3
+    private let hudBatteryWaitTimeout: TimeInterval = 1.8
     
     // MARK: - Initialization
     private init() {
@@ -244,13 +247,16 @@ class BluetoothAudioManager: ObservableObject {
             .compactMap { $0.addressString }
         
         // Remove disconnected devices
-        let previousCount = connectedDevices.count
+        let removedDevices = connectedDevices.filter { device in
+            !currentlyConnectedAddresses.contains(device.address)
+        }
         connectedDevices.removeAll { device in
             !currentlyConnectedAddresses.contains(device.address)
         }
         
-        if connectedDevices.count < previousCount {
+        if !removedDevices.isEmpty {
             print("🎧 [BluetoothAudioManager] 👋 Audio device(s) disconnected")
+            removedDevices.forEach { cancelHUDBatteryWait(for: $0) }
         }
         
         isBluetoothAudioConnected = !connectedDevices.isEmpty
@@ -304,7 +310,9 @@ class BluetoothAudioManager: ObservableObject {
         
         // Remove from connected devices
         let address = device.addressString ?? "Unknown"
+        let removed = connectedDevices.filter { $0.address == address }
         connectedDevices.removeAll { $0.address == address }
+        removed.forEach { cancelHUDBatteryWait(for: $0) }
         isBluetoothAudioConnected = !connectedDevices.isEmpty
     }
     
@@ -1324,6 +1332,20 @@ class BluetoothAudioManager: ObservableObject {
         return nil
     }
 
+    private func cancelHUDBatteryWait(for device: BluetoothAudioDevice) {
+        let cancelBlock = { [weak self] in
+            guard let self else { return }
+            self.hudBatteryWaitTasks[device.id]?.cancel()
+            self.hudBatteryWaitTasks.removeValue(forKey: device.id)
+        }
+
+        if Thread.isMainThread {
+            cancelBlock()
+        } else {
+            DispatchQueue.main.async(execute: cancelBlock)
+        }
+    }
+
     private func normalizeBluetoothIdentifier(_ value: String) -> String {
         return value
             .lowercased()
@@ -1346,21 +1368,63 @@ class BluetoothAudioManager: ObservableObject {
     /// Shows HUD notification for newly connected audio device
     private func showDeviceConnectedHUD(_ device: BluetoothAudioDevice) {
         guard Defaults[.showBluetoothDeviceConnections] else { return }
-        
-        print("🎧 [BluetoothAudioManager] 📱 Showing device connected HUD")
-        
-        // Convert battery percentage to 0.0-1.0 value
-        let reportedBattery = bestBatteryLevel(for: device)
 
-        let batteryValue: CGFloat = if let battery = reportedBattery {
-            CGFloat(clampBatteryPercentage(battery)) / 100.0
+        cancelHUDBatteryWait(for: device)
+
+        if let battery = bestBatteryLevel(for: device) {
+            presentDeviceConnectedHUD(device: device, batteryLevel: battery)
+            return
+        }
+
+        requestPmsetFallback(reason: "hud missing battery")
+
+        let task = Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            let deadline = Date().addingTimeInterval(self.hudBatteryWaitTimeout)
+            while Date() < deadline {
+                try? await Task.sleep(nanoseconds: UInt64(self.hudBatteryWaitInterval * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+
+                let batteryInfo = await MainActor.run { () -> (BluetoothAudioDevice, Int)? in
+                    guard let refreshedDevice = self.connectedDevices.first(where: { $0.id == device.id }),
+                          let battery = self.bestBatteryLevel(for: refreshedDevice) else {
+                        return nil
+                    }
+                    return (refreshedDevice, battery)
+                }
+
+                if let (refreshedDevice, battery) = batteryInfo {
+                    await MainActor.run {
+                        self.presentDeviceConnectedHUD(device: refreshedDevice, batteryLevel: battery)
+                    }
+                    self.cancelHUDBatteryWait(for: device)
+                    return
+                }
+            }
+
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self.presentDeviceConnectedHUD(device: device, batteryLevel: nil)
+            }
+            self.cancelHUDBatteryWait(for: device)
+        }
+
+        hudBatteryWaitTasks[device.id] = task
+    }
+
+    private func presentDeviceConnectedHUD(device: BluetoothAudioDevice, batteryLevel: Int?) {
+        guard Defaults[.showBluetoothDeviceConnections] else { return }
+
+        print("🎧 [BluetoothAudioManager] 📱 Showing device connected HUD")
+
+        let batteryValue: CGFloat = if let batteryLevel {
+            CGFloat(clampBatteryPercentage(batteryLevel)) / 100.0
         } else {
-            0.0  // 0 means battery info not available
+            0.0
         }
 
         HUDSuppressionCoordinator.shared.suppressVolumeHUD(for: 1.5)
-        
-        // Show HUD via coordinator
+
         coordinator.toggleSneakPeek(
             status: true,
             type: .bluetoothAudio,
@@ -1382,6 +1446,8 @@ class BluetoothAudioManager: ObservableObject {
         dnc.removeObserver(self)
         observers.removeAll()
         cancellables.removeAll()
+        hudBatteryWaitTasks.values.forEach { $0.cancel() }
+        hudBatteryWaitTasks.removeAll()
     }
 
     @MainActor
