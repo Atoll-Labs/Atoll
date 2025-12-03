@@ -18,6 +18,7 @@ import UniformTypeIdentifiers
 
 private enum SettingsTab: String, CaseIterable, Identifiable {
     case general
+    case liveActivities
     case appearance
     case lockScreen
     case media
@@ -41,6 +42,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: return "General"
+        case .liveActivities: return "Live Activities"
         case .appearance: return "Appearance"
         case .lockScreen: return "Lock Screen"
         case .media: return "Media"
@@ -64,6 +66,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .general: return "gear"
+        case .liveActivities: return "waveform.path.ecg"
         case .appearance: return "paintpalette"
         case .lockScreen: return "lock.laptopcomputer"
         case .media: return "play.laptopcomputer"
@@ -87,6 +90,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     var tint: Color {
         switch self {
         case .general: return .blue
+        case .liveActivities: return .pink
         case .appearance: return .purple
         case .lockScreen: return .orange
         case .media: return .green
@@ -362,6 +366,7 @@ struct SettingsView: View {
     private var availableTabs: [SettingsTab] {
         let ordered: [SettingsTab] = [
             .general,
+            .liveActivities,
             .appearance,
             .lockScreen,
             .media,
@@ -554,19 +559,23 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .general, title: "Show on a specific display", keywords: ["preferred screen", "display picker"], highlightID: SettingsTab.general.highlightID(for: "Show on a specific display")),
             SettingsSearchEntry(tab: .general, title: "Automatically switch displays", keywords: ["auto switch", "displays"], highlightID: SettingsTab.general.highlightID(for: "Automatically switch displays")),
             SettingsSearchEntry(tab: .general, title: "Hide Dynamic Island during screenshots & recordings", keywords: ["privacy", "screenshot", "recording"], highlightID: SettingsTab.general.highlightID(for: "Hide Dynamic Island during screenshots & recordings")),
-            SettingsSearchEntry(tab: .general, title: "Enable Screen Recording Detection", keywords: ["screen recording", "indicator"], highlightID: SettingsTab.general.highlightID(for: "Enable Screen Recording Detection")),
-            SettingsSearchEntry(tab: .general, title: "Show Recording Indicator", keywords: ["recording indicator", "red dot"], highlightID: SettingsTab.general.highlightID(for: "Show Recording Indicator")),
-            SettingsSearchEntry(tab: .general, title: "Enable Focus Detection", keywords: ["focus", "do not disturb", "dnd"], highlightID: SettingsTab.general.highlightID(for: "Enable Focus Detection")),
-            SettingsSearchEntry(tab: .general, title: "Show Focus Indicator", keywords: ["focus icon", "moon"], highlightID: SettingsTab.general.highlightID(for: "Show Focus Indicator")),
-            SettingsSearchEntry(tab: .general, title: "Show Focus Label", keywords: ["focus label", "text"], highlightID: SettingsTab.general.highlightID(for: "Show Focus Label")),
-            SettingsSearchEntry(tab: .general, title: "Enable Camera Detection", keywords: ["camera", "privacy indicator"], highlightID: SettingsTab.general.highlightID(for: "Enable Camera Detection")),
-            SettingsSearchEntry(tab: .general, title: "Enable Microphone Detection", keywords: ["microphone", "privacy"], highlightID: SettingsTab.general.highlightID(for: "Enable Microphone Detection")),
             SettingsSearchEntry(tab: .general, title: "Enable gestures", keywords: ["gestures", "trackpad"], highlightID: SettingsTab.general.highlightID(for: "Enable gestures")),
             SettingsSearchEntry(tab: .general, title: "Close gesture", keywords: ["pinch", "swipe"], highlightID: SettingsTab.general.highlightID(for: "Close gesture")),
             SettingsSearchEntry(tab: .general, title: "Extend hover area", keywords: ["hover", "cursor"], highlightID: SettingsTab.general.highlightID(for: "Extend hover area")),
             SettingsSearchEntry(tab: .general, title: "Enable haptics", keywords: ["haptic", "feedback"], highlightID: SettingsTab.general.highlightID(for: "Enable haptics")),
             SettingsSearchEntry(tab: .general, title: "Open notch on hover", keywords: ["hover to open", "auto open"], highlightID: SettingsTab.general.highlightID(for: "Open notch on hover")),
             SettingsSearchEntry(tab: .general, title: "Notch display height", keywords: ["display height", "menu bar size"], highlightID: SettingsTab.general.highlightID(for: "Notch display height")),
+
+            // Live Activities
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable Screen Recording Detection", keywords: ["screen recording", "indicator"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable Screen Recording Detection")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Show Recording Indicator", keywords: ["recording indicator", "red dot"], highlightID: SettingsTab.liveActivities.highlightID(for: "Show Recording Indicator")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable Focus Detection", keywords: ["focus", "do not disturb", "dnd"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable Focus Detection")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Show Focus Indicator", keywords: ["focus icon", "moon"], highlightID: SettingsTab.liveActivities.highlightID(for: "Show Focus Indicator")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Show Focus Label", keywords: ["focus label", "text"], highlightID: SettingsTab.liveActivities.highlightID(for: "Show Focus Label")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable Camera Detection", keywords: ["camera", "privacy indicator"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable Camera Detection")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable Microphone Detection", keywords: ["microphone", "privacy"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable Microphone Detection")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable music live activity", keywords: ["music", "now playing"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable music live activity")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable reminder live activity", keywords: ["reminder", "live activity"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable reminder live activity")),
 
             // Battery (Charge)
             SettingsSearchEntry(tab: .battery, title: "Show battery indicator", keywords: ["battery hud", "charge"], highlightID: SettingsTab.battery.highlightID(for: "Show battery indicator")),
@@ -719,6 +728,10 @@ struct SettingsView: View {
             SettingsForm(tab: .general) {
                 GeneralSettings()
             }
+        case .liveActivities:
+            SettingsForm(tab: .liveActivities) {
+                LiveActivitiesSettings()
+            }
         case .appearance:
             SettingsForm(tab: .appearance) {
                 Appearance()
@@ -819,10 +832,6 @@ struct GeneralSettings: View {
     @State private var screens: [String] = NSScreen.screens.compactMap { $0.localizedName }
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
-    @ObservedObject var recordingManager = ScreenRecordingManager.shared
-    @ObservedObject var privacyManager = PrivacyIndicatorManager.shared
-    @ObservedObject var doNotDisturbManager = DoNotDisturbManager.shared
-
     @Default(.mirrorShape) var mirrorShape
     @Default(.showEmojis) var showEmojis
     @Default(.gestureSensitivity) var gestureSensitivity
@@ -835,11 +844,6 @@ struct GeneralSettings: View {
     @Default(.automaticallySwitchDisplay) var automaticallySwitchDisplay
     @Default(.enableGestures) var enableGestures
     @Default(.openNotchOnHover) var openNotchOnHover
-    @Default(.enableScreenRecordingDetection) var enableScreenRecordingDetection
-    @Default(.showRecordingIndicator) var showRecordingIndicator
-    @Default(.enableDoNotDisturbDetection) var enableDoNotDisturbDetection
-    @Default(.showDoNotDisturbIndicator) var showDoNotDisturbIndicator
-    @Default(.showDoNotDisturbLabel) var showDoNotDisturbLabel
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
 
     private func highlightID(_ title: String) -> String {
@@ -895,130 +899,6 @@ struct GeneralSettings: View {
                     .settingsHighlight(id: highlightID("Hide Dynamic Island during screenshots & recordings"))
             } header: {
                 Text("System features")
-            }
-            
-            Section {
-                Defaults.Toggle("Enable Screen Recording Detection", key: .enableScreenRecordingDetection)
-                    .settingsHighlight(id: highlightID("Enable Screen Recording Detection"))
-
-                Defaults.Toggle("Show Recording Indicator", key: .showRecordingIndicator)
-                    .disabled(!enableScreenRecordingDetection)
-                    .settingsHighlight(id: highlightID("Show Recording Indicator"))
-
-                // Note: Polling removed - now uses event-driven private API detection
-
-                if recordingManager.isMonitoring {
-                    HStack {
-                        Text("Detection Status")
-                        Spacer()
-                        if recordingManager.isRecording {
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(Color.red)
-                                    .frame(width: 8, height: 8)
-                                Text("Recording Detected")
-                                    .foregroundColor(.red)
-                            }
-                        } else {
-                            Text("Active - No Recording")
-                                .foregroundColor(.green)
-                        }
-                    }
-                }
-            } header: {
-                Text("Screen Recording")
-            } footer: {
-                Text("Uses event-driven private API for real-time screen recording detection")
-            }
-
-            Section {
-                Defaults.Toggle("Enable Focus Detection", key: .enableDoNotDisturbDetection)
-                    .settingsHighlight(id: highlightID("Enable Focus Detection"))
-
-                Defaults.Toggle("Show Focus Indicator", key: .showDoNotDisturbIndicator)
-                    .disabled(!enableDoNotDisturbDetection)
-                    .settingsHighlight(id: highlightID("Show Focus Indicator"))
-
-                Defaults.Toggle("Show Focus Label", key: .showDoNotDisturbLabel)
-                    .disabled(!enableDoNotDisturbDetection)
-                    .settingsHighlight(id: highlightID("Show Focus Label"))
-
-                if doNotDisturbManager.isMonitoring {
-                    HStack {
-                        Text("Focus Status")
-                        Spacer()
-                        if doNotDisturbManager.isDoNotDisturbActive {
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(Color.purple)
-                                    .frame(width: 8, height: 8)
-                                Text(doNotDisturbManager.currentFocusModeName.isEmpty ? "Focus Enabled" : doNotDisturbManager.currentFocusModeName)
-                                    .foregroundColor(.purple)
-                            }
-                        } else {
-                            Text("Active - No Focus")
-                                .foregroundColor(.green)
-                        }
-                    }
-                } else {
-                    HStack {
-                        Text("Focus Status")
-                        Spacer()
-                        Text("Disabled")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            } header: {
-                Text("Do Not Disturb")
-            } footer: {
-                Text("Listens for Focus session changes via distributed notifications")
-            }
-
-            Section {
-                Defaults.Toggle("Enable Camera Detection", key: .enableCameraDetection)
-                    .settingsHighlight(id: highlightID("Enable Camera Detection"))
-                Defaults.Toggle("Enable Microphone Detection", key: .enableMicrophoneDetection)
-                    .settingsHighlight(id: highlightID("Enable Microphone Detection"))
-                
-                if privacyManager.isMonitoring {
-                    HStack {
-                        Text("Camera Status")
-                        Spacer()
-                        if privacyManager.cameraActive {
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(Color.green)
-                                    .frame(width: 8, height: 8)
-                                Text("Camera Active")
-                                    .foregroundColor(.green)
-                            }
-                        } else {
-                            Text("Inactive")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    HStack {
-                        Text("Microphone Status")
-                        Spacer()
-                        if privacyManager.microphoneActive {
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(Color.yellow)
-                                    .frame(width: 8, height: 8)
-                                Text("Microphone Active")
-                                    .foregroundColor(.yellow)
-                            }
-                        } else {
-                            Text("Inactive")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-            } header: {
-                Text("Privacy Indicators")
-            } footer: {
-                Text("Shows green camera icon and yellow microphone icon when in use. Uses event-driven CoreAudio and CoreMediaIO APIs.")
             }
             
             Section {
@@ -2164,6 +2044,168 @@ struct Extensions: View {
         .navigationTitle("Extensions")
         // TipsView()
         // .padding(.horizontal, 19)
+    }
+}
+
+struct LiveActivitiesSettings: View {
+    @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
+    @ObservedObject var recordingManager = ScreenRecordingManager.shared
+    @ObservedObject var privacyManager = PrivacyIndicatorManager.shared
+    @ObservedObject var doNotDisturbManager = DoNotDisturbManager.shared
+
+    @Default(.enableScreenRecordingDetection) var enableScreenRecordingDetection
+    @Default(.enableDoNotDisturbDetection) var enableDoNotDisturbDetection
+
+    private func highlightID(_ title: String) -> String {
+        SettingsTab.liveActivities.highlightID(for: title)
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle("Enable Screen Recording Detection", key: .enableScreenRecordingDetection)
+                    .settingsHighlight(id: highlightID("Enable Screen Recording Detection"))
+
+                Defaults.Toggle("Show Recording Indicator", key: .showRecordingIndicator)
+                    .disabled(!enableScreenRecordingDetection)
+                    .settingsHighlight(id: highlightID("Show Recording Indicator"))
+
+                if recordingManager.isMonitoring {
+                    HStack {
+                        Text("Detection Status")
+                        Spacer()
+                        if recordingManager.isRecording {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 8, height: 8)
+                                Text("Recording Detected")
+                                    .foregroundColor(.red)
+                            }
+                        } else {
+                            Text("Active - No Recording")
+                                .foregroundColor(.green)
+                        }
+                    }
+                }
+            } header: {
+                Text("Screen Recording")
+            } footer: {
+                Text("Uses event-driven private API for real-time screen recording detection")
+            }
+
+            Section {
+                Defaults.Toggle("Enable Focus Detection", key: .enableDoNotDisturbDetection)
+                    .settingsHighlight(id: highlightID("Enable Focus Detection"))
+
+                Defaults.Toggle("Show Focus Indicator", key: .showDoNotDisturbIndicator)
+                    .disabled(!enableDoNotDisturbDetection)
+                    .settingsHighlight(id: highlightID("Show Focus Indicator"))
+
+                Defaults.Toggle("Show Focus Label", key: .showDoNotDisturbLabel)
+                    .disabled(!enableDoNotDisturbDetection)
+                    .settingsHighlight(id: highlightID("Show Focus Label"))
+
+                if doNotDisturbManager.isMonitoring {
+                    HStack {
+                        Text("Focus Status")
+                        Spacer()
+                        if doNotDisturbManager.isDoNotDisturbActive {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.purple)
+                                    .frame(width: 8, height: 8)
+                                Text(doNotDisturbManager.currentFocusModeName.isEmpty ? "Focus Enabled" : doNotDisturbManager.currentFocusModeName)
+                                    .foregroundColor(.purple)
+                            }
+                        } else {
+                            Text("Active - No Focus")
+                                .foregroundColor(.green)
+                        }
+                    }
+                } else {
+                    HStack {
+                        Text("Focus Status")
+                        Spacer()
+                        Text("Disabled")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            } header: {
+                Text("Do Not Disturb")
+            } footer: {
+                Text("Listens for Focus session changes via distributed notifications")
+            }
+
+            Section {
+                Defaults.Toggle("Enable Camera Detection", key: .enableCameraDetection)
+                    .settingsHighlight(id: highlightID("Enable Camera Detection"))
+                Defaults.Toggle("Enable Microphone Detection", key: .enableMicrophoneDetection)
+                    .settingsHighlight(id: highlightID("Enable Microphone Detection"))
+
+                if privacyManager.isMonitoring {
+                    HStack {
+                        Text("Camera Status")
+                        Spacer()
+                        if privacyManager.cameraActive {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 8, height: 8)
+                                Text("Camera Active")
+                                    .foregroundColor(.green)
+                            }
+                        } else {
+                            Text("Inactive")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    HStack {
+                        Text("Microphone Status")
+                        Spacer()
+                        if privacyManager.microphoneActive {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.yellow)
+                                    .frame(width: 8, height: 8)
+                                Text("Microphone Active")
+                                    .foregroundColor(.yellow)
+                            }
+                        } else {
+                            Text("Inactive")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            } header: {
+                Text("Privacy Indicators")
+            } footer: {
+                Text("Shows green camera icon and yellow microphone icon when in use. Uses event-driven CoreAudio and CoreMediaIO APIs.")
+            }
+
+            Section {
+                Toggle(
+                    "Enable music live activity",
+                    isOn: $coordinator.musicLiveActivityEnabled.animation()
+                )
+                .settingsHighlight(id: highlightID("Enable music live activity"))
+            } header: {
+                Text("Media Live Activity")
+            } footer: {
+                Text("Use the Media tab to configure sneak peek, lyrics, and floating media controls.")
+            }
+
+            Section {
+                Defaults.Toggle("Enable reminder live activity", key: .enableReminderLiveActivity)
+                    .settingsHighlight(id: highlightID("Enable reminder live activity"))
+            } header: {
+                Text("Reminder Live Activity")
+            } footer: {
+                Text("Configure countdown style and lock screen widgets in the Calendar tab.")
+            }
+        }
+        .navigationTitle("Live Activities")
     }
 }
 
