@@ -628,6 +628,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .appearance, title: "Enable window shadow", keywords: ["shadow", "appearance"], highlightID: SettingsTab.appearance.highlightID(for: "Enable window shadow")),
             SettingsSearchEntry(tab: .appearance, title: "Corner radius scaling", keywords: ["corner radius", "shape"], highlightID: SettingsTab.appearance.highlightID(for: "Corner radius scaling")),
             SettingsSearchEntry(tab: .appearance, title: "Use simpler close animation", keywords: ["close animation", "notch"], highlightID: SettingsTab.appearance.highlightID(for: "Use simpler close animation")),
+            SettingsSearchEntry(tab: .appearance, title: "Notch Width", keywords: ["expanded notch", "width", "resize"], highlightID: SettingsTab.appearance.highlightID(for: "Expanded notch width")),
             SettingsSearchEntry(tab: .appearance, title: "Enable colored spectrograms", keywords: ["spectrogram", "audio"], highlightID: SettingsTab.appearance.highlightID(for: "Enable colored spectrograms")),
             SettingsSearchEntry(tab: .appearance, title: "Enable blur effect behind album art", keywords: ["blur", "album art"], highlightID: SettingsTab.appearance.highlightID(for: "Enable blur effect behind album art")),
             SettingsSearchEntry(tab: .appearance, title: "Slider color", keywords: ["slider", "accent"], highlightID: SettingsTab.appearance.highlightID(for: "Slider color")),
@@ -1783,8 +1784,8 @@ struct CalendarSettings: View {
                 HStack {
                     Button("Request Access") {
                         Task {
-                            await calendarManager.checkCalendarAuthorization(forceReload: true)
-                            await calendarManager.checkReminderAuthorization(forceReload: true)
+                            await calendarManager.checkCalendarAuthorization()
+                            await calendarManager.checkReminderAuthorization()
                         }
                     }
                     .buttonStyle(.borderedProminent)
@@ -2173,6 +2174,8 @@ struct Appearance: View {
     @Default(.useMusicVisualizer) var useMusicVisualizer
     @Default(.customVisualizers) var customVisualizers
     @Default(.selectedVisualizer) var selectedVisualizer
+    @Default(.openNotchWidth) var openNotchWidth
+    @Default(.enableMinimalisticUI) var enableMinimalisticUI
     let icons: [String] = ["logo2"]
     @State private var selectedIcon: String = "logo2"
     @State private var selectedListVisualizer: CustomVisualizer? = nil
@@ -2181,6 +2184,9 @@ struct Appearance: View {
     @State private var name: String = ""
     @State private var url: String = ""
     @State private var speed: CGFloat = 1.0
+
+    private let notchWidthRange: ClosedRange<Double> = 640...900
+    private let defaultOpenNotchWidth: CGFloat = 640
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.appearance.highlightID(for: title)
@@ -2201,6 +2207,8 @@ struct Appearance: View {
             } header: {
                 Text("General")
             }
+
+            notchWidthControls()
 
             Section {
                 Defaults.Toggle("Enable colored spectrograms", key: .coloredSpectrogram)
@@ -2462,6 +2470,61 @@ struct Appearance: View {
         }
 
         return false
+    }
+
+    @ViewBuilder
+    private func notchWidthControls() -> some View {
+        Section {
+            let widthBinding = Binding<Double>(
+                get: { Double(openNotchWidth) },
+                set: { newValue in
+                    let clamped = min(max(newValue, notchWidthRange.lowerBound), notchWidthRange.upperBound)
+                    let value = CGFloat(clamped)
+                    if openNotchWidth != value {
+                        openNotchWidth = value
+                    }
+                }
+            )
+
+            VStack(alignment: .leading, spacing: 10) {
+                Slider(
+                    value: widthBinding,
+                    in: notchWidthRange,
+                    step: 10
+                ) {
+                    HStack {
+                        Text("Expanded notch width")
+                        Spacer()
+                        Text("\(Int(openNotchWidth)) px")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(enableMinimalisticUI)
+                .settingsHighlight(id: highlightID("Expanded notch width"))
+
+                HStack {
+                    Spacer()
+                    Button("Reset Width") {
+                        openNotchWidth = defaultOpenNotchWidth
+                    }
+                    .disabled(abs(openNotchWidth - defaultOpenNotchWidth) < 0.5)
+                    .buttonStyle(.bordered)
+                }
+
+                let description = enableMinimalisticUI
+                    ? "Width adjustments apply only to the standard notch layout. Disable Minimalistic UI to edit this value."
+                    : "Extend the notch span so the clipboard, colour picker, and other trailing icons remain visible on scaled displays (e.g. More Space)."
+
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            HStack {
+                Text("Notch Width")
+                customBadge(text: "Beta")
+            }
+        }
     }
 }
 

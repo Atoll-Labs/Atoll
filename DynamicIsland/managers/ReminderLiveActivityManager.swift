@@ -41,6 +41,19 @@ final class ReminderLiveActivityManager: ObservableObject {
     private var evaluationTask: Task<Void, Never>?
     private var hasShownCriticalSneakPeek = false
     private var latestEvents: [EventModel] = []
+    private var pendingEventsSnapshot: [EventModel]? = nil
+    private var eventsUpdateDebounceTask: Task<Void, Never>? { didSet { oldValue?.cancel() } }
+    private var upcomingComputationTask: Task<Void, Never>? { didSet { oldValue?.cancel() } }
+    private let eventsDebounceInterval: TimeInterval = 0.35
+    private var settingsUpdateTask: Task<Void, Never>? { didSet { oldValue?.cancel() } }
+    private var pendingSettingsAction: (() -> Void)?
+    private var pendingSettingsReason: String?
+    private let settingsUpdateDebounceInterval: TimeInterval = 0.2
+    private var suppressUpdatesForLock = false
+
+    private var lastAppliedLeadTime = Defaults[.reminderLeadTime]
+    private var lastAppliedHideAllDay = Defaults[.hideAllDayEvents]
+    private var lastAppliedHideCompleted = Defaults[.hideCompletedReminders]
 
     private let calendarManager = CalendarManager.shared
 
@@ -67,21 +80,35 @@ final class ReminderLiveActivityManager: ObservableObject {
             .store(in: &cancellables)
 
         Defaults.publisher(.reminderLeadTime, options: [])
-            .sink { [weak self] _ in
+            .map(\.newValue)
+            .sink { [weak self] newValue in
                 guard let self else { return }
-                self.recalculateUpcomingEntries(reason: "lead-time")
+                guard newValue != self.lastAppliedLeadTime else { return }
+                self.scheduleSettingsRecalculation(reason: "lead-time") {
+                    self.lastAppliedLeadTime = newValue
+                }
             }
             .store(in: &cancellables)
 
         Defaults.publisher(.hideAllDayEvents, options: [])
-            .sink { [weak self] _ in
-                self?.recalculateUpcomingEntries(reason: "hide-all-day")
+            .map(\.newValue)
+            .sink { [weak self] newValue in
+                guard let self else { return }
+                guard newValue != self.lastAppliedHideAllDay else { return }
+                self.scheduleSettingsRecalculation(reason: "hide-all-day") {
+                    self.lastAppliedHideAllDay = newValue
+                }
             }
             .store(in: &cancellables)
 
         Defaults.publisher(.hideCompletedReminders, options: [])
-            .sink { [weak self] _ in
-                self?.recalculateUpcomingEntries(reason: "hide-completed")
+            .map(\.newValue)
+            .sink { [weak self] newValue in
+                guard let self else { return }
+                guard newValue != self.lastAppliedHideCompleted else { return }
+                self.scheduleSettingsRecalculation(reason: "hide-completed") {
+                    self.lastAppliedHideCompleted = newValue
+                }
             }
             .store(in: &cancellables)
 
@@ -96,12 +123,40 @@ final class ReminderLiveActivityManager: ObservableObject {
             .store(in: &cancellables)
 
         calendarManager.$events
+            .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] events in
-                guard let self else { return }
-                self.handleCalendarEventsUpdate(events)
+                self?.handleCalendarEventsUpdate(events)
             }
             .store(in: &cancellables)
+
+        LockScreenManager.shared.$isLocked
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] locked in
+                self?.handleLockStateChange(isLocked: locked)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func scheduleSettingsRecalculation(reason: String, action: @escaping () -> Void) {
+        pendingSettingsAction = action
+        pendingSettingsReason = reason
+        settingsUpdateTask = Task { [weak self] in
+            guard let self else { return }
+            let delay = UInt64(settingsUpdateDebounceInterval * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: delay)
+            await self.applyPendingSettingsRecalculation()
+        }
+    }
+
+    @MainActor
+    private func applyPendingSettingsRecalculation() {
+        guard let action = pendingSettingsAction, let reason = pendingSettingsReason else { return }
+        pendingSettingsAction = nil
+        pendingSettingsReason = nil
+        action()
+        recalculateUpcomingEntries(reason: reason)
     }
 
     private func cancelAllTimers() {
@@ -120,28 +175,56 @@ final class ReminderLiveActivityManager: ObservableObject {
     }
 
     private func handleCalendarEventsUpdate(_ events: [EventModel]) {
-        latestEvents = events
+        pendingEventsSnapshot = events
+        guard !suppressUpdatesForLock else { return }
+        schedulePendingEventsSnapshotApplication()
+    }
+
+    private func schedulePendingEventsSnapshotApplication() {
+        eventsUpdateDebounceTask = Task { [weak self] in
+            guard let self else { return }
+            let delay = UInt64(eventsDebounceInterval * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: delay)
+            guard !Task.isCancelled else { return }
+            await self.applyPendingEventsSnapshot()
+        }
+    }
+
+    @MainActor
+    private func applyPendingEventsSnapshot() {
+        guard !suppressUpdatesForLock else { return }
+        guard let snapshot = pendingEventsSnapshot else { return }
+        pendingEventsSnapshot = nil
+        guard snapshot != latestEvents else { return }
+
+        latestEvents = snapshot
         guard Defaults[.enableReminderLiveActivity] else { return }
-        logger.debug("[Reminder] Applying calendar snapshot update (events=\(events.count, privacy: .public))")
+        logger.debug("[Reminder] Applying calendar snapshot update (events=\(snapshot.count, privacy: .public))")
         recalculateUpcomingEntries(reason: "calendar-events")
     }
 
-    private func shouldHide(_ event: EventModel) -> Bool {
-        if event.isAllDay && Defaults[.hideAllDayEvents] {
-            return true
+    private func handleLockStateChange(isLocked: Bool) {
+        suppressUpdatesForLock = isLocked
+        if isLocked {
+            eventsUpdateDebounceTask = nil
+            upcomingComputationTask = nil
+            settingsUpdateTask = nil
+            pendingSettingsAction = nil
+            pendingSettingsReason = nil
+            pauseReminderActivityForLock()
+        } else {
+            if pendingEventsSnapshot != nil {
+                schedulePendingEventsSnapshotApplication()
+            } else {
+                recalculateUpcomingEntries(reason: "lock-resume")
+            }
         }
-        if case let .reminder(completed) = event.type,
-           completed && Defaults[.hideCompletedReminders] {
-            return true
-        }
-        return false
     }
 
-    private func makeEntry(from event: EventModel, leadMinutes: Int, referenceDate: Date) -> ReminderEntry? {
-        guard event.start > referenceDate else { return nil }
-        let leadSeconds = max(1, leadMinutes) * 60
-        let trigger = event.start.addingTimeInterval(TimeInterval(-leadSeconds))
-        return ReminderEntry(event: event, triggerDate: trigger, leadTime: TimeInterval(leadSeconds))
+    private func pauseReminderActivityForLock() {
+        tickerTask = nil
+        evaluationTask?.cancel()
+        evaluationTask = nil
     }
 
     private func recalculateUpcomingEntries(referenceDate: Date = Date(), reason: String) {
@@ -149,17 +232,32 @@ final class ReminderLiveActivityManager: ObservableObject {
             deactivateReminder()
             return
         }
+        let snapshot = latestEvents
+        let leadMinutes = Defaults[.reminderLeadTime]
+        let hideAllDay = Defaults[.hideAllDayEvents]
+        let hideCompleted = Defaults[.hideCompletedReminders]
 
-        guard calendarManager.hasReminderAccess else {
+        upcomingComputationTask = Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            guard !Task.isCancelled else { return }
+            let upcoming = Self.buildUpcomingEntries(
+                events: snapshot,
+                leadMinutes: leadMinutes,
+                referenceDate: referenceDate,
+                hideAllDayEvents: hideAllDay,
+                hideCompletedReminders: hideCompleted
+            )
+            guard !Task.isCancelled else { return }
+            await self.publishUpcomingEntries(upcoming, referenceDate: referenceDate, reason: reason)
+        }
+    }
+
+    @MainActor
+    private func publishUpcomingEntries(_ upcoming: [ReminderEntry], referenceDate: Date, reason: String) {
+        guard Defaults[.enableReminderLiveActivity] else {
             deactivateReminder()
             return
         }
-
-        let leadMinutes = Defaults[.reminderLeadTime]
-        let upcoming = latestEvents
-            .filter { !shouldHide($0) }
-            .compactMap { makeEntry(from: $0, leadMinutes: leadMinutes, referenceDate: referenceDate) }
-            .sorted { $0.triggerDate < $1.triggerDate }
 
         upcomingEntries = upcoming
         updateActiveWindowReminders(for: referenceDate)
@@ -172,6 +270,34 @@ final class ReminderLiveActivityManager: ObservableObject {
 
         logger.debug("[Reminder] Next reminder ‘\(first.event.title, privacy: .public)’ (reason=\(reason, privacy: .public))")
         handleEntrySelection(first, referenceDate: referenceDate)
+    }
+
+    nonisolated private static func buildUpcomingEntries(
+        events: [EventModel],
+        leadMinutes: Int,
+        referenceDate: Date,
+        hideAllDayEvents: Bool,
+        hideCompletedReminders: Bool
+    ) -> [ReminderEntry] {
+        guard !Task.isCancelled else { return [] }
+        let leadSeconds = max(1, leadMinutes) * 60
+        var entries: [ReminderEntry] = []
+        entries.reserveCapacity(events.count)
+        for event in events {
+            if Task.isCancelled { return [] }
+            if hideAllDayEvents && event.isAllDay {
+                continue
+            }
+            if hideCompletedReminders,
+               case let .reminder(completed) = event.type,
+               completed {
+                continue
+            }
+            guard event.start > referenceDate else { continue }
+            let trigger = event.start.addingTimeInterval(TimeInterval(-leadSeconds))
+            entries.append(.init(event: event, triggerDate: trigger, leadTime: TimeInterval(leadSeconds)))
+        }
+        return entries.sorted { $0.triggerDate < $1.triggerDate }
     }
 
     private func clearActiveReminderState() {

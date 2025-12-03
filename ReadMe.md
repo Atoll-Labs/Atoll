@@ -91,7 +91,7 @@ Atoll turns the MacBook notch into a focused command surface for media, system i
 - Current weather conditions and forecast.
 
 <p align="center">
-  <video src=".github/assets/Lockscreen-v1.2.mp4" alt="Lock screen widgets" width="520" autoplay loop muted></video>
+  <img src=".github/assets/lockscreen-v1.2.gif" alt="Do Not Disturb" width="520">
 </p>
 
 ## Overview
