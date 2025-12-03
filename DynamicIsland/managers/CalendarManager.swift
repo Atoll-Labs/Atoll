@@ -23,19 +23,21 @@ class CalendarManager: ObservableObject {
     @Published var selectedCalendarIDs: Set<String> = []
     @Published var calendarAuthorizationStatus: EKAuthorizationStatus = .notDetermined
     @Published var reminderAuthorizationStatus: EKAuthorizationStatus = .notDetermined
+
     private var selectedCalendars: [CalendarModel] = []
     private let calendarService = CalendarService()
-
+    private var lastEventsFetchDate: Date?
+    private let reloadRefreshInterval: TimeInterval = 15
     private var eventStoreChangedObserver: NSObjectProtocol?
 
     var hasCalendarAccess: Bool { isAuthorized(calendarAuthorizationStatus) }
     var hasReminderAccess: Bool { isAuthorized(reminderAuthorizationStatus) }
 
     private init() {
-        self.currentWeekStartDate = CalendarManager.startOfDay(Date())
+        currentWeekStartDate = CalendarManager.startOfDay(Date())
         setupEventStoreChangedObserver()
         Task {
-            await self.bootstrapAuthorizations()
+            await reloadCalendarAndReminderLists()
         }
     }
 
@@ -52,98 +54,84 @@ class CalendarManager: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task {
-                await self?.reloadCalendarAndReminderLists()
+                guard let self else { return }
+                await self.reloadCalendarAndReminderLists()
+                await self.maybeRefreshEventsAfterReload()
             }
         }
     }
 
     @MainActor
     func reloadCalendarAndReminderLists() async {
-        let all = await calendarService.calendars()
-        self.eventCalendars = all.filter { !$0.isReminder }
-        self.reminderLists = all.filter { $0.isReminder }
-        self.allCalendars = all // for legacy compatibility, can be removed if not needed
+        let allCalendars = await calendarService.calendars()
+        eventCalendars = allCalendars.filter { !$0.isReminder }
+        reminderLists = allCalendars.filter { $0.isReminder }
+        self.allCalendars = allCalendars
         updateSelectedCalendars()
+    }
+
+    @MainActor
+    private func maybeRefreshEventsAfterReload() async {
+        guard hasCalendarAccess else { return }
+        let now = Date()
+        if let lastFetch = lastEventsFetchDate, now.timeIntervalSince(lastFetch) < reloadRefreshInterval {
+            return
+        }
         await updateEvents()
-    }
-
-    private func bootstrapAuthorizations() async {
-        await checkCalendarAuthorization(forceReload: true)
-        await checkReminderAuthorization(forceReload: true)
-    }
-
-    private func refreshAuthorizationStatuses() {
-        calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
-        reminderAuthorizationStatus = EKEventStore.authorizationStatus(for: .reminder)
     }
 
     private func isAuthorized(_ status: EKAuthorizationStatus) -> Bool {
         switch status {
-        case .fullAccess, .authorized:
+        case .authorized, .fullAccess:
             return true
         default:
             return false
         }
     }
 
-    func checkCalendarAuthorization(forceReload: Bool = false) async {
-        refreshAuthorizationStatuses()
-        let status = calendarAuthorizationStatus
-        print("📅 Current calendar authorization status: \(status.rawValue)")
+    func checkCalendarAuthorization() async {
+        let status = EKEventStore.authorizationStatus(for: .event)
+        calendarAuthorizationStatus = status
 
         switch status {
         case .notDetermined:
             let granted = await calendarService.requestAccess(to: .event)
-            refreshAuthorizationStatuses()
-            if granted || hasCalendarAccess {
+            calendarAuthorizationStatus = granted ? .fullAccess : .denied
+            if granted {
                 await reloadCalendarAndReminderLists()
                 await updateEvents()
             }
         case .restricted, .denied:
             NSLog("Calendar access denied or restricted")
-        case .writeOnly:
-            NSLog("Calendar write-only access")
-        case .fullAccess:
-            guard forceReload else { return }
+        case .authorized, .fullAccess:
             await reloadCalendarAndReminderLists()
             await updateEvents()
+        case .writeOnly:
+            NSLog("Calendar write only")
         @unknown default:
-            if isAuthorized(status) {
-                guard forceReload else { return }
-                await reloadCalendarAndReminderLists()
-                await updateEvents()
-            } else {
-                print("Unknown authorization status: \(status.rawValue)")
-            }
+            NSLog("Unknown calendar authorization status")
         }
     }
 
-    func checkReminderAuthorization(forceReload: Bool = false) async {
-        refreshAuthorizationStatuses()
-        let status = reminderAuthorizationStatus
-        print("📅 Current reminder authorization status: \(status.rawValue)")
+    func checkReminderAuthorization() async {
+        let status = EKEventStore.authorizationStatus(for: .reminder)
+        reminderAuthorizationStatus = status
 
         switch status {
         case .notDetermined:
             let granted = await calendarService.requestAccess(to: .reminder)
-            refreshAuthorizationStatuses()
-            if granted || hasReminderAccess {
+            reminderAuthorizationStatus = granted ? .fullAccess : .denied
+            if granted {
                 await reloadCalendarAndReminderLists()
             }
         case .restricted, .denied:
             NSLog("Reminder access denied or restricted")
-        case .writeOnly:
-            NSLog("Reminder write-only access")
-        case .fullAccess:
-            guard forceReload else { return }
+        case .authorized, .fullAccess:
             await reloadCalendarAndReminderLists()
+        case .writeOnly:
+            NSLog("Reminder write only")
         @unknown default:
-            if isAuthorized(status) {
-                guard forceReload else { return }
-                await reloadCalendarAndReminderLists()
-            } else {
-                print("Unknown reminder authorization status: \(status.rawValue)")
-            }
+            NSLog("Unknown reminder authorization status")
         }
     }
 
@@ -171,7 +159,6 @@ class CalendarManager: ObservableObject {
                 let identifiers = Set(allCalendars.map { $0.id }).subtracting([calendar.id])
                 selectionState = .selected(identifiers)
             }
-
         case .selected(var identifiers):
             if isSelected {
                 identifiers.insert(calendar.id)
@@ -179,9 +166,11 @@ class CalendarManager: ObservableObject {
                 identifiers.remove(calendar.id)
             }
 
-            selectionState =
-                identifiers.isEmpty
-                ? .all : identifiers.count == allCalendars.count ? .all : .selected(identifiers)  // if empty, select all
+            if identifiers.isEmpty || identifiers.count == allCalendars.count {
+                selectionState = .all
+            } else {
+                selectionState = .selected(identifiers)
+            }
         }
 
         Defaults[.calendarSelectionState] = selectionState
@@ -190,7 +179,7 @@ class CalendarManager: ObservableObject {
     }
 
     static func startOfDay(_ date: Date) -> Date {
-        return Calendar.current.startOfDay(for: date)
+        Calendar.current.startOfDay(for: date)
     }
 
     func updateCurrentDate(_ date: Date) async {
@@ -200,12 +189,13 @@ class CalendarManager: ObservableObject {
 
     private func updateEvents() async {
         let calendarIDs = selectedCalendars.map { $0.id }
-        let eventsResult = await calendarService.events(
+        let events = await calendarService.events(
             from: currentWeekStartDate,
             to: Calendar.current.date(byAdding: .day, value: 1, to: currentWeekStartDate)!,
             calendars: calendarIDs
         )
-        self.events = eventsResult
+        self.events = events
+        lastEventsFetchDate = Date()
     }
 
     func setReminderCompleted(reminderID: String, completed: Bool) async {

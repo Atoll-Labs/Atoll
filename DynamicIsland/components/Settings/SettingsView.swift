@@ -1784,8 +1784,8 @@ struct CalendarSettings: View {
                 HStack {
                     Button("Request Access") {
                         Task {
-                            await calendarManager.checkCalendarAuthorization(forceReload: true)
-                            await calendarManager.checkReminderAuthorization(forceReload: true)
+                            await calendarManager.checkCalendarAuthorization()
+                            await calendarManager.checkReminderAuthorization()
                         }
                     }
                     .buttonStyle(.borderedProminent)
