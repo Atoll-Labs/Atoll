@@ -152,6 +152,8 @@ Atoll builds upon the work of several open-source projects and draws inspiration
 
 - [**Stats**](https://github.com/exelban/stats) - source implementation for CPU temperature monitoring via SMC (System Management Controller) access, frequency sampling through IOReport bindings, and per-core CPU utilisation tracking. The system metrics collection architecture derives from Stats project readers.
 
+- [**Open Meteo**](https://open-meteo.com) - weather apis for the lock screen widgets
+
 ## Contributors
 
 <a href="https://github.com/Ebullioscopic/Atoll/graphs/contributors">
