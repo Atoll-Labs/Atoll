@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import SkyLightWindow
+import QuartzCore
 
 @MainActor
 final class LockScreenReminderWidgetPanelManager {
@@ -27,6 +28,20 @@ final class LockScreenReminderWidgetPanelManager {
         guard let window else { return }
         window.orderOut(nil)
         window.contentView = nil
+    }
+
+    func refreshPosition(animated: Bool) {
+        guard let window, window.isVisible, let screen = NSScreen.main else { return }
+        let target = frame(for: window.frame.size, on: screen)
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.22
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                window.animator().setFrame(target, display: true)
+            }
+        } else {
+            window.setFrame(target, display: true)
+        }
     }
 
     private func render(snapshot: LockScreenReminderWidgetSnapshot, makeVisible: Bool) {
@@ -84,25 +99,34 @@ final class LockScreenReminderWidgetPanelManager {
         let screenFrame = screen.frame
         let originX = screenFrame.midX - (size.width / 2)
         let musicTop = LockScreenPanelManager.shared.latestFrame?.maxY ?? (screenFrame.midY - 32)
-
-        let defaultWeatherBottom = screenFrame.midY + (screenFrame.height * 0.14)
-        let weatherBottom = LockScreenWeatherPanelManager.shared.latestFrame?.minY ?? min(screenFrame.maxY - 120, max(defaultWeatherBottom, musicTop + size.height + 80))
+        let timerFrame = LockScreenTimerWidgetPanelManager.shared.latestFrame
 
         let marginAboveMusic: CGFloat = 16
+        let marginAboveTimer: CGFloat = 24
         let marginBelowWeather: CGFloat = 16
 
-        let constrainedWeatherBottom = max(weatherBottom, musicTop + size.height + marginAboveMusic + marginBelowWeather)
-        let centerY = (musicTop + constrainedWeatherBottom) / 2
-        let lowerBound = screenFrame.minY + 80
-        let upperBound = constrainedWeatherBottom - marginBelowWeather - size.height
+        let baseLowerBound = musicTop + marginAboveMusic
+        let timerLowerBound = timerFrame.map { $0.maxY + marginAboveTimer }
+        let minYFloor = screenFrame.minY + 80
+        let lowerBound = max(timerLowerBound ?? baseLowerBound, minYFloor)
 
-        var proposedY = centerY - (size.height / 2)
-        if proposedY < lowerBound {
-            proposedY = lowerBound
+        let defaultWeatherBottom = screenFrame.midY + (screenFrame.height * 0.14)
+        let minimumWeatherBottom = lowerBound + size.height + marginBelowWeather
+        let weatherBottom = LockScreenWeatherPanelManager.shared.latestFrame?.minY ?? min(screenFrame.maxY - 120, max(defaultWeatherBottom, minimumWeatherBottom))
+
+        let upperBound = weatherBottom - marginBelowWeather - size.height
+        let clampedUpperBound = max(upperBound, lowerBound)
+
+        let prefersTopAlignment = timerFrame != nil
+        var proposedY: CGFloat
+
+        if prefersTopAlignment {
+            proposedY = clampedUpperBound
+        } else {
+            proposedY = (lowerBound + clampedUpperBound) / 2
         }
-        if upperBound > lowerBound {
-            proposedY = min(proposedY, upperBound)
-        }
+
+        proposedY = max(lowerBound, min(proposedY, clampedUpperBound))
 
         return NSRect(x: originX, y: proposedY, width: size.width, height: size.height)
     }

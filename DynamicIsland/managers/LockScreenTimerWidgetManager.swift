@@ -101,6 +101,7 @@ final class LockScreenTimerWidgetPanelManager {
     private var hasDelegated = false
     private let animator = LockScreenTimerWidgetAnimator()
     private var hideTask: Task<Void, Never>?
+    private(set) var latestFrame: NSRect?
 
     private init() {}
 
@@ -109,11 +110,13 @@ final class LockScreenTimerWidgetPanelManager {
         let window = ensureWindow()
         let frame = targetFrame(on: screen)
         window.setFrame(frame, display: true)
+        latestFrame = frame
         window.alphaValue = 1
         window.orderFrontRegardless()
         hideTask?.cancel()
         hideTask = nil
         animator.isPresented = true
+        LockScreenReminderWidgetPanelManager.shared.refreshPosition(animated: true)
     }
 
     func hide(animated: Bool = true) {
@@ -125,6 +128,8 @@ final class LockScreenTimerWidgetPanelManager {
         if delay == 0 {
             window.orderOut(nil)
             hideTask = nil
+            latestFrame = nil
+            LockScreenReminderWidgetPanelManager.shared.refreshPosition(animated: true)
             return
         }
 
@@ -133,6 +138,8 @@ final class LockScreenTimerWidgetPanelManager {
             await MainActor.run {
                 window?.orderOut(nil)
                 self?.hideTask = nil
+                self?.latestFrame = nil
+                LockScreenReminderWidgetPanelManager.shared.refreshPosition(animated: true)
             }
         }
     }
@@ -150,6 +157,8 @@ final class LockScreenTimerWidgetPanelManager {
         } else {
             window.setFrame(frame, display: true)
         }
+        latestFrame = frame
+        LockScreenReminderWidgetPanelManager.shared.refreshPosition(animated: animated)
     }
 
     func refreshRelativeToMusicPanel(animated: Bool) {
