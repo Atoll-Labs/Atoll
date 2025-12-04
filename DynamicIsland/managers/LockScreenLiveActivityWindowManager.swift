@@ -22,8 +22,12 @@ class LockScreenLiveActivityWindowManager {
     private let overlayModel = LockScreenLiveActivityOverlayModel()
     private let overlayAnimator = LockIconAnimator(initiallyLocked: LockScreenManager.shared.isLocked)
     private weak var viewModel: DynamicIslandViewModel?
+    private var screenChangeObserver: NSObjectProtocol?
+    private var workspaceObservers: [NSObjectProtocol] = []
 
-    private init() {}
+    private init() {
+        registerScreenChangeObservers()
+    }
 
     private func timestamp() -> String {
         let formatter = DateFormatter()
@@ -94,6 +98,45 @@ class LockScreenLiveActivityWindowManager {
         }
 
         return (notchSize, screen)
+    }
+
+    private func registerScreenChangeObservers() {
+        screenChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleScreenGeometryChange(reason: "screen-parameters")
+        }
+
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+        let wakeObserver = workspaceCenter.addObserver(
+            forName: NSWorkspace.screensDidWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleScreenGeometryChange(reason: "screens-did-wake")
+        }
+        workspaceObservers = [wakeObserver]
+    }
+
+    private func handleScreenGeometryChange(reason: String) {
+        guard let window else { return }
+        guard window.isVisible || window.alphaValue > 0.01 else { return }
+        guard let context = lockContext() else { return }
+
+        let windowSize = windowSize(for: context.notchSize)
+        let targetFrame = frame(for: windowSize, on: context.screen)
+        if window.frame != targetFrame {
+            window.setFrame(targetFrame, display: true)
+        }
+
+        if let hostingView {
+            hostingView.frame = CGRect(origin: .zero, size: targetFrame.size)
+            hostingView.rootView = LockScreenLiveActivityOverlay(model: overlayModel, animator: overlayAnimator, notchSize: context.notchSize)
+        }
+
+        print("[\(timestamp())] LockScreenLiveActivityWindowManager: realigned window due to \(reason)")
     }
 
     private func present(notchSize: CGSize, on screen: NSScreen) {
