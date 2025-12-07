@@ -398,6 +398,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.debouncedUpdateWindowSize()
         }.store(in: &cancellables)
 
+        MemoryUsageMonitor.shared.startMonitoring()
+
         ReminderLiveActivityManager.shared.$activeWindowReminders
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
