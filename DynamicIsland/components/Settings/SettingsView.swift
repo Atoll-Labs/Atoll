@@ -4,6 +4,7 @@
 //
 //  Created by Richard Kunkli on 07/08/2024.
 //
+import AppKit
 import AVFoundation
 import Combine
 import Defaults
@@ -628,6 +629,10 @@ struct SettingsView: View {
             // Shelf
             SettingsSearchEntry(tab: .shelf, title: "Enable shelf", keywords: ["shelf", "dock"], highlightID: SettingsTab.shelf.highlightID(for: "Enable shelf")),
             SettingsSearchEntry(tab: .shelf, title: "Open shelf tab by default if items added", keywords: ["auto open", "shelf tab"], highlightID: SettingsTab.shelf.highlightID(for: "Open shelf tab by default if items added")),
+            SettingsSearchEntry(tab: .shelf, title: "Expanded drag detection area", keywords: ["shelf", "drag"], highlightID: SettingsTab.shelf.highlightID(for: "Expanded drag detection area")),
+            SettingsSearchEntry(tab: .shelf, title: "Copy items on drag", keywords: ["shelf", "drag", "copy"], highlightID: SettingsTab.shelf.highlightID(for: "Copy items on drag")),
+            SettingsSearchEntry(tab: .shelf, title: "Remove from shelf after dragging", keywords: ["shelf", "drag", "remove"], highlightID: SettingsTab.shelf.highlightID(for: "Remove from shelf after dragging")),
+            SettingsSearchEntry(tab: .shelf, title: "Quick Share Service", keywords: ["shelf", "share", "airdrop"], highlightID: SettingsTab.shelf.highlightID(for: "Quick Share Service")),
 
             // Appearance
             SettingsSearchEntry(tab: .appearance, title: "Settings icon in notch", keywords: ["settings button", "toolbar"], highlightID: SettingsTab.appearance.highlightID(for: "Settings icon in notch")),
@@ -1900,6 +1905,20 @@ struct About: View {
 }
 
 struct Shelf: View {
+    @Default(.quickShareProvider) var quickShareProvider
+    @Default(.expandedDragDetection) var expandedDragDetection
+    @Default(.copyOnDrag) var copyOnDrag
+    @Default(.autoRemoveShelfItems) var autoRemoveShelfItems
+    @StateObject private var quickShareService = QuickShareService.shared
+
+    private var selectedProvider: QuickShareProvider? {
+        quickShareService.availableProviders.first(where: { $0.id == quickShareProvider })
+    }
+
+    init() {
+        Task { await QuickShareService.shared.discoverAvailableProviders() }
+    }
+
     private func highlightID(_ title: String) -> String {
         SettingsTab.shelf.highlightID(for: title)
     }
@@ -1909,14 +1928,88 @@ struct Shelf: View {
             Section {
                 Defaults.Toggle("Enable shelf", key: .dynamicShelf)
                     .settingsHighlight(id: highlightID("Enable shelf"))
+
                 Defaults.Toggle("Open shelf tab by default if items added", key: .openShelfByDefault)
                     .settingsHighlight(id: highlightID("Open shelf tab by default if items added"))
+
+                Defaults.Toggle(key: .expandedDragDetection) {
+                    Text("Expanded drag detection area")
+                }
+                .settingsHighlight(id: highlightID("Expanded drag detection area"))
+
+                Defaults.Toggle(key: .copyOnDrag) {
+                    Text("Copy items on drag")
+                }
+                .settingsHighlight(id: highlightID("Copy items on drag"))
+
+                Defaults.Toggle(key: .autoRemoveShelfItems) {
+                    Text("Remove from shelf after dragging")
+                }
+                .settingsHighlight(id: highlightID("Remove from shelf after dragging"))
             } header: {
                 HStack {
                     Text("General")
                 }
             }
+
+            Section {
+                Picker("Quick Share Service", selection: $quickShareProvider) {
+                    ForEach(quickShareService.availableProviders, id: \.id) { provider in
+                        HStack {
+                            Group {
+                                if let imgData = provider.imageData, let nsImg = NSImage(data: imgData) {
+                                    Image(nsImage: nsImg)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                } else {
+                                    Image(systemName: "square.and.arrow.up")
+                                }
+                            }
+                            .frame(width: 16, height: 16)
+                            .foregroundColor(.accentColor)
+                            Text(provider.id)
+                        }
+                        .tag(provider.id)
+                    }
+                }
+                .pickerStyle(.menu)
+                .settingsHighlight(id: highlightID("Quick Share Service"))
+
+                if let selectedProvider {
+                    HStack {
+                        Group {
+                            if let imgData = selectedProvider.imageData, let nsImg = NSImage(data: imgData) {
+                                Image(nsImage: nsImg)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                            } else {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+                        }
+                        .frame(width: 16, height: 16)
+                        .foregroundColor(.accentColor)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Currently selected: \(selectedProvider.id)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("Files dropped on the shelf will be shared via this service")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            } header: {
+                HStack {
+                    Text("Quick Share")
+                }
+            } footer: {
+                Text("Choose which service to use when sharing files from the shelf. Drag files onto the shelf or click the shelf button to pick files.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .accentColor(.effectiveAccent)
         .navigationTitle("Shelf")
     }
 }
