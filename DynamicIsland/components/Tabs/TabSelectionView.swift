@@ -25,8 +25,10 @@ struct TabSelectionView: View {
         var tabsArray: [TabModel] = []
         
         tabsArray.append(TabModel(label: "Home", icon: "house.fill", view: .home))
-        
-        tabsArray.append(TabModel(label: "Shelf", icon: "tray.fill", view: .shelf))
+
+        if Defaults[.dynamicShelf] {
+            tabsArray.append(TabModel(label: "Shelf", icon: "tray.fill", view: .shelf))
+        }
         
         // Stats tab only shown when stats feature is enabled
         if Defaults[.enableStatsFeature] {

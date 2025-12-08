@@ -501,6 +501,9 @@ extension Defaults.Keys {
         // MARK: Shelf
     static let dynamicShelf = Key<Bool>("dynamicShelf", default: true)
     static let openShelfByDefault = Key<Bool>("openShelfByDefault", default: true)
+        static let quickShareProvider = Key<String>("quickShareProvider", default: "AirDrop")
+        static let copyOnDrag = Key<Bool>("copyOnDrag", default: false)
+        static let autoRemoveShelfItems = Key<Bool>("autoRemoveShelfItems", default: false)
     
         // MARK: Calendar
     static let calendarSelectionState = Key<CalendarSelectionState>("calendarSelectionState", default: .all)

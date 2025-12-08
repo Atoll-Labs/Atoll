@@ -14,7 +14,7 @@ struct DynamicIslandHeader: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject var clipboardManager = ClipboardManager.shared
-    @ObservedObject var tvm = TrayDrop.shared
+    @ObservedObject var shelfState = ShelfStateViewModel.shared
     @ObservedObject var timerManager = TimerManager.shared
     @ObservedObject var doNotDisturbManager = DoNotDisturbManager.shared
     @State private var showClipboardPopover = false
@@ -26,10 +26,9 @@ struct DynamicIslandHeader: View {
         HStack(spacing: 0) {
             if !Defaults[.enableMinimalisticUI] {
                 HStack {
-                    if (!tvm.isEmpty || coordinator.alwaysShowTabs) && Defaults[.dynamicShelf] {
+                    let shouldShowTabs = coordinator.alwaysShowTabs || vm.notchState == .open || !shelfState.items.isEmpty
+                    if shouldShowTabs {
                         TabSelectionView()
-                    } else if vm.notchState == .open {
-                        EmptyView()
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
