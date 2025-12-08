@@ -11,6 +11,8 @@ class BatteryStatusViewModel: ObservableObject {
     private var powerSourceChangedCallback: IOPowerSourceCallbackType?
     private var runLoopSource: Unmanaged<CFRunLoopSource>?
     var animations: DynamicIslandAnimations = DynamicIslandAnimations()
+    private let lowBatteryAlertSoundPlayer = AudioPlayer()
+    private let lowBatteryAlertThresholds: [Float] = [20, 15, 10, 5]
 
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
 
@@ -63,6 +65,8 @@ class BatteryStatusViewModel: ObservableObject {
 
         case .batteryLevelChanged(let level):
             print("🔋 Battery level: \(Int(level))%")
+            let previousLevel = self.levelBattery
+            self.handleLowBatteryAlertIfNeeded(previousLevel: previousLevel, newLevel: level)
             withAnimation {
                 self.levelBattery = level
             }
@@ -126,6 +130,25 @@ class BatteryStatusViewModel: ObservableObject {
             try? await Task.sleep(for: .seconds(delay))
             self.coordinator.toggleExpandingView(status: true, type: .battery)
         }
+    }
+
+    private func handleLowBatteryAlertIfNeeded(previousLevel: Float, newLevel: Float) {
+        guard Defaults[.playLowBatteryAlertSound] else { return }
+        guard !isPluggedIn, !isCharging else { return }
+        guard newLevel < previousLevel else { return }
+
+        for threshold in lowBatteryAlertThresholds {
+            if previousLevel >= threshold && newLevel < threshold {
+                self.statusText = "Low battery"
+                notifyImportanChangeStatus()
+                playLowBatteryAlertSound()
+                break
+            }
+        }
+    }
+
+    private func playLowBatteryAlertSound() {
+        lowBatteryAlertSoundPlayer.play(fileName: "lowbattery", fileExtension: "mp3")
     }
 
     deinit {

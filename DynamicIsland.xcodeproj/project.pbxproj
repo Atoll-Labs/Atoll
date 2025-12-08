@@ -440,8 +440,8 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)/System/Library/Frameworks",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
 				);
 			};
 			name = Debug;
@@ -509,8 +509,8 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)/System/Library/Frameworks",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
 				);
 			};
 			name = Release;

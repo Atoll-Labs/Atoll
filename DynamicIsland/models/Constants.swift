@@ -482,6 +482,7 @@ extension Defaults.Keys {
     static let showBatteryIndicator = Key<Bool>("showBatteryIndicator", default: true)
     static let showBatteryPercentage = Key<Bool>("showBatteryPercentage", default: true)
     static let showPowerStatusIcons = Key<Bool>("showPowerStatusIcons", default: true)
+    static let playLowBatteryAlertSound = Key<Bool>("playLowBatteryAlertSound", default: true)
     
         // MARK: Downloads
     static let enableDownloadListener = Key<Bool>("enableDownloadListener", default: true)
@@ -501,6 +502,10 @@ extension Defaults.Keys {
         // MARK: Shelf
     static let dynamicShelf = Key<Bool>("dynamicShelf", default: true)
     static let openShelfByDefault = Key<Bool>("openShelfByDefault", default: true)
+        static let quickShareProvider = Key<String>("quickShareProvider", default: "AirDrop")
+        static let copyOnDrag = Key<Bool>("copyOnDrag", default: false)
+        static let autoRemoveShelfItems = Key<Bool>("autoRemoveShelfItems", default: false)
+        static let expandedDragDetection = Key<Bool>("expandedDragDetection", default: true)
     
         // MARK: Calendar
     static let calendarSelectionState = Key<CalendarSelectionState>("calendarSelectionState", default: .all)
