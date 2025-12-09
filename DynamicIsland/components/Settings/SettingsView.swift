@@ -2696,14 +2696,7 @@ struct LockScreenSettings: View {
 
                     if lockScreenWeatherShowsBatteryGauge {
                         Defaults.Toggle("Use MacBook icon when on battery", key: .lockScreenWeatherBatteryUsesLaptopSymbol)
-                            .disabled(lockScreenWeatherWidgetStyle != .circular)
                             .settingsHighlight(id: highlightID("Use MacBook icon when on battery"))
-
-                        if lockScreenWeatherWidgetStyle != .circular {
-                            Text("The MacBook icon is available only in the circular layout.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
                     }
 
                     Defaults.Toggle("Show Bluetooth battery", key: .lockScreenWeatherShowsBluetooth)
