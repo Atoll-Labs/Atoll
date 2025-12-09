@@ -21,6 +21,7 @@ struct DynamicIslandHeader: View {
     @State private var showColorPickerPopover = false
     @State private var showTimerPopover = false
     @Default(.enableTimerFeature) var enableTimerFeature
+    @Default(.timerDisplayMode) var timerDisplayMode
     
     var body: some View {
         HStack(spacing: 0) {
@@ -144,7 +145,7 @@ struct DynamicIslandHeader: View {
                         }
                     }
                     
-                    if Defaults[.enableTimerFeature] {
+                    if Defaults[.enableTimerFeature] && timerDisplayMode == .popover {
                         Button(action: {
                             withAnimation(.smooth) {
                                 showTimerPopover.toggle()
@@ -248,6 +249,12 @@ struct DynamicIslandHeader: View {
         }
         .onChange(of: enableTimerFeature) { _, newValue in
             if !newValue {
+                showTimerPopover = false
+                vm.isTimerPopoverActive = false
+            }
+        }
+        .onChange(of: timerDisplayMode) { _, mode in
+            if mode == .tab {
                 showTimerPopover = false
                 vm.isTimerPopoverActive = false
             }

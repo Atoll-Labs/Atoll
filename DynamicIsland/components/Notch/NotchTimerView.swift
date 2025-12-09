@@ -7,298 +7,547 @@
 
 import SwiftUI
 import Defaults
+#if canImport(AppKit)
+import AppKit
+#endif
 
 struct NotchTimerView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var timerManager = TimerManager.shared
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @Default(.enableTimerFeature) var enableTimerFeature
-    
-    @AppStorage("customTimerDuration") private var customTimerDuration: Double = 600 // 10 minutes default
-    
+    @Default(.timerPresets) private var timerPresets
+    @Default(.timerIconColorMode) private var colorMode
+    @Default(.timerSolidColor) private var solidColor
+    @Default(.timerShowsProgress) private var showsProgress
+    @Default(.timerProgressStyle) private var progressStyle
+
+    @AppStorage("customTimerDuration") private var customTimerDuration: Double = 600
+    @State private var customHours: Int = 0
+    @State private var customMinutes: Int = 10
+    @State private var customSeconds: Int = 0
+    @State private var isSyncingCustomDuration = false
+    @State private var lockedAccentColor: Color?
+
     var body: some View {
-        if enableTimerFeature {
-            HStack(alignment: .center, spacing: 32) {
-                // Timer Progress and Controls
-                timerProgressSection
-                
-                // Timer Control Panel
-                controlsSection
-            }
-            .padding(.horizontal, 20)
-            .transition(.opacity.combined(with: .blurReplace))
-        } else {
-            VStack(spacing: 16) {
-                Image(systemName: "timer.slash")
-                    .font(.system(size: 48, weight: .light))
-                    .foregroundStyle(.secondary)
-                
-                Text("Timer Disabled")
-                    .font(.title2)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.primary)
-                
-                Text("Enable timer feature in Settings to use this tab")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-    
-    private var timerProgressSection: some View {
-        VStack(spacing: 16) {
-            // Circular progress display
-            ZStack {
-                // Background ring
-                Circle()
-                    .stroke(.white.opacity(0.1), lineWidth: 8)
-                    .frame(width: 100, height: 100)
-                
-                // Progress ring
-                Circle()
-                    .trim(from: 0, to: timerManager.progress)
-                    .stroke(
-                        timerManager.currentColor,
-                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                    )
-                    .frame(width: 100, height: 100)
-                    .rotationEffect(.degrees(-90))
-                    .animation(.easeInOut(duration: 0.5), value: timerManager.progress)
-                
-                // Timer icon in center
-                Image(systemName: "timer")
-                    .font(.system(size: 32, weight: .medium))
-                    .foregroundStyle(openIconColor)
-                    .scaleEffect(timerManager.isRunning && timerManager.isTimerActive ? 1.1 : 1.0)
-                    .animation(
-                        timerManager.isRunning && timerManager.isTimerActive ? 
-                        .easeInOut(duration: 0.3).repeatForever(autoreverses: true) : 
-                        .easeInOut(duration: 0.3), 
-                        value: timerManager.isRunning && timerManager.isTimerActive
-                    )
-            }
-            
-            // Time display
-            VStack(spacing: 4) {
-                Text(timerManager.formattedTimeRemaining)
-                    .font(.system(size: 24, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(timerManager.isOvertime ? .red : .white)
-                
-                if timerManager.isTimerActive && timerManager.isPaused {
-                    Text("Paused")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.secondary)
+        Group {
+            if enableTimerFeature {
+                HStack(alignment: .top, spacing: timerManager.isTimerActive ? 0 : 20) {
+                    leftColumn
+                    if shouldShowPresetColumn {
+                        Divider()
+                            .frame(height: max(0, maxTabContentHeight - 8))
+                            .opacity(0.2)
+                        presetColumn
+                    }
                 }
+                .frame(maxHeight: maxTabContentHeight, alignment: .top)
+                .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                .transition(.opacity.combined(with: .blurReplace))
+                .onAppear { syncCustomDuration(with: customTimerDuration) }
+                .onChange(of: customTimerDuration) { _, newValue in syncCustomDuration(with: newValue) }
+                .onChange(of: customHours) { _, _ in updateStoredCustomDuration() }
+                .onChange(of: customMinutes) { _, _ in updateStoredCustomDuration() }
+                .onChange(of: customSeconds) { _, _ in updateStoredCustomDuration() }
+            } else {
+                disabledState
+            }
+        }
+        .onAppear {
+            lockAccentColorIfNeeded()
+        }
+        .onChange(of: timerManager.isTimerActive) { _, isActive in
+            if isActive {
+                lockAccentColorIfNeeded()
+            } else {
+                lockedAccentColor = nil
+            }
+        }
+        .onChange(of: timerManager.activePresetId) { _, _ in
+            if timerManager.isTimerActive && lockedAccentColor == nil {
+                lockAccentColorIfNeeded()
             }
         }
     }
-    
-    private var controlsSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            if timerManager.allowsManualInteraction {
-                manualControlButtons
-                quickTimerControls
+
+    private var leftColumn: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if timerManager.isTimerActive {
+                activeTimerCard
             } else {
-                externalTimerNotice
+                customTimerComposer
             }
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxHeight: maxTabContentHeight, alignment: .top)
+        .padding(.bottom, 2)
     }
 
-    private var manualControlButtons: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if timerManager.isOvertime {
-                Button(action: {
-                    timerManager.forceStopTimer()
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.red)
-                        Text("Stop")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.red)
-                    }
-                    .frame(height: 40)
-                    .frame(minWidth: 100)
-                    .background(.white.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-                .buttonStyle(PlainButtonStyle())
-                .onHover(perform: cursorHover)
+    private var presetColumn: some View {
+        VStack(spacing: 6) {
+            if timerPresets.isEmpty {
+                Text("Configure presets in Settings to see them here.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .background(Color.white.opacity(0.05))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             } else {
-                HStack(spacing: 16) {
-                    Button(action: {
-                        if timerManager.isPaused {
-                            timerManager.resumeTimer()
-                        } else {
-                            timerManager.pauseTimer()
+                let computedHeight = CGFloat(timerPresets.count) * 60 + 4
+                let listHeight = min(max(0, maxTabContentHeight - 16), computedHeight)
+                List {
+                    ForEach(timerPresets) { preset in
+                        TimerPresetCard(preset: preset, isActive: timerManager.activePresetId == preset.id) {
+                            timerManager.startTimer(duration: preset.duration, name: preset.name, preset: preset)
+                            coordinator.currentView = .timer
                         }
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: timerManager.isPaused ? "play.fill" : "pause.fill")
-                                .font(.system(size: 16, weight: .medium))
-                            Text(timerManager.isPaused ? "Resume" : "Pause")
-                                .font(.system(size: 16, weight: .medium))
-                        }
-                        .foregroundStyle(.white)
-                        .frame(height: 40)
-                        .frame(minWidth: 100)
-                        .background(.white.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .onHover(perform: cursorHover)
-
-                    Button(action: {
-                        timerManager.stopTimer()
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "stop.fill")
-                                .font(.system(size: 16, weight: .medium))
-                            Text("Stop")
-                                .font(.system(size: 16, weight: .medium))
-                        }
-                        .foregroundStyle(.white)
-                        .frame(height: 40)
-                        .frame(minWidth: 100)
-                        .background(.white.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .onHover(perform: cursorHover)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .scrollIndicators(.never)
+                .frame(height: listHeight)
+            }
+        }
+        .frame(width: 210, alignment: .leading)
+        .frame(maxHeight: maxTabContentHeight, alignment: .top)
+        .padding(.bottom, 2)
+    }
+
+    private var activeTimerCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 14) {
+                leadingControlSection
+                    .frame(width: 128, alignment: .leading)
+
+                timerTitleSection
+
+                countdownSection
+            }
+
+            if showsProgress {
+                progressSection
+            }
+        }
+        .padding(16)
+        .background(Color.white.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var leadingControlSection: some View {
+        if timerManager.allowsManualInteraction {
+            HStack(spacing: 10) {
+                TimerControlButton(
+                    icon: pauseIconName,
+                    foreground: .white.opacity(0.95),
+                    background: timerAccentColor.opacity(0.32),
+                    accessibilityLabel: pauseAccessibilityLabel,
+                    action: togglePauseAction
+                )
+
+                TimerControlButton(
+                    icon: "xmark",
+                    foreground: .white.opacity(0.95),
+                    background: Color.white.opacity(0.16),
+                    accessibilityLabel: "Stop",
+                    action: stopTimerAction
+                )
+            }
+        } else {
+            externalTimerNotice
+        }
+    }
+
+    private var timerTitleSection: some View {
+        GeometryReader { geometry in
+            let status = timerStatusText
+            let spacing: CGFloat = status == nil ? 0 : 8
+            let badgeWidth: CGFloat = status.map(statusBadgeWidth) ?? 0
+            let marqueeWidth = max(48, geometry.size.width - badgeWidth - spacing)
+
+            HStack(alignment: .center, spacing: spacing) {
+                MarqueeText(
+                    .constant(timerDisplayName),
+                    font: .system(size: 20, weight: .semibold),
+                    nsFont: .title3,
+                    textColor: .white,
+                    minDuration: 0.2,
+                    frameWidth: marqueeWidth
+                )
+                .frame(width: marqueeWidth, height: 24, alignment: .leading)
+
+                if let status {
+                    statusBadge(status)
+                        .frame(width: badgeWidth)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(height: 32)
+    }
+
+    private var countdownSection: some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            Text(timerManager.formattedRemainingTime())
+                .font(.system(size: 36, weight: .black, design: .monospaced))
+                .foregroundStyle(timerManager.isOvertime ? Color.red : .white)
+                .contentTransition(.numericText())
+                .animation(.smooth(duration: 0.25), value: timerManager.remainingTime)
+
+            if timerManager.isOvertime {
+                Text("Overtime")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .frame(width: 150, alignment: .trailing)
+    }
+
+    @ViewBuilder
+    private var progressSection: some View {
+        if progressStyle == .bar {
+            GeometryReader { geometry in
+                Capsule()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(height: 4)
+                    .overlay(alignment: .leading) {
+                        Capsule()
+                            .fill(timerAccentColor)
+                            .frame(width: geometry.size.width * max(0, CGFloat(min(timerManager.progress, 1.0))))
+                            .animation(.smooth(duration: 0.25), value: timerManager.progress)
+                    }
+            }
+            .frame(height: 4)
+            .frame(maxWidth: .infinity)
+        } else {
+            HStack(spacing: 12) {
+                TimerProgressRing(progress: timerManager.progress, tint: timerAccentColor)
+                    .frame(height: 56)
+                Spacer()
             }
         }
     }
 
-    private var quickTimerControls: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Quick Start")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.secondary)
+    private func togglePauseAction() {
+        guard timerManager.allowsManualInteraction else { return }
+        timerManager.isPaused ? timerManager.resumeTimer() : timerManager.pauseTimer()
+    }
 
-            VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    quickTimerButton(minutes: 1)
-                    quickTimerButton(minutes: 5)
-                    quickTimerButton(minutes: 15)
-                }
-
-                HStack(spacing: 12) {
-                    Button(action: {
-                        timerManager.startTimer(duration: customTimerDuration, name: "Custom Timer")
-                    }) {
-                        VStack(spacing: 4) {
-                            Text(customTimerDisplayText)
-                                .font(.system(size: 16, weight: .medium))
-                            Text("Custom")
-                                .font(.system(size: 12, weight: .regular))
-                                .opacity(0.7)
-                        }
-                        .foregroundStyle(.white)
-                        .frame(height: 60)
-                        .frame(minWidth: 80)
-                        .background(.white.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(.white.opacity(0.1), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .onHover(perform: cursorHover)
-                }
-            }
+    private func stopTimerAction() {
+        if timerManager.allowsManualInteraction {
+            timerManager.stopTimer()
+        } else {
+            timerManager.endExternalTimer(triggerSmoothClose: false)
         }
+    }
+
+    private var customTimerComposer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DurationInputRow(hours: $customHours, minutes: $customMinutes, seconds: $customSeconds)
+
+            Button {
+                withAnimation(.smooth) {
+                    timerManager.startTimer(duration: customDurationInSeconds, name: "Custom Timer")
+                    coordinator.currentView = .timer
+                }
+            } label: {
+                Label("Start Timer", systemImage: "play.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(customDurationInSeconds == 0)
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var externalTimerNotice: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Manage the Clock timer from the Clock app.")
-                .font(.system(size: 14, weight: .medium))
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Managed in Clock app", systemImage: "arrow.triangle.2.circlepath")
+                .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Button(action: {
+            Button("Hide", role: .destructive) {
                 timerManager.endExternalTimer(triggerSmoothClose: false)
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "eye.slash")
-                        .font(.system(size: 16, weight: .medium))
-                    Text("Hide from Notch")
-                        .font(.system(size: 16, weight: .medium))
-                }
-                .foregroundStyle(.white)
-                .frame(height: 40)
-                .frame(minWidth: 140)
-                .background(.white.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
             }
-            .buttonStyle(PlainButtonStyle())
-            .onHover(perform: cursorHover)
+            .buttonStyle(.borderless)
+            .font(.caption)
         }
     }
-    
-    private var customTimerDisplayText: String {
-        let totalMinutes = Int(customTimerDuration) / 60
-        let seconds = Int(customTimerDuration) % 60
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        
-        if hours > 0 {
-            return "\(hours):\(String(format: "%02d", minutes))"
-        } else if minutes > 0 {
-            return "\(minutes) min"
-        } else {
-            return "\(seconds)s"
+
+    private var disabledState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "timer.slash")
+                .font(.system(size: 48, weight: .light))
+                .foregroundStyle(.secondary)
+
+            Text("Timer Disabled")
+                .font(.title2)
+                .fontWeight(.medium)
+
+            Text("Enable the timer feature in Settings to access this tab.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var shouldShowPresetColumn: Bool {
+        !timerManager.isTimerActive
+    }
+
+    private var resolvedNotchHeight: CGFloat {
+        let height = vm.notchSize.height
+        return height > 0 ? height : openNotchSize.height
+    }
+
+    private var headerHeight: CGFloat {
+        max(24, vm.effectiveClosedNotchHeight)
+    }
+
+    private var maxTabContentHeight: CGFloat {
+        let available = resolvedNotchHeight - headerHeight - 36
+        return max(130, available)
+    }
+
+    private func lockAccentColorIfNeeded() {
+        if timerManager.isTimerActive {
+            lockedAccentColor = resolvedAccentColor
         }
     }
-    
-    private func quickTimerButton(minutes: Int) -> some View {
-        Button(action: {
-            timerManager.startTimer(duration: TimeInterval(minutes * 60), name: "\(minutes) Min Timer")
-        }) {
-            VStack(spacing: 4) {
-                Text("\(minutes)")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(.white)
-                Text("min")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-            .frame(width: 80, height: 60)
-            .background(.white.opacity(0.1))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(.white.opacity(0.1), lineWidth: 1)
-            )
+
+    private var timerAccentColor: Color {
+        lockedAccentColor ?? resolvedAccentColor
+    }
+
+    private var resolvedAccentColor: Color {
+        switch colorMode {
+        case .adaptive:
+            return timerManager.activePreset?.color ?? timerManager.timerColor
+        case .solid:
+            return solidColor
         }
-        .buttonStyle(PlainButtonStyle())
-        .onHover(perform: cursorHover)
+    }
+
+    private var timerDisplayName: String {
+        timerManager.timerName.isEmpty ? "Timer" : timerManager.timerName
+    }
+
+    private var timerStatusText: String? {
+        if timerManager.isOvertime {
+            return "Overtime"
+        } else if timerManager.isPaused {
+            return "Paused"
+        } else if timerManager.isFinished {
+            return "Completed"
+        }
+        return nil
+    }
+
+    private var timerStatusColor: Color {
+        timerManager.isOvertime ? .red : timerAccentColor
+    }
+
+    private func statusBadge(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(timerStatusColor)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .background(timerStatusColor.opacity(0.18))
+            .clipShape(Capsule())
+    }
+
+    private func statusBadgeWidth(for text: String) -> CGFloat {
+#if canImport(AppKit)
+        let font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+#elseif canImport(UIKit)
+        let font = UIFont.systemFont(ofSize: 12, weight: .semibold)
+#else
+        return 80
+#endif
+        let width = (text as NSString).size(withAttributes: [.font: font]).width
+        return width + 24
+    }
+
+    private var pauseIconName: String {
+        timerManager.isPaused ? "play.fill" : "pause.fill"
+    }
+
+    private var pauseAccessibilityLabel: String {
+        timerManager.isPaused ? "Resume" : "Pause"
+    }
+
+    private var customDurationInSeconds: TimeInterval {
+        TimeInterval(customHours * 3600 + customMinutes * 60 + customSeconds)
+    }
+
+    private func syncCustomDuration(with value: Double) {
+        isSyncingCustomDuration = true
+        let components = TimerPreset.components(for: value)
+        customHours = components.hours
+        customMinutes = components.minutes
+        customSeconds = components.seconds
+        isSyncingCustomDuration = false
+    }
+
+    private func updateStoredCustomDuration() {
+        guard !isSyncingCustomDuration else { return }
+        customTimerDuration = customDurationInSeconds
     }
 }
 
-private extension NotchTimerView {
-    var openIconColor: Color {
-        guard timerManager.isTimerActive && timerManager.isRunning else { return .white.opacity(0.9) }
-        return timerManager.currentColor
+private struct TimerControlButton: View {
+    let icon: String
+    let foreground: Color
+    let background: Color
+    let accessibilityLabel: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(foreground)
+                .frame(width: 46, height: 46)
+                .background(background)
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(accessibilityLabel)
+    }
+}
+
+private struct TimerProgressRing: View {
+    let progress: Double
+    let tint: Color
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.12), lineWidth: 6)
+            Circle()
+                .trim(from: 0, to: min(progress, 1.0))
+                .stroke(tint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.smooth(duration: 0.3), value: progress)
+        }
+        .frame(width: 60, height: 60)
+    }
+}
+
+private struct DurationInputRow: View {
+    @Binding var hours: Int
+    @Binding var minutes: Int
+    @Binding var seconds: Int
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            DurationField(label: "HH", value: $hours, range: 0...23)
+            colon
+            DurationField(label: "MM", value: $minutes, range: 0...59)
+            colon
+            DurationField(label: "SS", value: $seconds, range: 0...59)
+        }
     }
 
-    private func cursorHover(_ isHovering: Bool) {
-        if isHovering {
-            NSCursor.pointingHand.push()
-        } else {
-            NSCursor.pop()
+    private var colon: some View {
+        Text(":")
+            .font(.system(size: 26, weight: .black, design: .monospaced))
+            .foregroundStyle(.secondary)
+    }
+}
+
+private struct DurationField: View {
+    let label: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+
+    var body: some View {
+        VStack(spacing: 6) {
+            TextField("00", text: binding)
+                .font(.system(size: 28, weight: .semibold, design: .monospaced))
+                .multilineTextAlignment(.center)
+                .textFieldStyle(.plain)
+                .frame(width: 64, height: 46)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
+    }
+
+    private var binding: Binding<String> {
+        Binding<String>(
+            get: { String(format: "%02d", value) },
+            set: { newValue in
+                let digits = newValue.filter { $0.isNumber }
+                let number = min(max(range.lowerBound, Int(digits) ?? 0), range.upperBound)
+                value = number
+            }
+        )
+    }
+}
+
+private struct TimerPresetCard: View {
+    let preset: TimerPreset
+    let isActive: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(preset.color.gradient)
+                    .frame(width: 30, height: 30)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(preset.name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .lineLimit(1)
+                    Text(preset.formattedDuration)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: isActive ? "checkmark" : "play.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(isActive ? preset.color : Color.secondary)
+                    .padding(6)
+                    .background(isActive ? preset.color.opacity(0.2) : Color.white.opacity(0.08))
+                    .clipShape(Circle())
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isActive ? preset.color.opacity(0.12) : Color.white.opacity(0.04))
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
 #Preview {
     NotchTimerView()
         .environmentObject(DynamicIslandViewModel())
-        .frame(width: 500, height: 200)
+        .frame(width: 600, height: 320)
         .background(.black)
 }

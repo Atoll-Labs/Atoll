@@ -155,12 +155,15 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
         
         // Send to notch HUD if enabled and OSD is not enabled
         if Defaults[.enableSystemHUD] && !Defaults[.enableCustomOSD] && Defaults[.enableVolumeHUD] {
-            coordinator?.toggleSneakPeek(
-                status: true,
-                type: .volume,
-                value: CGFloat(value),
-                icon: ""
-            )
+            Task { @MainActor in
+                guard let coordinator else { return }
+                coordinator.toggleSneakPeek(
+                    status: true,
+                    type: .volume,
+                    value: CGFloat(value),
+                    icon: ""
+                )
+            }
         }
     }
 
@@ -174,12 +177,15 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
         
         // Send to notch HUD if enabled and OSD is not enabled
         if Defaults[.enableSystemHUD] && !Defaults[.enableCustomOSD] && Defaults[.enableBrightnessHUD] {
-            coordinator?.toggleSneakPeek(
-                status: true,
-                type: .brightness,
-                value: CGFloat(value),
-                icon: ""
-            )
+            Task { @MainActor in
+                guard let coordinator else { return }
+                coordinator.toggleSneakPeek(
+                    status: true,
+                    type: .brightness,
+                    value: CGFloat(value),
+                    icon: ""
+                )
+            }
         }
     }
 
@@ -193,12 +199,15 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
         
         // Send to notch HUD if enabled and OSD is not enabled
         if Defaults[.enableSystemHUD] && !Defaults[.enableCustomOSD] && Defaults[.enableKeyboardBacklightHUD] {
-            coordinator?.toggleSneakPeek(
-                status: true,
-                type: .backlight,
-                value: CGFloat(value),
-                icon: ""
-            )
+            Task { @MainActor in
+                guard let coordinator else { return }
+                coordinator.toggleSneakPeek(
+                    status: true,
+                    type: .backlight,
+                    value: CGFloat(value),
+                    icon: ""
+                )
+            }
         }
     }
 

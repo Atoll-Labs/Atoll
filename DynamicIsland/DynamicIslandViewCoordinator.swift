@@ -47,6 +47,7 @@ struct ExpandedItem {
 
 class DynamicIslandViewCoordinator: ObservableObject {
     static let shared = DynamicIslandViewCoordinator()
+    private var cancellables = Set<AnyCancellable>()
     
     @Published var currentView: NotchViews = .home {
         didSet {
@@ -64,6 +65,9 @@ class DynamicIslandViewCoordinator: ObservableObject {
     @AppStorage("showWhatsNew") var showWhatsNew: Bool = true
     @AppStorage("musicLiveActivityEnabled") var musicLiveActivityEnabled: Bool = true
     @AppStorage("timerLiveActivityEnabled") var timerLiveActivityEnabled: Bool = true
+
+    @Default(.enableTimerFeature) private var enableTimerFeature
+    @Default(.timerDisplayMode) private var timerDisplayMode
     
     @AppStorage("alwaysShowTabs") var alwaysShowTabs: Bool = true {
         didSet {
@@ -99,6 +103,19 @@ class DynamicIslandViewCoordinator: ObservableObject {
     
     private init() {
         selectedScreen = preferredScreen
+        Defaults.publisher(.timerDisplayMode)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] change in
+                self?.handleTimerDisplayModeChange(change.newValue)
+            }
+            .store(in: &cancellables)
+
+        Defaults.publisher(.enableTimerFeature)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] change in
+                self?.handleTimerFeatureToggle(change.newValue)
+            }
+            .store(in: &cancellables)
     }
 
     private func handleStatsTabTransition(from oldValue: NotchViews, to newValue: NotchViews) {
@@ -119,6 +136,20 @@ class DynamicIslandViewCoordinator: ObservableObject {
             withAnimation(.easeInOut(duration: 0.2)) {
                 statsSecondRowExpansion = 0
             }
+        }
+    }
+
+    private func handleTimerDisplayModeChange(_ mode: TimerDisplayMode) {
+        guard mode == .popover, currentView == .timer else { return }
+        withAnimation(.smooth) {
+            currentView = .home
+        }
+    }
+
+    private func handleTimerFeatureToggle(_ isEnabled: Bool) {
+        guard !isEnabled, currentView == .timer else { return }
+        withAnimation(.smooth) {
+            currentView = .home
         }
     }
     

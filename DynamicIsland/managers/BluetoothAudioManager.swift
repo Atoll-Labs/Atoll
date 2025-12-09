@@ -1425,13 +1425,15 @@ class BluetoothAudioManager: ObservableObject {
 
         HUDSuppressionCoordinator.shared.suppressVolumeHUD(for: 1.5)
 
-        coordinator.toggleSneakPeek(
-            status: true,
-            type: .bluetoothAudio,
-            duration: 2.5,
-            value: batteryValue,
-            icon: device.deviceType.sfSymbol
-        )
+        Task { @MainActor in
+            coordinator.toggleSneakPeek(
+                status: true,
+                type: .bluetoothAudio,
+                duration: 2.5,
+                value: batteryValue,
+                icon: device.deviceType.sfSymbol
+            )
+        }
     }
     
     // MARK: - Cleanup
