@@ -20,10 +20,33 @@ struct LockScreenTimerWidget: View {
         }
     }
 
-    private var countdownFont: Font { displayFont(size: 56) }
-
     private func displayFont(size: CGFloat) -> Font {
         .custom("SF Pro Display", size: size)
+    }
+
+    private var hasHoursComponent: Bool {
+        abs(timerManager.remainingTime) >= 3600
+    }
+
+    private var hasDoubleDigitHours: Bool {
+        abs(timerManager.remainingTime) >= 36_000 // 10 hours or more
+    }
+
+    private var titleFrameWidth: CGFloat {
+        if hasDoubleDigitHours { return 78 }
+        if hasHoursComponent { return 90 }
+        return 130
+    }
+
+    private var countdownFrameWidth: CGFloat {
+        if hasDoubleDigitHours { return 248 }
+        if hasHoursComponent { return 235 }
+        return 205
+    }
+
+    private var countdownFont: Font {
+        let baseSize: CGFloat = hasDoubleDigitHours ? 52 : 56
+        return displayFont(size: baseSize)
     }
 
     private var timerLabel: String {
@@ -104,7 +127,7 @@ struct LockScreenTimerWidget: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            HStack(alignment: .center, spacing: 18) {
+            HStack(alignment: .center, spacing: 8) {
                 controlButtons
 
                 titleSection
@@ -113,7 +136,7 @@ struct LockScreenTimerWidget: View {
                 countdownSection
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 12)
         .padding(.vertical, 18)
         .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
         .background(widgetBackground)
@@ -161,10 +184,13 @@ struct LockScreenTimerWidget: View {
                 .foregroundStyle(timerManager.isOvertime ? Color.red : accentColor)
                 .contentTransition(.numericText())
                 .animation(.smooth(duration: 0.25), value: timerManager.remainingTime)
+                .lineLimit(1)
+                .minimumScaleFactor(0.68)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .frame(width: 220, alignment: .center)
+        .frame(width: countdownFrameWidth, alignment: .center)
         .padding(.trailing, 2)
+        .layoutPriority(2)
     }
 
     private var titleSection: some View {
@@ -174,12 +200,13 @@ struct LockScreenTimerWidget: View {
                 font: displayFont(size: 18),
                 nsFont: .title3,
                 textColor: accentColor,
-                minDuration: 0.18,
-                frameWidth: Self.preferredSize.width * 0.35
+                minDuration: 0.16,
+                frameWidth: titleFrameWidth
             )
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: titleFrameWidth)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .layoutPriority(0)
     }
 
     private var accentRibbon: some View {

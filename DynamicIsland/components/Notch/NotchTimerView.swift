@@ -215,6 +215,8 @@ struct NotchTimerView: View {
                 .foregroundStyle(timerManager.isOvertime ? Color.red : .white)
                 .contentTransition(.numericText())
                 .animation(.smooth(duration: 0.25), value: timerManager.remainingTime)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
             if timerManager.isOvertime {
                 Text("Overtime")
@@ -222,7 +224,7 @@ struct NotchTimerView: View {
                     .foregroundStyle(.red)
             }
         }
-        .frame(width: 150, alignment: .trailing)
+        .frame(width: 190, alignment: .trailing)
     }
 
     @ViewBuilder
