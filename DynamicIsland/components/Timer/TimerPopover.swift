@@ -152,14 +152,16 @@ private struct ActiveTimerSection: View {
             }
             
             HStack(spacing: 8) {
-                Button(action: togglePause) {
-                    Label(timerManager.isPaused ? "Resume" : "Pause", systemImage: timerManager.isPaused ? "play.fill" : "pause.fill")
-                        .font(.system(size: 12, weight: .medium))
-                        .labelStyle(.titleAndIcon)
+                if !timerManager.isOvertime {
+                    Button(action: togglePause) {
+                        Label(timerManager.isPaused ? "Resume" : "Pause", systemImage: timerManager.isPaused ? "play.fill" : "pause.fill")
+                            .font(.system(size: 12, weight: .medium))
+                            .labelStyle(.titleAndIcon)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!timerManager.allowsManualInteraction)
                 }
-                .buttonStyle(.bordered)
-                .disabled(!timerManager.allowsManualInteraction)
-                
+
                 Button(role: .destructive, action: stopTimer) {
                     Label("Stop", systemImage: "stop.fill")
                         .font(.system(size: 12, weight: .medium))

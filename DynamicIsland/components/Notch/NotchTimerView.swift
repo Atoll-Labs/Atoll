@@ -159,21 +159,31 @@ struct NotchTimerView: View {
     private var leadingControlSection: some View {
         if timerManager.allowsManualInteraction {
             HStack(spacing: 10) {
-                TimerControlButton(
-                    icon: pauseIconName,
-                    foreground: .white.opacity(0.95),
-                    background: timerAccentColor.opacity(0.32),
-                    accessibilityLabel: pauseAccessibilityLabel,
-                    action: togglePauseAction
-                )
+                if !timerManager.isOvertime {
+                    TimerControlButton(
+                        icon: pauseIconName,
+                        foreground: .white.opacity(0.95),
+                        background: timerAccentColor.opacity(0.32),
+                        accessibilityLabel: pauseAccessibilityLabel,
+                        action: togglePauseAction
+                    )
 
-                TimerControlButton(
-                    icon: "xmark",
-                    foreground: .white.opacity(0.95),
-                    background: Color.white.opacity(0.16),
-                    accessibilityLabel: "Stop",
-                    action: stopTimerAction
-                )
+                    TimerControlButton(
+                        icon: "xmark",
+                        foreground: .white.opacity(0.95),
+                        background: Color.white.opacity(0.16),
+                        accessibilityLabel: "Cancel",
+                        action: stopTimerAction
+                    )
+                } else {
+                    TimerControlButton(
+                        icon: "stop.fill",
+                        foreground: .white.opacity(0.95),
+                        background: Color.white.opacity(0.16),
+                        accessibilityLabel: "Stop",
+                        action: stopTimerAction
+                    )
+                }
             }
         } else {
             externalTimerNotice
@@ -445,13 +455,17 @@ struct NotchTimerView: View {
         } label: {
             Label("Start", systemImage: "play.fill")
                 .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .foregroundStyle(Color.white)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(startButtonColor.opacity(isStartDisabled ? 0.5 : 1))
+                )
         }
         .buttonStyle(.plain)
-        .background(startButtonColor.opacity(isStartDisabled ? 0.5 : 1))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .frame(maxWidth: .infinity)
+        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Color.white.opacity(0.15), lineWidth: 1)
@@ -464,13 +478,17 @@ struct NotchTimerView: View {
         Button(action: resetCustomTimerInputs) {
             Label("Reset", systemImage: "arrow.counterclockwise")
                 .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.9))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .foregroundStyle(.white.opacity(0.9))
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white.opacity(0.16))
+                )
         }
         .buttonStyle(.plain)
-        .background(Color.white.opacity(0.16))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .frame(maxWidth: .infinity)
+        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
@@ -512,18 +530,22 @@ private struct TimerControlButton: View {
     let accessibilityLabel: String
     let action: () -> Void
 
+    @State private var isHovering = false
+
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(foreground)
                 .frame(width: 46, height: 46)
-                .background(background)
+                .background(background.opacity(isHovering ? 0.95 : 0.8))
                 .clipShape(Circle())
                 .contentTransition(.symbolEffect(.replace))
         }
         .buttonStyle(.plain)
+        .contentShape(Circle())
         .help(accessibilityLabel)
+        .onHover { hovering in isHovering = hovering }
     }
 }
 

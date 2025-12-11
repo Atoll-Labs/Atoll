@@ -10,12 +10,18 @@ struct TimerControlOverlay: View {
         timerManager.isPaused ? "play.fill" : "pause.fill"
     }
 
-    private var pauseForeground: Color {
-        .white
-    }
+    private var pauseForeground: Color { .white }
 
     private var helpText: String {
         timerManager.isPaused ? "Resume" : "Pause"
+    }
+
+    private var secondaryIcon: String {
+        timerManager.isOvertime ? "stop.fill" : "xmark"
+    }
+
+    private var secondaryHelp: String {
+        timerManager.isOvertime ? "Stop" : "Cancel"
     }
 
     private var buttonSize: CGFloat {
@@ -32,26 +38,24 @@ struct TimerControlOverlay: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Button(action: togglePause) {
-                Image(systemName: pauseIcon)
-                    .font(.system(size: iconSize, weight: .semibold))
-                    .frame(width: buttonSize, height: buttonSize)
-                    .foregroundStyle(pauseForeground)
+            if !timerManager.isOvertime {
+                ControlButton(
+                    icon: pauseIcon,
+                    foreground: pauseForeground,
+                    background: Color.white.opacity(0.14),
+                    help: helpText,
+                    action: togglePause
+                )
+                .disabled(!timerManager.allowsManualInteraction)
             }
-            .buttonStyle(.plain)
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .help(helpText)
-            .disabled(!timerManager.allowsManualInteraction)
 
-            Button(action: stopTimer) {
-                Image(systemName: "stop.fill")
-                    .font(.system(size: iconSize, weight: .semibold))
-                    .frame(width: buttonSize, height: buttonSize)
-                    .foregroundStyle(Color.red)
-            }
-            .buttonStyle(.plain)
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .help("Stop")
+            ControlButton(
+                icon: secondaryIcon,
+                foreground: timerManager.isOvertime ? Color.white : Color.white,
+                background: timerManager.isOvertime ? Color.red.opacity(0.24) : Color.white.opacity(0.14),
+                help: secondaryHelp,
+                action: stopTimer
+            )
             .disabled(!timerManager.allowsManualInteraction)
         }
         .padding(.horizontal, 12)
@@ -61,7 +65,7 @@ struct TimerControlOverlay: View {
             RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous)
                 .fill(Color.black.opacity(0.9))
         }
-    .compositingGroup()
+        .compositingGroup()
         .animation(.smooth(duration: 0.2), value: timerManager.isPaused)
         .animation(.smooth(duration: 0.2), value: timerManager.isFinished)
         .animation(.smooth(duration: 0.2), value: timerManager.isOvertime)
@@ -85,6 +89,31 @@ struct TimerControlOverlay: View {
         TimerControlWindowManager.shared.hide(animated: true)
 #endif
         timerManager.stopTimer()
+    }
+}
+
+private struct ControlButton: View {
+    let icon: String
+    let foreground: Color
+    let background: Color
+    let help: String
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .frame(width: 32, height: 32)
+                .foregroundStyle(foreground)
+                .background(background.opacity(isHovering ? 1 : 0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .onHover { hovering in isHovering = hovering }
     }
 }
 

@@ -125,6 +125,14 @@ struct LockScreenTimerWidget: View {
         timerManager.isPaused ? "Resume" : "Pause"
     }
 
+    private var secondaryIcon: String {
+        timerManager.isOvertime ? "stop.fill" : "xmark"
+    }
+
+    private var secondaryLabel: String {
+        timerManager.isOvertime ? "Stop" : "Cancel"
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             HStack(alignment: .center, spacing: 8) {
@@ -156,22 +164,24 @@ struct LockScreenTimerWidget: View {
 
     private var controlButtons: some View {
         HStack(spacing: 10) {
-            CircleButton(
-                icon: pauseIcon,
-                foreground: Color.white.opacity(0.95),
-                background: accentColor.opacity(0.32),
-                action: togglePause,
-                isEnabled: timerManager.allowsManualInteraction,
-                helpText: pauseLabel
-            )
+            if !timerManager.isOvertime {
+                CircleButton(
+                    icon: pauseIcon,
+                    foreground: Color.white.opacity(0.95),
+                    background: accentColor.opacity(0.32),
+                    action: togglePause,
+                    isEnabled: timerManager.allowsManualInteraction,
+                    helpText: pauseLabel
+                )
+            }
 
             CircleButton(
-                icon: "xmark",
+                icon: secondaryIcon,
                 foreground: Color.white.opacity(0.95),
                 background: Color.black.opacity(0.35),
                 action: stopTimer,
                 isEnabled: timerManager.allowsManualInteraction,
-                helpText: "Stop"
+                helpText: secondaryLabel
             )
         }
     }
@@ -255,20 +265,28 @@ struct LockScreenTimerWidget: View {
         let isEnabled: Bool
         let helpText: String
 
+        @State private var isHovering = false
+
+        private var effectiveBackground: Color {
+            background.opacity(isHovering ? 0.9 : 0.7)
+        }
+
         var body: some View {
             Button(action: action) {
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(foreground)
                     .frame(width: 48, height: 48)
-                    .background(background.opacity(isEnabled ? 1 : 0.25))
+                    .background(effectiveBackground.opacity(isEnabled ? 1 : 0.25))
                     .clipShape(Circle())
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
+            .contentShape(Circle())
             .help(helpText)
             .disabled(!isEnabled)
             .opacity(isEnabled ? 1 : 0.4)
+            .onHover { hovering in isHovering = hovering }
         }
     }
 }
