@@ -22,6 +22,10 @@ struct LockScreenLiveActivityOverlay: View {
 		notchSize.width + (indicatorSize * 2) + (horizontalPadding * 2)
 	}
 
+	private var collapsedScale: CGFloat {
+		Self.collapsedScale(for: notchSize)
+	}
+
 	var body: some View {
 		HStack(spacing: 0) {
 			Color.clear
@@ -48,7 +52,17 @@ struct LockScreenLiveActivityOverlay: View {
 			)
 		)
 		.frame(width: totalWidth, height: notchSize.height)
-		.scaleEffect(x: model.scale, y: 1, anchor: .center)
+		.scaleEffect(x: max(model.scale, collapsedScale), y: 1, anchor: .center)
 		.opacity(model.opacity)
+	}
+}
+
+extension LockScreenLiveActivityOverlay {
+	static func collapsedScale(for notchSize: CGSize) -> CGFloat {
+		let indicatorSize = max(0, notchSize.height - 12)
+		let horizontalPadding = cornerRadiusInsets.closed.bottom
+		let totalWidth = notchSize.width + (indicatorSize * 2) + (horizontalPadding * 2)
+		guard totalWidth > 0 else { return 1 }
+		return notchSize.width / totalWidth
 	}
 }

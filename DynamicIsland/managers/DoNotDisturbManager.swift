@@ -352,7 +352,12 @@ enum FocusModeType: String, CaseIterable {
     }
 
     var activeIcon: Image {
-        if let internalSymbolName,
+        resolvedActiveIcon()
+    }
+
+    func resolvedActiveIcon(usePrivateSymbol: Bool = true) -> Image {
+        if usePrivateSymbol,
+           let internalSymbolName,
            let image = Image(internalSystemName: internalSymbolName) {
             return image
         }

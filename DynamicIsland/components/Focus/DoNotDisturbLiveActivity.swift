@@ -6,6 +6,7 @@
 //  an icon-first layout that collapses gracefully when Focus ends.
 //
 
+import AppKit
 import Defaults
 import SwiftUI
 
@@ -30,12 +31,12 @@ struct DoNotDisturbLiveActivity: View {
 
             Rectangle()
                 .fill(Color.black)
-                .frame(width: vm.closedNotchSize.width)
+                .frame(width: centerSegmentWidth)
 
             labelWing
                 .frame(width: labelWingWidth, height: wingHeight)
         }
-        .frame(height: vm.effectiveClosedNotchHeight)
+        .frame(width: notchEnvelopeWidth, height: vm.effectiveClosedNotchHeight)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription)
         .onAppear(perform: handleInitialState)
@@ -44,6 +45,30 @@ struct DoNotDisturbLiveActivity: View {
     }
 
     // MARK: - Layout helpers
+
+    private var collapsedNotchWidth: CGFloat {
+        let width = currentClosedNotchWidth
+        let scale = (resolvedScreen?.backingScaleFactor).flatMap { $0 > 0 ? $0 : nil }
+            ?? NSScreen.main?.backingScaleFactor
+            ?? 2
+        let aligned = (width * scale).rounded(.down) / scale
+        return max(0, aligned)
+    }
+
+    private var currentClosedNotchWidth: CGFloat {
+        if vm.notchState == .closed, vm.notchSize.width > 0 {
+            return vm.notchSize.width
+        }
+        return vm.closedNotchSize.width
+    }
+
+    private var resolvedScreen: NSScreen? {
+        if let name = vm.screen,
+           let match = NSScreen.screens.first(where: { $0.localizedName == name }) {
+            return match
+        }
+        return NSScreen.main
+    }
 
     private var wingHeight: CGFloat {
         max(vm.effectiveClosedNotchHeight - 10, 20)
@@ -65,13 +90,32 @@ struct DoNotDisturbLiveActivity: View {
         return max(desiredLabelWidth, minimalWingWidth)
     }
 
+    private var notchEnvelopeWidth: CGFloat {
+        centerSegmentWidth + iconWingWidth + labelWingWidth
+    }
+
     private var minimalWingWidth: CGFloat {
         max(vm.effectiveClosedNotchHeight - 12, 24)
     }
 
+    private var closedNotchContentInset: CGFloat {
+        cornerRadiusInsets.closed.top + cornerRadiusInsets.closed.bottom
+    }
+
+    private var collapsedToastBaseWidth: CGFloat {
+        max(0, collapsedNotchWidth - closedNotchContentInset)
+    }
+
+    private var centerSegmentWidth: CGFloat {
+        if focusToastMode && iconWingWidth == 0 && labelWingWidth == 0 {
+            return collapsedToastBaseWidth
+        }
+        return collapsedNotchWidth
+    }
+
     private var desiredLabelWidth: CGFloat {
         let measuredWidth = labelIntrinsicWidth + 8 // horizontal padding inside the label
-        let fallbackWidth = max(vm.closedNotchSize.width * 0.52, 136)
+        let fallbackWidth = max(collapsedNotchWidth * 0.52, 136)
         var width = max(measuredWidth, fallbackWidth)
 
         if focusMode == .doNotDisturb && shouldShowLabel {
@@ -128,12 +172,43 @@ struct DoNotDisturbLiveActivity: View {
 
     private var currentIcon: Image {
         if manager.isDoNotDisturbActive {
-            return focusMode.activeIcon
+            return focusMode.resolvedActiveIcon(usePrivateSymbol: true)
         } else if showInactiveIcon {
-            return Image(systemName: focusMode.inactiveSymbol)
+            return inactiveIconMatchingActiveStyle
         } else {
-            return focusMode.activeIcon
+            return focusMode.resolvedActiveIcon(usePrivateSymbol: true)
         }
+    }
+
+    private var inactiveIconMatchingActiveStyle: Image {
+        if focusMode == .work {
+            return focusMode.resolvedActiveIcon(usePrivateSymbol: true).renderingMode(.template)
+        }
+
+        if focusMode == .gaming,
+           SymbolAvailabilityCache.shared.isSymbolAvailable("rocket.circle.fill") {
+            return Image(systemName: "rocket.circle.fill")
+        }
+
+        if let internalName = focusMode.internalSymbolName {
+            if let outlineName = outlineVariant(for: internalName),
+               SymbolAvailabilityCache.shared.isSymbolAvailable(outlineName),
+               let outlinedImage = Image(internalSystemName: outlineName) {
+                return outlinedImage.renderingMode(.template)
+            }
+
+            if let filledImage = Image(internalSystemName: internalName) {
+                return filledImage.renderingMode(.template)
+            }
+        }
+
+        return Image(systemName: focusMode.inactiveSymbol)
+    }
+
+    private func outlineVariant(for internalName: String) -> String? {
+        guard internalName.hasSuffix(".fill") else { return nil }
+        let trimmed = String(internalName.dropLast(5))
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private var currentIconColor: Color {
@@ -169,7 +244,7 @@ struct DoNotDisturbLiveActivity: View {
                 if shouldShowLabel {
                     Text(labelText)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundColor(activeAccentColor)
+                        .foregroundColor(labelColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .contentTransition(.opacity)
@@ -186,6 +261,13 @@ struct DoNotDisturbLiveActivity: View {
             .onPreferenceChange(FocusLabelWidthPreferenceKey.self) { value in
                 labelIntrinsicWidth = value
             }
+    }
+
+    private var labelColor: Color {
+        if focusToastMode {
+            return manager.isDoNotDisturbActive ? activeAccentColor : .white
+        }
+        return activeAccentColor
     }
 
     // MARK: - State transitions
@@ -227,22 +309,23 @@ struct DoNotDisturbLiveActivity: View {
             showInactiveIcon = true
         }
 
-        withAnimation(.interpolatingSpring(stiffness: 220, damping: 12)) {
-            iconScale = 1.2
-        }
+        if focusToastMode {
+            iconScale = 1.0
+            scaleResetTask?.cancel()
+        } else {
+            withAnimation(.interpolatingSpring(stiffness: 220, damping: 12)) {
+                iconScale = 1.2
+            }
 
-        let toastMode = focusToastMode
-        scaleResetTask?.cancel()
-        scaleResetTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(toastMode ? 650 : 450))
-            withAnimation(.interpolatingSpring(stiffness: 180, damping: 18)) {
-                iconScale = 1.0
-            }
-            if toastMode {
-                return
-            }
-            withAnimation(.smooth(duration: 0.2)) {
-                showInactiveIcon = false
+            scaleResetTask?.cancel()
+            scaleResetTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(450))
+                withAnimation(.interpolatingSpring(stiffness: 180, damping: 18)) {
+                    iconScale = 1.0
+                }
+                withAnimation(.smooth(duration: 0.2)) {
+                    showInactiveIcon = false
+                }
             }
         }
 
@@ -302,5 +385,31 @@ private struct FocusLabelWidthPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
+    }
+}
+
+private final class SymbolAvailabilityCache {
+    static let shared = SymbolAvailabilityCache()
+    private var cache: [String: Bool] = [:]
+    private let lock = NSLock()
+
+    func isSymbolAvailable(_ name: String) -> Bool {
+        lock.lock()
+        if let cached = cache[name] {
+            lock.unlock()
+            return cached
+        }
+        lock.unlock()
+
+        #if canImport(AppKit)
+        let available = NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil
+        #else
+        let available = false
+        #endif
+
+        lock.lock()
+        cache[name] = available
+        lock.unlock()
+        return available
     }
 }
