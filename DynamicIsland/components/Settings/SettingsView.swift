@@ -2583,6 +2583,7 @@ struct LockScreenSettings: View {
     @Default(.enableLockScreenMediaWidget) private var enableLockScreenMediaWidget
     @Default(.enableLockScreenTimerWidget) private var enableLockScreenTimerWidget
     @Default(.enableLockScreenWeatherWidget) private var enableLockScreenWeatherWidget
+    @Default(.enableLockScreenFocusWidget) private var enableLockScreenFocusWidget
     @Default(.lockScreenWeatherWidgetStyle) private var lockScreenWeatherWidgetStyle
     @Default(.lockScreenWeatherProviderSource) private var lockScreenWeatherProviderSource
     @Default(.lockScreenWeatherTemperatureUnit) private var lockScreenWeatherTemperatureUnit
@@ -2736,6 +2737,15 @@ struct LockScreenSettings: View {
                 Text("Weather Widget")
             } footer: {
                 Text("Enable the weather capsule and configure its layout, provider, units, and optional battery/AQI indicators.")
+            }
+
+            Section {
+                Defaults.Toggle("Show focus widget", key: .enableLockScreenFocusWidget)
+                    .settingsHighlight(id: highlightID("Show focus widget"))
+            } header: {
+                Text("Focus Widget")
+            } footer: {
+                Text("Displays the current Focus state above the weather capsule whenever Focus detection is enabled.")
             }
 
             LockScreenPositioningControls()

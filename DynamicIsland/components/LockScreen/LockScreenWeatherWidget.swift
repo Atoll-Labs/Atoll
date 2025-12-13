@@ -1,8 +1,13 @@
 import SwiftUI
+import Defaults
 
 
 struct LockScreenWeatherWidget: View {
 	let snapshot: LockScreenWeatherSnapshot
+	@ObservedObject private var focusManager = DoNotDisturbManager.shared
+	@Default(.enableDoNotDisturbDetection) private var focusDetectionEnabled
+	@Default(.showDoNotDisturbIndicator) private var focusIndicatorEnabled
+	@Default(.enableLockScreenFocusWidget) private var lockScreenFocusWidgetEnabled
 
 	private let inlinePrimaryFont = Font.system(size: 22, weight: .semibold, design: .rounded)
 	private let inlineSecondaryFont = Font.system(size: 13, weight: .medium, design: .rounded)
@@ -20,6 +25,24 @@ struct LockScreenWeatherWidget: View {
 	}
 
 	var body: some View {
+		VStack(alignment: .leading, spacing: focusWidgetSpacing) {
+			if shouldShowFocusWidget {
+				focusWidget
+			}
+			mainWidgetRow
+		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.foregroundStyle(Color.white.opacity(0.65))
+		.padding(.horizontal, 10)
+		.padding(.top, topPadding)
+		.padding(.bottom, bottomPadding)
+		.background(Color.clear)
+		.shadow(color: .black.opacity(0.35), radius: 8, x: 0, y: 3)
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel(accessibilityLabel)
+	}
+
+	private var mainWidgetRow: some View {
 		HStack(alignment: stackAlignment, spacing: stackSpacing) {
 			if let charging = snapshot.charging {
 				chargingSegment(for: charging)
@@ -43,15 +66,6 @@ struct LockScreenWeatherWidget: View {
 				locationSegment
 			}
 		}
-		.frame(maxWidth: .infinity, alignment: .leading)
-		.foregroundStyle(Color.white.opacity(0.65))
-		.padding(.horizontal, 10)
-		.padding(.top, topPadding)
-		.padding(.bottom, bottomPadding)
-		.background(Color.clear)
-		.shadow(color: .black.opacity(0.35), radius: 8, x: 0, y: 3)
-		.accessibilityElement(children: .ignore)
-		.accessibilityLabel(accessibilityLabel)
 	}
 
 	@ViewBuilder
@@ -336,6 +350,61 @@ struct LockScreenWeatherWidget: View {
 		snapshot.showsLocation && (snapshot.locationName?.isEmpty == false)
 	}
 
+	private var focusWidgetSpacing: CGFloat {
+		guard shouldShowFocusWidget else { return 0 }
+		return isInline ? 14 : 20
+	}
+
+	private var shouldShowFocusWidget: Bool {
+		lockScreenFocusWidgetEnabled &&
+		focusDetectionEnabled &&
+		focusIndicatorEnabled &&
+		focusManager.isDoNotDisturbActive &&
+		!focusDisplayName.isEmpty
+	}
+
+	private var focusDisplayName: String {
+		let trimmed = focusManager.currentFocusModeName.trimmingCharacters(in: .whitespacesAndNewlines)
+		if !trimmed.isEmpty {
+			return trimmed
+		}
+		if focusMode == .doNotDisturb {
+			return "Do Not Disturb"
+		}
+		let fallback = focusMode.displayName
+		return fallback.isEmpty ? "Focus" : fallback
+	}
+
+	private var focusMode: FocusModeType {
+		FocusModeType.resolve(
+			identifier: focusManager.currentFocusModeIdentifier,
+			name: focusManager.currentFocusModeName
+		)
+	}
+
+	private var focusIcon: Image {
+		focusMode
+			.resolvedActiveIcon(usePrivateSymbol: true)
+			.renderingMode(.template)
+	}
+
+	private var focusWidget: some View {
+		HStack(alignment: .center, spacing: 8) {
+			focusIcon
+				.font(.system(size: 20, weight: .semibold))
+				.frame(width: 26, height: 26)
+
+			Text(focusDisplayName)
+				.font(inlinePrimaryFont)
+				.lineLimit(1)
+				.minimumScaleFactor(0.85)
+		}
+		.frame(maxWidth: .infinity, alignment: .center)
+		.multilineTextAlignment(.center)
+		.padding(.horizontal, 2)
+		.accessibilityLabel("Focus active: \(focusDisplayName)")
+	}
+
 	private func chargingIconName(for info: LockScreenWeatherSnapshot.ChargingInfo) -> String? {
 		let icon = info.iconName
 		return icon.isEmpty ? nil : icon
@@ -547,6 +616,10 @@ struct LockScreenWeatherWidget: View {
 
 		if let battery = snapshot.battery, !isInline {
 			components.append(accessibilityBatteryText(for: battery))
+		}
+
+		if shouldShowFocusWidget {
+			components.append("Focus active: \(focusDisplayName)")
 		}
 
 		return components.joined(separator: ". ")
