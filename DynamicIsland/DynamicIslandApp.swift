@@ -578,6 +578,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 } else {
                     NotificationCenter.default.post(name: NSNotification.Name("ToggleClipboardPopover"), object: nil)
                 }
+            case .separateTab:
+                if self.vm.notchState == .closed {
+                    self.vm.open()
+                    self.coordinator.currentView = .notes
+                } else {
+                    if self.coordinator.currentView == .notes {
+                        self.vm.close()
+                    } else {
+                        self.coordinator.currentView = .notes
+                    }
+                }
             }
         }
 

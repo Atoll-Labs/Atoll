@@ -565,6 +565,10 @@ struct ContentView: View {
                                   NotchStatsView()
                               case .colorPicker:
                                   NotchColorPickerView()
+                            case .notes:
+                                NotchNotesView()
+                            case .clipboard:
+                                NotchNotesView()
                           }
                       }
                       .transition(.asymmetric(

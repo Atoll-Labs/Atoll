@@ -105,11 +105,13 @@ enum CalendarSelectionState: Codable, Defaults.Serializable {
 enum ClipboardDisplayMode: String, CaseIterable, Codable, Defaults.Serializable {
     case popover = "popover"     // Traditional popover attached to button
     case panel = "panel"         // Floating panel near notch
+    case separateTab = "separateTab" // Separate tab in Dynamic Island
     
     var displayName: String {
         switch self {
         case .popover: return "Popover"
         case .panel: return "Panel"
+        case .separateTab: return "Separate Tab"
         }
     }
     
@@ -117,6 +119,7 @@ enum ClipboardDisplayMode: String, CaseIterable, Codable, Defaults.Serializable 
         switch self {
         case .popover: return "Shows clipboard as a dropdown attached to the clipboard button"
         case .panel: return "Shows clipboard in a floating panel near the notch"
+        case .separateTab: return "Shows copied items in a separate tab within the Dynamic Island (merges with Notes if enabled)"
         }
     }
 }
@@ -374,6 +377,23 @@ struct AIModel: Codable, Identifiable, Defaults.Serializable {
     
     var displayName: String {
         return name + (supportsThinking ? " (Thinking)" : "")
+    }
+}
+
+struct NoteItem: Codable, Identifiable, Defaults.Serializable, Hashable {
+    var id: UUID = UUID()
+    var title: String
+    var content: String
+    var creationDate: Date
+    var colorIndex: Int // 0: Yellow, 1: Blue, 2: Red, 3: Green
+    
+    static let colors: [Color] = [.yellow, .blue, .red, .green, .purple, .orange]
+    
+    var color: Color {
+        if colorIndex >= 0 && colorIndex < NoteItem.colors.count {
+            return NoteItem.colors[colorIndex]
+        }
+        return .yellow
     }
 }
 
@@ -638,6 +658,10 @@ extension Defaults.Keys {
     
     // MARK: Lyrics Feature
     static let enableLyrics = Key<Bool>("enableLyrics", default: true)
+    
+    // MARK: Notes Feature
+    static let enableNotes = Key<Bool>("enableNotes", default: false)
+    static let savedNotes = Key<[NoteItem]>("savedNotes", default: [])
     
     // Helper to determine the default media controller based on macOS version
     static var defaultMediaController: MediaControllerType {

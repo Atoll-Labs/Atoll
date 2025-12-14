@@ -76,6 +76,8 @@ struct DynamicIslandHeader: View {
                                 ClipboardPanelManager.shared.toggleClipboardPanel()
                             case .popover:
                                 showClipboardPopover.toggle()
+                            case .separateTab:
+                                coordinator.currentView = .notes
                             }
                         }) {
                             Capsule()
@@ -207,6 +209,8 @@ struct DynamicIslandHeader: View {
                             .transition(.opacity)
                     }
                     
+
+
                     if Defaults[.showBatteryIndicator] {
                         DynamicIslandBatteryView(
                             batteryWidth: 30,
@@ -238,6 +242,12 @@ struct DynamicIslandHeader: View {
                     ClipboardPanelManager.shared.toggleClipboardPanel()
                 case .popover:
                     showClipboardPopover.toggle()
+                case .separateTab:
+                    if coordinator.currentView == .notes {
+                        coordinator.currentView = .home
+                    } else {
+                        coordinator.currentView = .notes
+                    }
                 }
             }
         }

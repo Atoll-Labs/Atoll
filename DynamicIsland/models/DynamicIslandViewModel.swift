@@ -269,6 +269,10 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     private func calculateDynamicNotchSize() -> CGSize {
         // Use minimalistic size if minimalistic UI is enabled
         let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        if DynamicIslandViewCoordinator.shared.currentView == .notes {
+            return CGSize(width: baseSize.width, height: 360)
+        }
+
         return statsAdjustedNotchSize(
             from: baseSize,
             isStatsTabActive: DynamicIslandViewCoordinator.shared.currentView == .stats,
