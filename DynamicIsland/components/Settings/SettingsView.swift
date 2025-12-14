@@ -1363,6 +1363,7 @@ struct Media: View {
     @Default(.musicSkipBehavior) private var musicSkipBehavior
     @Default(.musicControlWindowEnabled) private var musicControlWindowEnabled
     @Default(.enableLockScreenMediaWidget) private var enableLockScreenMediaWidget
+    @Default(.showSneakPeekOnTrackChange) private var showSneakPeekOnTrackChange
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.media.highlightID(for: title)
@@ -1408,10 +1409,6 @@ struct Media: View {
                         customBadge(text: "Beta")
                     }
                 }
-                Defaults.Toggle(key: .showMediaOutputControl) {
-                    Text("Allow media output control in layouts")
-                }
-                .disabled(!showShuffleAndRepeat)
                 if showShuffleAndRepeat {
                     MusicSlotConfigurationView()
                 } else {
@@ -1423,20 +1420,22 @@ struct Media: View {
             } header: {
                 Text("Media controls")
             }
-            Section {
-                Picker("Skip buttons", selection: $musicSkipBehavior) {
-                    ForEach(MusicSkipBehavior.allCases) { behavior in
-                        Text(behavior.displayName).tag(behavior)
+            if musicControlWindowEnabled {
+                Section {
+                    Picker("Skip buttons", selection: $musicSkipBehavior) {
+                        ForEach(MusicSkipBehavior.allCases) { behavior in
+                            Text(behavior.displayName).tag(behavior)
+                        }
                     }
-                }
-                .pickerStyle(.segmented)
-                .settingsHighlight(id: highlightID("Skip buttons"))
+                    .pickerStyle(.segmented)
+                    .settingsHighlight(id: highlightID("Skip buttons"))
 
-                Text(musicSkipBehavior.description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("Skip behaviour")
+                    Text(musicSkipBehavior.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Floating window panel skip behaviour")
+                }
             }
             Section {
                 Toggle(
@@ -1450,6 +1449,8 @@ struct Media: View {
                 .disabled(!coordinator.musicLiveActivityEnabled)
                 .help("Displays play/pause and skip buttons beside the notch while music is active. Disabled by default.")
                 Toggle("Enable sneak peek", isOn: $enableSneakPeek)
+                Toggle("Show sneak peek on playback changes", isOn: $showSneakPeekOnTrackChange)
+                    .disabled(!enableSneakPeek)
                 Defaults.Toggle("Enable lyrics", key: .enableLyrics)
                     .settingsHighlight(id: highlightID("Enable lyrics"))
                 Picker("Sneak Peek Style", selection: $sneakPeekStyles){

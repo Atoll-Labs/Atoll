@@ -163,6 +163,8 @@ struct MusicSlotConfigurationView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .frame(width: 72)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .multilineTextAlignment(.center)
         }
         .opacity(control == .mediaOutput && !showMediaOutputControl ? 0.4 : 1)

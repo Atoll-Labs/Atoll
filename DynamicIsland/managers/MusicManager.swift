@@ -220,12 +220,12 @@ class MusicManager: ObservableObject {
         if eventIsPlaying != self.isPlaying {
             let animation: Animation? = (expectedState == eventIsPlaying) ? .smooth(duration: 0.18) : .smooth
             applyPlayState(eventIsPlaying, animation: animation)
+
+            if eventIsPlaying && !state.title.isEmpty && !state.artist.isEmpty {
+                self.updateSneakPeek()
+            }
         } else {
             self.updateIdleState(state: eventIsPlaying)
-        }
-
-        if eventIsPlaying && !state.title.isEmpty && !state.artist.isEmpty {
-            self.updateSneakPeek()
         }
 
         // Check for changes in track metadata using last artwork change values
@@ -239,6 +239,8 @@ class MusicManager: ObservableObject {
         let hasContentChange = titleChanged || artistChanged || albumChanged || artworkChanged || bundleChanged
 
         // Handle artwork and visual transitions for changed content
+        let shouldAutoPeekOnTrackChange = Defaults[.showSneakPeekOnTrackChange]
+
         if hasContentChange {
             self.triggerFlipAnimation()
 
@@ -263,7 +265,7 @@ class MusicManager: ObservableObject {
             self.fetchLyrics()
 
             // Only update sneak peek if there's actual content and something changed
-            if !state.title.isEmpty && !state.artist.isEmpty && state.isPlaying {
+            if shouldAutoPeekOnTrackChange && !state.title.isEmpty && !state.artist.isEmpty && state.isPlaying {
                 self.updateSneakPeek()
             }
         }
