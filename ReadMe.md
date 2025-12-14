@@ -100,6 +100,7 @@ Atoll turns the MacBook notch into a focused command surface for media, system i
 - Focus Mode
 - Screen Recording
 - Microphone, Camera Privacy Indicators
+- Connected Bluetooth Devices
 - Download progress `beta`
 - Low Battery status, Charging
 
@@ -163,6 +164,7 @@ Atoll builds upon the work of several open-source projects and draws inspiration
 
 - [**Open Meteo**](https://open-meteo.com) - weather apis for the lock screen widgets
 
+- [**SkyLightWindow**](https://github.com/Lakr233/SkyLightWindow) - window rendering for Lock Screen Widgets
 ## Contributors
 
 <a href="https://github.com/Ebullioscopic/Atoll/graphs/contributors">
