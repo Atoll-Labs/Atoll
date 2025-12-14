@@ -173,6 +173,8 @@ struct CalendarView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject private var calendarManager = CalendarManager.shared
     @State private var selectedDate = Date()
+    @Default(.hideAllDayEvents) private var hideAllDayEvents
+    @Default(.hideCompletedReminders) private var hideCompletedReminders
 
     var body: some View {
         VStack(spacing: 0) {
@@ -205,7 +207,9 @@ struct CalendarView: View {
             }
 
             let filteredEvents = EventListView.filteredEvents(
-                events: calendarManager.events
+                events: calendarManager.events,
+                hideCompletedReminders: hideCompletedReminders,
+                hideAllDayEvents: hideAllDayEvents
             )
             if filteredEvents.isEmpty {
                 EmptyEventsView(selectedDate: selectedDate)
@@ -260,15 +264,21 @@ struct EventListView: View {
     let events: [EventModel]
     @Default(.autoScrollToNextEvent) private var autoScrollToNextEvent
     @Default(.showFullEventTitles) private var showFullEventTitles
+    @Default(.hideCompletedReminders) private var hideCompletedReminders
+    @Default(.hideAllDayEvents) private var hideAllDayEvents
 
-    static func filteredEvents(events: [EventModel]) -> [EventModel] {
+    static func filteredEvents(
+        events: [EventModel],
+        hideCompletedReminders: Bool,
+        hideAllDayEvents: Bool
+    ) -> [EventModel] {
         events.filter { event in
             if event.type.isReminder {
                 if case .reminder(let completed) = event.type {
-                    return !completed || !Defaults[.hideCompletedReminders]
+                    return !completed || !hideCompletedReminders
                 }
             }
-            if event.isAllDay && Defaults[.hideAllDayEvents] {
+            if event.isAllDay && hideAllDayEvents {
                 return false
             }
             return true
@@ -276,7 +286,11 @@ struct EventListView: View {
     }
 
     private var filteredEvents: [EventModel] {
-        Self.filteredEvents(events: events)
+        Self.filteredEvents(
+            events: events,
+            hideCompletedReminders: hideCompletedReminders,
+            hideAllDayEvents: hideAllDayEvents
+        )
     }
 
     private func scrollToRelevantEvent(proxy: ScrollViewProxy) {

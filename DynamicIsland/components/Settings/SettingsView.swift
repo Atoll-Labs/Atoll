@@ -1731,14 +1731,23 @@ struct CalendarSettings: View {
                     .settingsHighlight(id: highlightID("Show calendar"))
 
                 Section(header: Text("Event List")) {
-                    Toggle("Hide all-day events", isOn: $hideAllDayEvents)
-                        .settingsHighlight(id: highlightID("Hide all-day events"))
                     Toggle("Hide completed reminders", isOn: $hideCompletedReminders)
                         .settingsHighlight(id: highlightID("Hide completed reminders"))
                     Toggle("Show full event titles", isOn: $showFullEventTitles)
                         .settingsHighlight(id: highlightID("Show full event titles"))
                     Toggle("Auto-scroll to next event", isOn: $autoScrollToNextEvent)
                         .settingsHighlight(id: highlightID("Auto-scroll to next event"))
+                }
+
+                Section(header: Text("All-Day Events")) {
+                    Toggle("Hide all-day events", isOn: $hideAllDayEvents)
+                        .settingsHighlight(id: highlightID("Hide all-day events"))
+                        .disabled(!showCalendar)
+
+                    Text("Turn this off to include all-day entries in the notch calendar and reminder live activity.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 
                 Section(header: Text("Reminder Live Activity")) {
