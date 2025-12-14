@@ -17,8 +17,9 @@ import AppKit
 struct MinimalisticMusicPlayerView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     let albumArtNamespace: Namespace.ID
-    @Default(.musicAuxLeftControl) private var leftAuxControl
-    @Default(.musicAuxRightControl) private var rightAuxControl
+    @Default(.showShuffleAndRepeat) private var showCustomControls
+    @Default(.musicControlSlots) private var slotConfig
+    @Default(.showMediaOutputControl) private var showMediaOutputControl
     @Default(.musicSkipBehavior) private var musicSkipBehavior
     @ObservedObject private var reminderManager = ReminderLiveActivityManager.shared
     @ObservedObject private var timerManager = TimerManager.shared
@@ -26,6 +27,8 @@ struct MinimalisticMusicPlayerView: View {
     @Default(.enableReminderLiveActivity) private var enableReminderLiveActivity
     @Default(.enableLyrics) private var enableLyrics
     @Default(.timerPresets) private var timerPresets
+    private let seekInterval: TimeInterval = 10
+    private let skipMagnitude: CGFloat = 8
 
     var body: some View {
         VStack(spacing: 0) {
@@ -646,67 +649,9 @@ private struct MinimalisticReminderDetailsView: View {
     // MARK: - Playback Controls (Larger)
     
     private var playbackControls: some View {
-        let controls = resolvedAuxControls
-        let seekInterval: TimeInterval = 10
-        let skipPressMagnitude: CGFloat = 8
-
-        let backwardConfig: (icon: String, press: MinimalisticSquircircleButton.PressEffect, symbol: MinimalisticSquircircleButton.SymbolEffectStyle, action: () -> Void)
-        let forwardConfig: (icon: String, press: MinimalisticSquircircleButton.PressEffect, symbol: MinimalisticSquircircleButton.SymbolEffectStyle, action: () -> Void)
-
-        switch musicSkipBehavior {
-        case .track:
-            backwardConfig = (
-                icon: "backward.fill",
-                press: .nudge(-skipPressMagnitude),
-                symbol: .replace,
-                action: { musicManager.previousTrack() }
-            )
-            forwardConfig = (
-                icon: "forward.fill",
-                press: .nudge(skipPressMagnitude),
-                symbol: .replace,
-                action: { musicManager.nextTrack() }
-            )
-        case .tenSecond:
-            backwardConfig = (
-                icon: "gobackward.10",
-                press: .wiggle(.counterClockwise),
-                symbol: .wiggle,
-                action: { musicManager.seek(by: -seekInterval) }
-            )
-            forwardConfig = (
-                icon: "goforward.10",
-                press: .wiggle(.clockwise),
-                symbol: .wiggle,
-                action: { musicManager.seek(by: seekInterval) }
-            )
-        }
-
-        return HStack(spacing: 16) {
-            if Defaults[.showShuffleAndRepeat] {
-                auxButton(for: controls.left)
-            }
-
-            controlButton(
-                icon: backwardConfig.icon,
-                size: 18,
-                pressEffect: backwardConfig.press,
-                symbolEffect: backwardConfig.symbol,
-                action: backwardConfig.action
-            )
-
-            playPauseButton
-
-            controlButton(
-                icon: forwardConfig.icon,
-                size: 18,
-                pressEffect: forwardConfig.press,
-                symbolEffect: forwardConfig.symbol,
-                action: forwardConfig.action
-            )
-
-            if Defaults[.showShuffleAndRepeat] {
-                auxButton(for: controls.right)
+        HStack(spacing: 16) {
+            ForEach(Array(displayedSlots.enumerated()), id: \.offset) { _, slot in
+                slotView(for: slot)
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -751,9 +696,59 @@ private struct MinimalisticReminderDetailsView: View {
         )
     }
 
+    private var displayedSlots: [MusicControlButton] {
+        if showCustomControls {
+            let normalized = slotConfig.normalized(allowingMediaOutput: showMediaOutputControl)
+            return normalized.contains(where: { $0 != .none }) ? normalized : MusicControlButton.defaultLayout
+        }
+
+        switch musicSkipBehavior {
+        case .track:
+            return MusicControlButton.minimalLayout
+        case .tenSecond:
+            return [.none, .seekBackward, .playPause, .seekForward, .none]
+        }
+    }
+
     @ViewBuilder
-    private func auxButton(for control: MusicAuxiliaryControl) -> some View {
+    private func slotView(for control: MusicControlButton) -> some View {
         switch control {
+        case .none:
+            Spacer(minLength: 0)
+        case .playPause:
+            playPauseButton
+        case .trackBackward:
+            controlButton(
+                icon: "backward.fill",
+                size: 18,
+                pressEffect: .nudge(-skipMagnitude),
+                symbolEffect: .replace,
+                action: { musicManager.previousTrack() }
+            )
+        case .trackForward:
+            controlButton(
+                icon: "forward.fill",
+                size: 18,
+                pressEffect: .nudge(skipMagnitude),
+                symbolEffect: .replace,
+                action: { musicManager.nextTrack() }
+            )
+        case .seekBackward:
+            controlButton(
+                icon: "gobackward.10",
+                size: 18,
+                pressEffect: .wiggle(.counterClockwise),
+                symbolEffect: .wiggle,
+                action: { musicManager.seek(by: -seekInterval) }
+            )
+        case .seekForward:
+            controlButton(
+                icon: "goforward.10",
+                size: 18,
+                pressEffect: .wiggle(.clockwise),
+                symbolEffect: .wiggle,
+                action: { musicManager.seek(by: seekInterval) }
+            )
         case .shuffle:
             controlButton(icon: "shuffle", isActive: musicManager.isShuffled) {
                 Task { await musicManager.toggleShuffle() }
@@ -774,13 +769,6 @@ private struct MinimalisticReminderDetailsView: View {
                 enableLyrics.toggle()
             }
         }
-    }
-
-    private var resolvedAuxControls: (left: MusicAuxiliaryControl, right: MusicAuxiliaryControl) {
-        guard leftAuxControl == rightAuxControl else {
-            return (leftAuxControl, rightAuxControl)
-        }
-        return (leftAuxControl, MusicAuxiliaryControl.alternative(excluding: leftAuxControl))
     }
     private struct MinimalisticMediaOutputButton: View {
         @ObservedObject private var routeManager = AudioRouteManager.shared

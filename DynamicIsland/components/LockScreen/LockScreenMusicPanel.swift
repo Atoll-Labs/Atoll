@@ -27,10 +27,9 @@ struct LockScreenMusicPanel: View {
     @Default(.lockScreenShowAppIcon) var showAppIcon
     @Default(.lockScreenPanelShowsBorder) var showPanelBorder
     @Default(.lockScreenPanelUsesBlur) var enableBlur
-    @Default(.showMediaOutputControl) var showMediaOutputControl
-    @Default(.showShuffleAndRepeat) var showShuffleAndRepeat
-    @Default(.musicAuxLeftControl) private var leftAuxControl
-    @Default(.musicAuxRightControl) private var rightAuxControl
+    @Default(.showMediaOutputControl) private var showMediaOutputControl
+    @Default(.showShuffleAndRepeat) private var showShuffleAndRepeat
+    @Default(.musicControlSlots) private var slotConfig
     @Default(.musicSkipBehavior) private var musicSkipBehavior
     @Default(.enableLyrics) private var enableLyrics
 
@@ -362,72 +361,115 @@ struct LockScreenMusicPanel: View {
     }
 
     private func controlsRow(alignment: Alignment, spacing: CGFloat) -> some View {
-        let controls = resolvedAuxControls
         let skipNudge: CGFloat = isExpanded ? 14 : 9
-        let seekInterval: TimeInterval = 10
-
-        let backwardConfig: (icon: String, interaction: PanelControlButton.Interaction, symbol: PanelControlButton.SymbolEffectStyle, action: () -> Void)
-        let forwardConfig: (icon: String, interaction: PanelControlButton.Interaction, symbol: PanelControlButton.SymbolEffectStyle, action: () -> Void)
-
-        switch musicSkipBehavior {
-        case .track:
-            backwardConfig = (
-                icon: "backward.fill",
-                interaction: .nudge(-skipNudge),
-                symbol: .replace,
-                action: { musicManager.previousTrack() }
-            )
-            forwardConfig = (
-                icon: "forward.fill",
-                interaction: .nudge(skipNudge),
-                symbol: .replace,
-                action: { musicManager.nextTrack() }
-            )
-        case .tenSecond:
-            backwardConfig = (
-                icon: "gobackward.10",
-                interaction: .wiggle(.counterClockwise),
-                symbol: .wiggle,
-                action: { musicManager.seek(by: -seekInterval) }
-            )
-            forwardConfig = (
-                icon: "goforward.10",
-                interaction: .wiggle(.clockwise),
-                symbol: .wiggle,
-                action: { musicManager.seek(by: seekInterval) }
-            )
-        }
 
         return HStack(spacing: spacing) {
-            if let leftControl = controls.left {
-                auxButton(for: leftControl)
-            }
-
-            controlButton(
-                icon: backwardConfig.icon,
-                size: 18,
-                interaction: backwardConfig.interaction,
-                symbolEffect: backwardConfig.symbol,
-                action: backwardConfig.action
-            )
-
-            playPauseButton
-
-            controlButton(
-                icon: forwardConfig.icon,
-                size: 18,
-                interaction: forwardConfig.interaction,
-                symbolEffect: forwardConfig.symbol,
-                action: forwardConfig.action
-            )
-
-            if let rightControl = controls.right {
-                auxButton(for: rightControl)
+            ForEach(Array(displayedSlots.enumerated()), id: \.offset) { _, slot in
+                slotView(for: slot, skipNudge: skipNudge)
             }
         }
         .frame(maxWidth: .infinity, alignment: alignment)
     }
     
+    private var displayedSlots: [MusicControlButton] {
+        guard showShuffleAndRepeat else {
+            return fallbackSlots
+        }
+
+        let normalized = slotConfig.normalized(allowingMediaOutput: showMediaOutputControl)
+        return normalized.contains(where: { $0 != .none }) ? normalized : MusicControlButton.defaultLayout
+    }
+
+    private var fallbackSlots: [MusicControlButton] {
+        switch musicSkipBehavior {
+        case .track:
+            return MusicControlButton.minimalLayout
+        case .tenSecond:
+            return [.none, .seekBackward, .playPause, .seekForward, .none]
+        }
+    }
+
+    @ViewBuilder
+    private func slotView(for control: MusicControlButton, skipNudge: CGFloat) -> some View {
+        let seekInterval: TimeInterval = 10
+
+        switch control {
+        case .none:
+            Spacer(minLength: 0)
+        case .playPause:
+            playPauseButton
+        case .trackBackward:
+            controlButton(
+                icon: "backward.fill",
+                size: 18,
+                interaction: .nudge(-skipNudge),
+                symbolEffect: .replace
+            ) {
+                musicManager.previousTrack()
+            }
+        case .trackForward:
+            controlButton(
+                icon: "forward.fill",
+                size: 18,
+                interaction: .nudge(skipNudge),
+                symbolEffect: .replace
+            ) {
+                musicManager.nextTrack()
+            }
+        case .seekBackward:
+            controlButton(
+                icon: "gobackward.10",
+                size: 18,
+                interaction: .wiggle(.counterClockwise),
+                symbolEffect: .wiggle
+            ) {
+                musicManager.seek(by: -seekInterval)
+            }
+        case .seekForward:
+            controlButton(
+                icon: "goforward.10",
+                size: 18,
+                interaction: .wiggle(.clockwise),
+                symbolEffect: .wiggle
+            ) {
+                musicManager.seek(by: seekInterval)
+            }
+        case .shuffle:
+            controlButton(
+                icon: "shuffle",
+                size: 18,
+                isActive: musicManager.isShuffled,
+                activeColor: .red
+            ) {
+                musicManager.toggleShuffle()
+            }
+        case .repeatMode:
+            controlButton(
+                icon: repeatIcon,
+                size: 18,
+                isActive: musicManager.repeatMode != .off,
+                activeColor: .red,
+                symbolEffect: .replace
+            ) {
+                musicManager.toggleRepeat()
+            }
+        case .mediaOutput:
+            mediaOutputControlButton
+        case .lyrics:
+            controlButton(
+                icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble",
+                size: 18,
+                isActive: enableLyrics,
+                activeColor: .accentColor,
+                symbolEffect: .replace
+            ) {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    enableLyrics.toggle()
+                }
+            }
+        }
+    }
+
     private var playPauseButton: some View {
         let frameSize: CGFloat = isExpanded ? 80 : 54
         let iconName = musicManager.isPlaying ? "pause.fill" : "play.fill"
@@ -518,62 +560,6 @@ struct LockScreenMusicPanel: View {
         .padding(.top, isExpanded ? 12 : 8)
         .frame(maxWidth: .infinity, alignment: alignment)
         .animation(.smooth(duration: 0.32), value: line)
-    }
-
-    private var availableAuxControls: [MusicAuxiliaryControl] {
-        MusicAuxiliaryControl.allCases.filter { control in
-            control != .mediaOutput || showMediaOutputControl
-        }
-    }
-
-    private var resolvedAuxControls: (left: MusicAuxiliaryControl?, right: MusicAuxiliaryControl?) {
-        guard showShuffleAndRepeat else { return (nil, nil) }
-
-        let options = availableAuxControls
-        guard !options.isEmpty else { return (nil, nil) }
-
-        let left = options.contains(leftAuxControl) ? leftAuxControl : options.first!
-        var rightCandidate = options.contains(rightAuxControl) ? rightAuxControl : options.first!
-
-        if options.count == 1 {
-            return (left, nil)
-        }
-
-        if rightCandidate == left, let alternative = options.first(where: { $0 != left }) {
-            rightCandidate = alternative
-        }
-
-        if rightCandidate == left {
-            return (left, nil)
-        }
-
-        return (left, rightCandidate)
-    }
-
-    @ViewBuilder
-    private func auxButton(for control: MusicAuxiliaryControl) -> some View {
-        switch control {
-        case .shuffle:
-            controlButton(icon: "shuffle", isActive: musicManager.isShuffled) {
-                musicManager.toggleShuffle()
-            }
-        case .repeatMode:
-            controlButton(icon: repeatIcon, isActive: musicManager.repeatMode != .off) {
-                musicManager.toggleRepeat()
-            }
-        case .mediaOutput:
-            mediaOutputControlButton
-        case .lyrics:
-            controlButton(
-                icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble",
-                isActive: enableLyrics,
-                activeColor: .accentColor
-            ) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                    enableLyrics.toggle()
-                }
-            }
-        }
     }
 
     private var repeatIcon: String {

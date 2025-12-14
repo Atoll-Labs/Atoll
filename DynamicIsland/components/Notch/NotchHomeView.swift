@@ -15,12 +15,11 @@ import SwiftUI
 struct MusicPlayerView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     let albumArtNamespace: Namespace.ID
-    let showShuffleAndRepeat: Bool
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 5)
-            MusicControlsView(showShuffleAndRepeat: showShuffleAndRepeat)
+            MusicControlsView()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .drawingGroup()
                 .compositingGroup()
@@ -119,11 +118,13 @@ struct MusicControlsView: View {
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
-    let showShuffleAndRepeat: Bool
-    @Default(.musicAuxLeftControl) private var leftAuxControl
-    @Default(.musicAuxRightControl) private var rightAuxControl
+    @Default(.showShuffleAndRepeat) private var showCustomControls
+    @Default(.musicControlSlots) private var slotConfig
+    @Default(.showMediaOutputControl) private var showMediaOutputControl
     @Default(.musicSkipBehavior) private var musicSkipBehavior
     @Default(.enableLyrics) private var enableLyrics
+    private let seekInterval: TimeInterval = 10
+    private let skipMagnitude: CGFloat = 6
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -214,65 +215,9 @@ struct MusicControlsView: View {
     }
 
     private var playbackControls: some View {
-        let controls = resolvedAuxControls
-        let seekInterval: TimeInterval = 10
-        let skipMagnitude: CGFloat = 6
-
-        let backwardConfig: (icon: String, press: HoverButton.PressEffect?, action: () -> Void)
-        let forwardConfig: (icon: String, press: HoverButton.PressEffect?, action: () -> Void)
-
-        switch musicSkipBehavior {
-        case .track:
-            backwardConfig = (
-                icon: "backward.fill",
-                press: .nudge(-skipMagnitude),
-                action: { musicManager.previousTrack() }
-            )
-            forwardConfig = (
-                icon: "forward.fill",
-                press: .nudge(skipMagnitude),
-                action: { musicManager.nextTrack() }
-            )
-        case .tenSecond:
-            backwardConfig = (
-                icon: "gobackward.10",
-                press: .wiggle(.counterClockwise),
-                action: { musicManager.seek(by: -seekInterval) }
-            )
-            forwardConfig = (
-                icon: "goforward.10",
-                press: .wiggle(.clockwise),
-                action: { musicManager.seek(by: seekInterval) }
-            )
-        }
-
-        return HStack(spacing: 8) {
-            if showShuffleAndRepeat {
-                auxButton(for: controls.left)
-            }
-
-            HoverButton(
-                icon: backwardConfig.icon,
-                scale: .medium,
-                pressEffect: backwardConfig.press
-            ) {
-                backwardConfig.action()
-            }
-
-            HoverButton(icon: musicManager.isPlaying ? (musicManager.isLiveStream ? "stop.fill" : "pause.fill") : "play.fill", scale: .large) {
-                MusicManager.shared.togglePlay()
-            }
-
-            HoverButton(
-                icon: forwardConfig.icon,
-                scale: .medium,
-                pressEffect: forwardConfig.press
-            ) {
-                forwardConfig.action()
-            }
-
-            if showShuffleAndRepeat {
-                auxButton(for: controls.right)
+        HStack(spacing: 8) {
+            ForEach(Array(displayedSlots.enumerated()), id: \.offset) { _, slot in
+                slotView(for: slot)
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -298,16 +243,48 @@ struct MusicControlsView: View {
         }
     }
 
-    private var resolvedAuxControls: (left: MusicAuxiliaryControl, right: MusicAuxiliaryControl) {
-        guard leftAuxControl == rightAuxControl else {
-            return (leftAuxControl, rightAuxControl)
+    private var displayedSlots: [MusicControlButton] {
+        if showCustomControls {
+            let normalized = slotConfig.normalized(allowingMediaOutput: showMediaOutputControl)
+            return normalized.contains(where: { $0 != .none }) ? normalized : MusicControlButton.defaultLayout
         }
-        return (leftAuxControl, MusicAuxiliaryControl.alternative(excluding: leftAuxControl))
+
+        switch musicSkipBehavior {
+        case .track:
+            return MusicControlButton.minimalLayout
+        case .tenSecond:
+            return [.none, .seekBackward, .playPause, .seekForward, .none]
+        }
     }
 
     @ViewBuilder
-    private func auxButton(for control: MusicAuxiliaryControl) -> some View {
+    private func slotView(for control: MusicControlButton) -> some View {
         switch control {
+        case .none:
+            Spacer(minLength: 0)
+        case .playPause:
+            HoverButton(
+                icon: musicManager.isPlaying ? (musicManager.isLiveStream ? "stop.fill" : "pause.fill") : "play.fill",
+                scale: .large
+            ) {
+                MusicManager.shared.togglePlay()
+            }
+        case .trackBackward:
+            playbackButton(icon: "backward.fill", press: .nudge(-skipMagnitude)) {
+                musicManager.previousTrack()
+            }
+        case .trackForward:
+            playbackButton(icon: "forward.fill", press: .nudge(skipMagnitude)) {
+                musicManager.nextTrack()
+            }
+        case .seekBackward:
+            playbackButton(icon: "gobackward.10", press: .wiggle(.counterClockwise)) {
+                musicManager.seek(by: -seekInterval)
+            }
+        case .seekForward:
+            playbackButton(icon: "goforward.10", press: .wiggle(.clockwise)) {
+                musicManager.seek(by: seekInterval)
+            }
         case .shuffle:
             HoverButton(
                 icon: "shuffle",
@@ -334,6 +311,20 @@ struct MusicControlsView: View {
             ) {
                 enableLyrics.toggle()
             }
+        }
+    }
+
+    private func playbackButton(
+        icon: String,
+        press: HoverButton.PressEffect?,
+        action: @escaping () -> Void
+    ) -> some View {
+        HoverButton(
+            icon: icon,
+            scale: .medium,
+            pressEffect: press
+        ) {
+            action()
         }
     }
 }
@@ -363,7 +354,7 @@ struct NotchHomeView: View {
                 MinimalisticMusicPlayerView(albumArtNamespace: albumArtNamespace)
             } else {
                 // Normal mode: Show full music player with optional calendar and webcam
-                MusicPlayerView(albumArtNamespace: albumArtNamespace, showShuffleAndRepeat: Defaults[.showShuffleAndRepeat])
+                MusicPlayerView(albumArtNamespace: albumArtNamespace)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
                 if Defaults[.showCalendar] {

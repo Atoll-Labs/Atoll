@@ -447,6 +447,8 @@ extension Defaults.Keys {
     static let musicAuxLeftControl = Key<MusicAuxiliaryControl>("musicAuxLeftControl", default: .shuffle)
     static let musicAuxRightControl = Key<MusicAuxiliaryControl>("musicAuxRightControl", default: .repeatMode)
     static let didMigrateMusicAuxControls = Key<Bool>("didMigrateMusicAuxControls", default: false)
+    static let musicControlSlots = Key<[MusicControlButton]>("musicControlSlots", default: MusicControlButton.defaultLayout)
+    static let didMigrateMusicControlSlots = Key<Bool>("didMigrateMusicControlSlots", default: false)
     static let musicSkipBehavior = Key<MusicSkipBehavior>("musicSkipBehavior", default: .track)
     static let musicControlWindowEnabled = Key<Bool>("musicControlWindowEnabled", default: false)
     // Enable lock screen media widget (shows the standalone panel when screen is locked)
@@ -666,6 +668,27 @@ extension Defaults.Keys {
         }
 
         normalizeMusicAuxControls()
+    }
+
+    static func migrateMusicControlSlots() {
+        guard Defaults[.didMigrateMusicControlSlots] == false else { return }
+
+        let allowMediaOutput = Defaults[.showMediaOutputControl]
+        let baseLayout: [MusicControlButton]
+
+        if Defaults[.showShuffleAndRepeat] {
+            var slots = MusicControlButton.defaultLayout
+            let left = MusicControlButton(auxiliaryControl: Defaults[.musicAuxLeftControl])
+            let right = MusicControlButton(auxiliaryControl: Defaults[.musicAuxRightControl])
+            slots[0] = left
+            slots[4] = right
+            baseLayout = slots
+        } else {
+            baseLayout = MusicControlButton.minimalLayout
+        }
+
+        Defaults[.musicControlSlots] = baseLayout.normalized(allowingMediaOutput: allowMediaOutput)
+        Defaults[.didMigrateMusicControlSlots] = true
     }
 
     private static func normalizeMusicAuxControls() {
