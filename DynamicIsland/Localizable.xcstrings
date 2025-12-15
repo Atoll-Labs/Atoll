@@ -3871,6 +3871,9 @@
         }
       }
     },
+    "Battery settings and informations are only available on MacBooks" : {
+
+    },
     "Battery Status" : {
       "localizations" : {
         "ar" : {
