@@ -165,6 +165,8 @@ Atoll builds upon the work of several open-source projects and draws inspiration
 - [**Open Meteo**](https://open-meteo.com) - weather apis for the lock screen widgets
 
 - [**SkyLightWindow**](https://github.com/Lakr233/SkyLightWindow) - window rendering for Lock Screen Widgets
+
+- Wick - Thanks Nate for allowing us to replicate the iOS like Timer design for the Lock Screen Widget
 ## Contributors
 
 <a href="https://github.com/Ebullioscopic/Atoll/graphs/contributors">
