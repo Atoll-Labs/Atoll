@@ -127,6 +127,7 @@ class LockScreenPanelManager {
             content.wantsLayer = true
             content.layer?.masksToBounds = true
             content.layer?.cornerRadius = collapsedPanelCornerRadius
+            content.layer?.backgroundColor = NSColor.clear.cgColor
         }
 
         if !hasDelegated {
