@@ -69,6 +69,7 @@ struct AlbumArtView: View {
                     appIconOverlay
                 }
                 .albumArtFlip(angle: musicManager.flipAngle)
+                .parallax3D(magnitude: 12)
             }
             .buttonStyle(PlainButtonStyle())
             .scaleEffect(musicManager.isPlaying ? 1 : 0.85)

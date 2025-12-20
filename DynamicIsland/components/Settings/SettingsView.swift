@@ -1482,6 +1482,8 @@ struct Media: View {
                     .disabled(!enableSneakPeek)
                 Defaults.Toggle("Enable lyrics", key: .enableLyrics)
                     .settingsHighlight(id: highlightID("Enable lyrics"))
+                Defaults.Toggle("Enable album art parallax effect", key: .enableParallaxEffect)
+                    .settingsHighlight(id: highlightID("Enable album art parallax effect"))
                 Picker("Sneak Peek Style", selection: $sneakPeekStyles){
                     ForEach(SneakPeekStyle.allCases) { style in
                         Text(style.rawValue).tag(style)
