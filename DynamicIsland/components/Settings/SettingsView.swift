@@ -1496,6 +1496,9 @@ private struct HUDAndOSDSettingsView: View {
                         Toggle("Use Accent Color", isOn: $verticalHUDUseAccentColor)
                         Toggle("Interactive (Drag to Change)", isOn: $verticalHUDInteractive)
                         Defaults.Toggle("Color-coded Volume", key: .useColorCodedVolumeDisplay)
+                        if Defaults[.useColorCodedVolumeDisplay] {
+                            Defaults.Toggle("Smooth color transitions", key: .useSmoothColorGradient)
+                        }
                     } header: {
                         Text("Behavior & Style")
                     }
@@ -1560,6 +1563,9 @@ private struct HUDAndOSDSettingsView: View {
                         Toggle("Show Percentage", isOn: $circularHUDShowValue)
                         Toggle("Use Accent Color", isOn: $circularHUDUseAccentColor)
                         Defaults.Toggle("Color-coded Volume", key: .useColorCodedVolumeDisplay)
+                        if Defaults[.useColorCodedVolumeDisplay] {
+                            Defaults.Toggle("Smooth color transitions", key: .useSmoothColorGradient)
+                        }
                     } header: {
                         Text("Style")
                     }
