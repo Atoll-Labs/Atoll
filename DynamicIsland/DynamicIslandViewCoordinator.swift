@@ -164,11 +164,9 @@ class DynamicIslandViewCoordinator: ObservableObject {
             resolvedDuration = duration
         }
         sneakPeekDuration = resolvedDuration
-        if type != .music && type != .timer && type != .reminder {
-            // close()
-            if !Defaults[.enableSystemHUD] {
-                return
-            }
+        let bypassedTypes: [SneakContentType] = [.music, .timer, .reminder, .bluetoothAudio]
+        if !bypassedTypes.contains(type) && !Defaults[.enableSystemHUD] {
+            return
         }
         DispatchQueue.main.async {
             withAnimation(.smooth) {

@@ -23,10 +23,10 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case appearance
     case lockScreen
     case media
+    case devices
     case timer
     case calendar
-    case hud
-    case osd
+    case hudAndOSD
     case battery
     case stats
     case clipboard
@@ -46,10 +46,10 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .appearance: return "Appearance"
         case .lockScreen: return "Lock Screen"
         case .media: return "Media"
+        case .devices: return "Devices"
         case .timer: return "Timer"
         case .calendar: return "Calendar"
-        case .hud: return "HUDs"
-        case .osd: return "Custom OSD"
+        case .hudAndOSD: return "Controls"
         case .battery: return "Battery"
         case .stats: return "Stats"
         case .clipboard: return "Clipboard"
@@ -69,10 +69,10 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .appearance: return "paintpalette"
         case .lockScreen: return "lock.laptopcomputer"
         case .media: return "play.laptopcomputer"
+        case .devices: return "headphones"
         case .timer: return "timer"
         case .calendar: return "calendar"
-        case .hud: return "dial.medium.fill"
-        case .osd: return "square.fill.on.square.fill"
+        case .hudAndOSD: return "dial.medium.fill"
         case .battery: return "battery.100.bolt"
         case .stats: return "chart.xyaxis.line"
         case .clipboard: return "clipboard"
@@ -92,10 +92,10 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .appearance: return .purple
         case .lockScreen: return .orange
         case .media: return .green
+        case .devices: return Color(red: 0.1, green: 0.11, blue: 0.12)
         case .timer: return .red
         case .calendar: return .cyan
-        case .hud: return .indigo
-        case .osd: return .teal
+        case .hudAndOSD: return .indigo
         case .battery: return .yellow
         case .stats: return .teal
         case .clipboard: return .mint
@@ -260,18 +260,7 @@ struct SettingsView: View {
                         HStack(spacing: 10) {
                             sidebarIcon(for: tab)
                             Text(tab.title)
-                            if tab == .osd {
-                                Spacer()
-                                Text("ALPHA")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.orange)
-                                    )
-                            } else if tab == .downloads {
+                            if tab == .downloads || tab == .hudAndOSD {
                                 Spacer()
                                 Text("BETA")
                                     .font(.system(size: 9, weight: .bold))
@@ -392,10 +381,10 @@ struct SettingsView: View {
             .appearance,
             .lockScreen,
             .media,
+            .devices,
             .timer,
             .calendar,
-            .hud,
-            .osd,
+            .hudAndOSD,
             .battery,
             .stats,
             .clipboard,
@@ -607,26 +596,26 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .battery, title: "Play low battery alert sound", keywords: ["low battery", "alert", "sound"], highlightID: SettingsTab.battery.highlightID(for: "Play low battery alert sound")),
 
             // HUDs
-            SettingsSearchEntry(tab: .hud, title: "Show Bluetooth device connections", keywords: ["bluetooth", "hud"], highlightID: SettingsTab.hud.highlightID(for: "Show Bluetooth device connections")),
-            SettingsSearchEntry(tab: .hud, title: "Use circular battery indicator", keywords: ["battery", "circular"], highlightID: SettingsTab.hud.highlightID(for: "Use circular battery indicator")),
-            SettingsSearchEntry(tab: .hud, title: "Show battery percentage text in HUD", keywords: ["battery text"], highlightID: SettingsTab.hud.highlightID(for: "Show battery percentage text in HUD")),
-            SettingsSearchEntry(tab: .hud, title: "Scroll device name in HUD", keywords: ["marquee", "device name"], highlightID: SettingsTab.hud.highlightID(for: "Scroll device name in HUD")),
-            SettingsSearchEntry(tab: .hud, title: "Color-coded battery display", keywords: ["color", "battery"], highlightID: SettingsTab.hud.highlightID(for: "Color-coded battery display")),
-            SettingsSearchEntry(tab: .hud, title: "Color-coded volume display", keywords: ["volume", "color"], highlightID: SettingsTab.hud.highlightID(for: "Color-coded volume display")),
-            SettingsSearchEntry(tab: .hud, title: "Smooth color transitions", keywords: ["gradient", "smooth"], highlightID: SettingsTab.hud.highlightID(for: "Smooth color transitions")),
-            SettingsSearchEntry(tab: .hud, title: "Show percentages beside progress bars", keywords: ["percentages", "progress"], highlightID: SettingsTab.hud.highlightID(for: "Show percentages beside progress bars")),
-            SettingsSearchEntry(tab: .hud, title: "HUD style", keywords: ["inline", "compact"], highlightID: SettingsTab.hud.highlightID(for: "HUD style")),
-            SettingsSearchEntry(tab: .hud, title: "Progressbar style", keywords: ["progress", "style"], highlightID: SettingsTab.hud.highlightID(for: "Progressbar style")),
-            SettingsSearchEntry(tab: .hud, title: "Enable glowing effect", keywords: ["glow", "indicator"], highlightID: SettingsTab.hud.highlightID(for: "Enable glowing effect")),
-            SettingsSearchEntry(tab: .hud, title: "Use accent color", keywords: ["accent", "color"], highlightID: SettingsTab.hud.highlightID(for: "Use accent color")),
+            SettingsSearchEntry(tab: .devices, title: "Show Bluetooth device connections", keywords: ["bluetooth", "hud"], highlightID: SettingsTab.devices.highlightID(for: "Show Bluetooth device connections")),
+            SettingsSearchEntry(tab: .devices, title: "Use circular battery indicator", keywords: ["battery", "circular"], highlightID: SettingsTab.devices.highlightID(for: "Use circular battery indicator")),
+            SettingsSearchEntry(tab: .devices, title: "Show battery percentage text in HUD", keywords: ["battery text"], highlightID: SettingsTab.devices.highlightID(for: "Show battery percentage text in HUD")),
+            SettingsSearchEntry(tab: .devices, title: "Scroll device name in HUD", keywords: ["marquee", "device name"], highlightID: SettingsTab.devices.highlightID(for: "Scroll device name in HUD")),
+            SettingsSearchEntry(tab: .devices, title: "Color-coded battery display", keywords: ["color", "battery"], highlightID: SettingsTab.devices.highlightID(for: "Color-coded battery display")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Color-coded volume display", keywords: ["volume", "color"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Color-coded volume display")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Smooth color transitions", keywords: ["gradient", "smooth"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Smooth color transitions")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Show percentages beside progress bars", keywords: ["percentages", "progress"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Show percentages beside progress bars")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "HUD style", keywords: ["inline", "compact"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "HUD style")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Progressbar style", keywords: ["progress", "style"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Progressbar style")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Enable glowing effect", keywords: ["glow", "indicator"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Enable glowing effect")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Use accent color", keywords: ["accent", "color"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Use accent color")),
 
             // Custom OSD
-            SettingsSearchEntry(tab: .osd, title: "Enable Custom OSD", keywords: ["osd", "on-screen display", "custom osd"], highlightID: SettingsTab.osd.highlightID(for: "Enable Custom OSD")),
-            SettingsSearchEntry(tab: .osd, title: "Volume OSD", keywords: ["volume", "osd"], highlightID: SettingsTab.osd.highlightID(for: "Volume OSD")),
-            SettingsSearchEntry(tab: .osd, title: "Brightness OSD", keywords: ["brightness", "osd"], highlightID: SettingsTab.osd.highlightID(for: "Brightness OSD")),
-            SettingsSearchEntry(tab: .osd, title: "Keyboard Backlight OSD", keywords: ["keyboard", "backlight", "osd"], highlightID: SettingsTab.osd.highlightID(for: "Keyboard Backlight OSD")),
-            SettingsSearchEntry(tab: .osd, title: "Material", keywords: ["material", "frosted", "liquid", "glass", "solid", "osd"], highlightID: SettingsTab.osd.highlightID(for: "Material")),
-            SettingsSearchEntry(tab: .osd, title: "Icon & Progress Color", keywords: ["color", "icon", "white", "black", "gray", "osd"], highlightID: SettingsTab.osd.highlightID(for: "Icon & Progress Color")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Enable Custom OSD", keywords: ["osd", "on-screen display", "custom osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Enable Custom OSD")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Volume OSD", keywords: ["volume", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Volume OSD")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Brightness OSD", keywords: ["brightness", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Brightness OSD")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Keyboard Backlight OSD", keywords: ["keyboard", "backlight", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Keyboard Backlight OSD")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Material", keywords: ["material", "frosted", "liquid", "glass", "solid", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Material")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Icon & Progress Color", keywords: ["color", "icon", "white", "black", "gray", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Icon & Progress Color")),
 
             // Media
             SettingsSearchEntry(tab: .media, title: "Music Source", keywords: ["media source", "controller"], highlightID: SettingsTab.media.highlightID(for: "Music Source")),
@@ -763,6 +752,10 @@ struct SettingsView: View {
             SettingsForm(tab: .media) {
                 Media()
             }
+        case .devices:
+            SettingsForm(tab: .devices) {
+                DevicesSettingsView()
+            }
         case .timer:
             SettingsForm(tab: .timer) {
                 TimerSettings()
@@ -771,31 +764,9 @@ struct SettingsView: View {
             SettingsForm(tab: .calendar) {
                 CalendarSettings()
             }
-        case .hud:
-            SettingsForm(tab: .hud) {
-                HUD()
-            }
-        case .osd:
-            SettingsForm(tab: .osd) {
-                if #available(macOS 15.0, *) {
-                    CustomOSDSettings()
-                } else {
-                    VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.orange)
-                        
-                        Text("macOS 15 or later required")
-                            .font(.headline)
-                        
-                        Text("Custom OSD feature requires macOS 15 or later.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding()
-                }
+        case .hudAndOSD:
+            SettingsForm(tab: .hudAndOSD) {
+                HUDAndOSDSettingsView()
             }
         case .battery:
             SettingsForm(tab: .battery) {
@@ -1212,75 +1183,484 @@ struct Downloads: View {
     }
 }
 
-struct HUD: View {
-    @EnvironmentObject var vm: DynamicIslandViewModel
-    @Default(.inlineHUD) var inlineHUD
-    @Default(.progressBarStyle) var progressBarStyle
-    @Default(.enableSystemHUD) var enableSystemHUD
-    @Default(.enableVolumeHUD) var enableVolumeHUD
-    @Default(.enableBrightnessHUD) var enableBrightnessHUD
-    @Default(.enableKeyboardBacklightHUD) var enableKeyboardBacklightHUD
-    @Default(.systemHUDSensitivity) var systemHUDSensitivity
-    @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
-    @ObservedObject private var accessibilityPermission = AccessibilityPermissionStore.shared
-
-    private func highlightID(_ title: String) -> String {
-        SettingsTab.hud.highlightID(for: title)
-    }
-
-    private var hasAccessibilityPermission: Bool {
-        accessibilityPermission.isAuthorized
+final class HUDPreviewViewModel: ObservableObject {
+    @Published var level: Float = 0
+    @Published var iconName: String = "speaker.wave.3.fill"
+    
+    private var cancellables = Set<AnyCancellable>()
+    
+    init() {
+        setup()
     }
     
+    private func setup() {
+        // Ensure controllers are active
+        SystemVolumeController.shared.start()
+        SystemBrightnessController.shared.start()
+        SystemKeyboardBacklightController.shared.start()
+        
+        // Initial state from volume
+        let vol = SystemVolumeController.shared.currentVolume
+        self.level = vol
+        if vol <= 0.01 { self.iconName = "speaker.slash.fill" }
+        else if vol < 0.33 { self.iconName = "speaker.wave.1.fill" }
+        else if vol < 0.66 { self.iconName = "speaker.wave.2.fill" }
+        else { self.iconName = "speaker.wave.3.fill" }
+        
+        // Listeners
+        NotificationCenter.default.publisher(for: .systemVolumeDidChange)
+            .compactMap { $0.userInfo }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] info in
+                guard let self else { return }
+                if let vol = info["value"] as? Float {
+                    self.level = vol
+                    if vol <= 0.01 { self.iconName = "speaker.slash.fill" }
+                    else if vol < 0.33 { self.iconName = "speaker.wave.1.fill" }
+                    else if vol < 0.66 { self.iconName = "speaker.wave.2.fill" }
+                    else { self.iconName = "speaker.wave.3.fill" }
+                }
+            }
+            .store(in: &cancellables)
+            
+        NotificationCenter.default.publisher(for: .systemBrightnessDidChange)
+            .compactMap { $0.userInfo }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] info in
+                guard let self else { return }
+                if let val = info["value"] as? Float {
+                    self.level = val
+                    self.iconName = "sun.max.fill"
+                }
+            }
+            .store(in: &cancellables)
+            
+        NotificationCenter.default.publisher(for: .keyboardBacklightDidChange)
+            .compactMap { $0.userInfo }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] info in
+                guard let self else { return }
+                if let val = info["value"] as? Float {
+                    self.level = val
+                    self.iconName = val > 0.5 ? "light.max" : "light.min"
+                }
+            }
+            .store(in: &cancellables)
+    }
+}
+
+private struct HUDAndOSDSettingsView: View {
+    @State private var selectedTab: Tab = {
+        if Defaults[.enableSystemHUD] { return .hud }
+        if Defaults[.enableCustomOSD] { return .osd }
+        if Defaults[.enableVerticalHUD] { return .vertical }
+        if Defaults[.enableCircularHUD] { return .circular }
+        return .hud
+    }()
+    @Default(.enableSystemHUD) var enableSystemHUD
+    @Default(.enableCustomOSD) var enableCustomOSD
+    @Default(.enableVerticalHUD) var enableVerticalHUD
+    @Default(.enableCircularHUD) var enableCircularHUD
+    @Default(.verticalHUDPosition) var verticalHUDPosition
+    
+    // Vertical HUD Props
+    @Default(.verticalHUDShowValue) var verticalHUDShowValue
+    @Default(.verticalHUDInteractive) var verticalHUDInteractive
+    @Default(.verticalHUDHeight) var verticalHUDHeight
+    @Default(.verticalHUDWidth) var verticalHUDWidth
+    @Default(.verticalHUDPadding) var verticalHUDPadding
+    @Default(.verticalHUDUseAccentColor) var verticalHUDUseAccentColor
+    
+    // Circular HUD Props
+    @Default(.circularHUDShowValue) var circularHUDShowValue
+    @Default(.circularHUDSize) var circularHUDSize
+    @Default(.circularHUDStrokeWidth) var circularHUDStrokeWidth
+    @Default(.circularHUDUseAccentColor) var circularHUDUseAccentColor
+    @StateObject private var previewModel = HUDPreviewViewModel()
+    @ObservedObject private var accessibilityPermission = AccessibilityPermissionStore.shared
+
+    private enum Tab: String, CaseIterable, Identifiable {
+        case hud = "Dynamic Island HUD"
+        case osd = "Custom OSD"
+        case vertical = "Vertical Bar"
+        case circular = "Circular"
+        
+        var id: String { rawValue }
+    }
+
+    private var paneBackgroundColor: Color {
+        Color(nsColor: .controlBackgroundColor)
+    }
+
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack(spacing: 16) {
+                HUDSelectionCard(
+                    title: "Dynamic Island",
+                    isSelected: selectedTab == .hud,
+                    action: {
+                        selectedTab = .hud
+                        enableSystemHUD = true
+                        enableCustomOSD = false
+                        enableVerticalHUD = false
+                        enableCircularHUD = false
+                    }
+                ) {
+                    VStack {
+                        Capsule()
+                            .fill(Color.black)
+                            .frame(width: 64, height: 20)
+                            .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+                            .overlay {
+                                HStack(spacing: 6) {
+                                    Image(systemName: previewModel.iconName)
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                        .frame(width: 12)
+                                    
+                                    GeometryReader { geo in
+                                        Capsule()
+                                            .fill(Color.white.opacity(0.2))
+                                            .overlay(alignment: .leading) {
+                                                Capsule()
+                                                    .fill(Color.white)
+                                                    .frame(width: geo.size.width * CGFloat(previewModel.level))
+                                                    .animation(.spring(response: 0.3), value: previewModel.level)
+                                            }
+                                    }
+                                    .frame(height: 4)
+                                }
+                                .padding(.horizontal, 8)
+                            }
+                    }
+                }
+                
+                HUDSelectionCard(
+                    title: "Custom OSD",
+                    isSelected: selectedTab == .osd,
+                    action: {
+                        selectedTab = .osd
+                        enableCustomOSD = true
+                        enableSystemHUD = false
+                        enableVerticalHUD = false
+                        enableCircularHUD = false
+                    }
+                ) {
+                   RoundedRectangle(cornerRadius: 12)
+                        .fill(.ultraThinMaterial)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(.white.opacity(0.1), lineWidth: 1)
+                        }
+                        .shadow(color: .black.opacity(0.1), radius: 3, y: 1)
+                        .overlay {
+                            VStack(spacing: 6) {
+                                Image(systemName: previewModel.iconName)
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.secondary)
+                                    .symbolRenderingMode(.hierarchical)
+                                    .contentTransition(.symbolEffect(.replace))
+                                
+                                GeometryReader { geo in
+                                    Capsule()
+                                        .fill(Color.secondary.opacity(0.2))
+                                        .overlay(alignment: .leading) {
+                                            Capsule()
+                                                .fill(Color.primary)
+                                                .frame(width: geo.size.width * CGFloat(previewModel.level))
+                                                .animation(.spring(response: 0.3), value: previewModel.level)
+                                        }
+                                }
+                                .frame(width: 36, height: 4)
+                            }
+                        }
+                        .frame(width: 44, height: 44)
+                }
+                
+                HUDSelectionCard(
+                    title: "Vertical Bar",
+                    isSelected: selectedTab == .vertical,
+                    action: {
+                        selectedTab = .vertical
+                        enableVerticalHUD = true
+                        enableSystemHUD = false
+                        enableCustomOSD = false
+                        enableCircularHUD = false
+                    }
+                ) {
+                    RoundedRectangle(cornerRadius: 8)
+                         .fill(.ultraThinMaterial)
+                         .overlay {
+                             RoundedRectangle(cornerRadius: 8)
+                                 .stroke(.white.opacity(0.1), lineWidth: 1)
+                         }
+                         .shadow(color: .black.opacity(0.1), radius: 3, y: 1)
+                         .overlay {
+                             VStack {
+                                 GeometryReader { geo in
+                                     VStack {
+                                         Spacer()
+                                         RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                             .fill(Color.white)
+                                             .frame(height: max(0, geo.size.height * CGFloat(previewModel.level)))
+                                             .animation(.spring(response: 0.3), value: previewModel.level)
+                                     }
+                                 }
+                                 .mask(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                 .padding(.bottom, 2)
+                                 
+                                 Image(systemName: previewModel.iconName)
+                                     .font(.system(size: 9))
+                                     .foregroundStyle(previewModel.level > 0.15 ? .black : .secondary)
+                                     .symbolRenderingMode(.hierarchical)
+                                     .contentTransition(.symbolEffect(.replace))
+                             }
+                             .padding(4)
+                         }
+                         .frame(width: 22, height: 54)
+                }
+
+                HUDSelectionCard(
+                    title: "Circular",
+                    isSelected: selectedTab == .circular,
+                    action: {
+                        selectedTab = .circular
+                        enableCircularHUD = true
+                        enableSystemHUD = false
+                        enableCustomOSD = false
+                        enableVerticalHUD = false
+                    }
+                ) {
+                    ZStack {
+                        Circle()
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 4)
+                        Circle()
+                            .trim(from: 0, to: CGFloat(previewModel.level))
+                            .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                            .animation(.spring(response: 0.3), value: previewModel.level)
+                        Image(systemName: previewModel.iconName)
+                            .font(.system(size: 16))
+                            .foregroundStyle(.primary)
+                            .symbolRenderingMode(.hierarchical)
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .frame(width: 44, height: 44)
+                }
+            }
+            .padding(.top, 8)
+
+            switch selectedTab {
+            case .hud:
+                HUD()
+            case .osd:
+                 if #available(macOS 15.0, *) {
+                    CustomOSDSettings()
+                } else {
+                     VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.orange)
+                        
+                        Text("macOS 15 or later required")
+                            .font(.headline)
+                        
+                        Text("Custom OSD feature requires macOS 15 or later.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding()
+                }
+            case .vertical:
+                Form {
+                    if !accessibilityPermission.isAuthorized {
+                        Section {
+                            SettingsPermissionCallout(
+                                message: "Accessibility permission is needed to intercept system controls for the Vertical HUD.",
+                                requestAction: {
+                                    accessibilityPermission.requestAuthorizationPrompt()
+                                },
+                                openSettingsAction: {
+                                    accessibilityPermission.openSystemSettings()
+                                }
+                            )
+                        } header: {
+                            Text("Accessibility")
+                        }
+                    }
+                    
+                    Section {
+                        Toggle("Show Percentage", isOn: $verticalHUDShowValue)
+                        Toggle("Use Accent Color", isOn: $verticalHUDUseAccentColor)
+                        Toggle("Interactive (Drag to Change)", isOn: $verticalHUDInteractive)
+                        Defaults.Toggle("Color-coded Volume", key: .useColorCodedVolumeDisplay)
+                        if Defaults[.useColorCodedVolumeDisplay] {
+                            Defaults.Toggle("Smooth color transitions", key: .useSmoothColorGradient)
+                        }
+                    } header: {
+                        Text("Behavior & Style")
+                    }
+                    
+                    Section {
+                        Picker("HUD Position", selection: $verticalHUDPosition) {
+                            Text("Left").tag("left")
+                            Text("Right").tag("right")
+                        }
+                        .pickerStyle(.menu)
+                        
+                        VStack(alignment: .leading) {
+                            Text("Screen Padding: \(Int(verticalHUDPadding))px")
+                            Slider(value: $verticalHUDPadding, in: 0...100, step: 4)
+                        }
+                    } header: {
+                        Text("Position")
+                    } footer: {
+                        Text("Choose directly on which side of the screen the vertical bar appears.")
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                    }
+                    
+                    Section {
+                        VStack(alignment: .leading) {
+                            Text("Width: \(Int(verticalHUDWidth))px")
+                            Slider(value: $verticalHUDWidth, in: 24...80, step: 2)
+                        }
+                        VStack(alignment: .leading) {
+                            Text("Height: \(Int(verticalHUDHeight))px")
+                            Slider(value: $verticalHUDHeight, in: 100...500, step: 10)
+                        }
+                        Button("Reset to Default") {
+                            verticalHUDWidth = 36
+                            verticalHUDHeight = 160
+                            verticalHUDPadding = 24
+                        }
+                    } header: {
+                        Text("Dimensions")
+                    }
+                }
+
+            case .circular:
+                Form {
+                    if !accessibilityPermission.isAuthorized {
+                        Section {
+                            SettingsPermissionCallout(
+                                message: "Accessibility permission is needed to intercept system controls for the Circular HUD.",
+                                requestAction: {
+                                    accessibilityPermission.requestAuthorizationPrompt()
+                                },
+                                openSettingsAction: {
+                                    accessibilityPermission.openSystemSettings()
+                                }
+                            )
+                        } header: {
+                            Text("Accessibility")
+                        }
+                    }
+                    
+                    Section {
+                        Toggle("Show Percentage", isOn: $circularHUDShowValue)
+                        Toggle("Use Accent Color", isOn: $circularHUDUseAccentColor)
+                        Defaults.Toggle("Color-coded Volume", key: .useColorCodedVolumeDisplay)
+                        if Defaults[.useColorCodedVolumeDisplay] {
+                            Defaults.Toggle("Smooth color transitions", key: .useSmoothColorGradient)
+                        }
+                    } header: {
+                        Text("Style")
+                    }
+                    
+                    Section {
+                        VStack(alignment: .leading) {
+                            Text("Size: \(Int(circularHUDSize))px")
+                            Slider(value: $circularHUDSize, in: 40...200, step: 5)
+                        }
+                        VStack(alignment: .leading) {
+                            Text("Line Width: \(Int(circularHUDStrokeWidth))px")
+                            Slider(value: $circularHUDStrokeWidth, in: 2...16, step: 1)
+                        }
+                        Button("Reset to Default") {
+                            circularHUDSize = 65
+                            circularHUDStrokeWidth = 4
+                        }
+                    } header: {
+                        Text("Dimensions")
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(paneBackgroundColor)
+        .navigationTitle("Controls")
+    }
+}
+
+private struct HUDSelectionCard<Preview: View>: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    @ViewBuilder let preview: Preview
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(
+                                    isSelected ? Color.accentColor : Color.clear,
+                                    lineWidth: 2.5
+                                )
+                        )
+                        .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                    
+                    preview
+                }
+                .frame(width: 110, height: 80)
+                
+                VStack(spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(isSelected ? .primary : .secondary)
+                    
+                    if isSelected {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 4, height: 4)
+                    } else {
+                        Color.clear
+                            .frame(width: 4, height: 4)
+                    }
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+    }
+}
+
+private struct DevicesSettingsView: View {
+    @Default(.progressBarStyle) var progressBarStyle
+
+    private func highlightID(_ title: String) -> String {
+        SettingsTab.devices.highlightID(for: title)
+    }
+
+    private var colorCodingDisabled: Bool {
+        progressBarStyle == .segmented
+    }
+
     var body: some View {
         Form {
-            if !hasAccessibilityPermission {
-                Section {
-                    SettingsPermissionCallout(
-                        message: "Accessibility permission lets Dynamic Island replace the native volume, brightness, and keyboard HUDs.",
-                        requestAction: { accessibilityPermission.requestAuthorizationPrompt() },
-                        openSettingsAction: { accessibilityPermission.openSystemSettings() }
-                    )
-                } header: {
-                    Text("Accessibility")
-                }
-            }
-
-            Section {
-                Toggle("Enable HUDs", isOn: $enableSystemHUD)
-                    .disabled(Defaults[.enableCustomOSD] || !hasAccessibilityPermission)
-            } header: {
-                Text("General")
-            } footer: {
-                if Defaults[.enableCustomOSD] {
-                    Text("HUDs are disabled because Custom OSD is enabled. Disable Custom OSD in the Custom OSD tab to use HUDs.")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                } else if !hasAccessibilityPermission {
-                    Text("Grant Accessibility permission in System Settings to control macOS HUD replacements from here.")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                } else {
-                    Text("Replaces macOS system HUD with Dynamic Island displays for volume, brightness, and keyboard backlight.")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                }
-            }
-            
-            if enableSystemHUD && !Defaults[.enableCustomOSD] && hasAccessibilityPermission {
-                Section {
-                    Toggle("Volume HUD", isOn: $enableVolumeHUD)
-                    Toggle("Brightness HUD", isOn: $enableBrightnessHUD)
-                    Toggle("Keyboard Backlight HUD", isOn: $enableKeyboardBacklightHUD)
-                } header: {
-                    Text("Controls")
-                } footer: {
-                    Text("Choose which system controls should display HUD notifications.")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                }
-            }
-            
             Section {
                 Defaults.Toggle("Show Bluetooth device connections", key: .showBluetoothDeviceConnections)
                     .settingsHighlight(id: highlightID("Show Bluetooth device connections"))
@@ -1297,12 +1677,88 @@ struct HUD: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
-            
+
             Section {
-                let colorCodingDisabled = progressBarStyle == .segmented
                 Defaults.Toggle("Color-coded battery display", key: .useColorCodedBatteryDisplay)
                     .disabled(colorCodingDisabled)
                     .settingsHighlight(id: highlightID("Color-coded battery display"))
+            } header: {
+                Text("Battery Indicator Styling")
+            } footer: {
+                if progressBarStyle == .segmented {
+                    Text("Color-coded fills are unavailable in Segmented mode. Switch to Hierarchical or Gradient inside Controls › Dynamic Island to adjust advanced options.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } else if Defaults[.useSmoothColorGradient] {
+                    Text("Smooth transitions blend Green (0–60%), Yellow (60–85%), and Red (85–100%) through the entire fill. Adjust gradient behavior from Controls › Dynamic Island.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } else {
+                    Text("Discrete transitions snap between Green (0–60%), Yellow (60–85%), and Red (85–100%).")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+            }
+        }
+        .navigationTitle("Devices")
+    }
+}
+
+struct HUD: View {
+    @EnvironmentObject var vm: DynamicIslandViewModel
+    @Default(.inlineHUD) var inlineHUD
+    @Default(.progressBarStyle) var progressBarStyle
+    @Default(.enableSystemHUD) var enableSystemHUD
+    @Default(.enableVolumeHUD) var enableVolumeHUD
+    @Default(.enableBrightnessHUD) var enableBrightnessHUD
+    @Default(.enableKeyboardBacklightHUD) var enableKeyboardBacklightHUD
+    @Default(.systemHUDSensitivity) var systemHUDSensitivity
+    @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
+    @ObservedObject private var accessibilityPermission = AccessibilityPermissionStore.shared
+
+    private func highlightID(_ title: String) -> String {
+        SettingsTab.hudAndOSD.highlightID(for: title)
+    }
+
+    private var hasAccessibilityPermission: Bool {
+        accessibilityPermission.isAuthorized
+    }
+
+    private var colorCodingDisabled: Bool {
+        progressBarStyle == .segmented
+    }
+    
+    var body: some View {
+        Form {
+            if !hasAccessibilityPermission {
+                Section {
+                    SettingsPermissionCallout(
+                        message: "Accessibility permission lets Dynamic Island replace the native volume, brightness, and keyboard HUDs.",
+                        requestAction: { accessibilityPermission.requestAuthorizationPrompt() },
+                        openSettingsAction: { accessibilityPermission.openSystemSettings() }
+                    )
+                } header: {
+                    Text("Accessibility")
+                }
+            }
+
+
+            
+            if enableSystemHUD && !Defaults[.enableCustomOSD] && hasAccessibilityPermission {
+                Section {
+                    Toggle("Volume HUD", isOn: $enableVolumeHUD)
+                    Toggle("Brightness HUD", isOn: $enableBrightnessHUD)
+                    Toggle("Keyboard Backlight HUD", isOn: $enableKeyboardBacklightHUD)
+                } header: {
+                    Text("Controls")
+                } footer: {
+                    Text("Choose which system controls should display HUD notifications.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+            }
+
+            Section {
                 Defaults.Toggle("Color-coded volume display", key: .useColorCodedVolumeDisplay)
                     .disabled(colorCodingDisabled)
                     .settingsHighlight(id: highlightID("Color-coded volume display"))
@@ -1315,9 +1771,9 @@ struct HUD: View {
                 Defaults.Toggle("Show percentages beside progress bars", key: .showProgressPercentages)
                     .settingsHighlight(id: highlightID("Show percentages beside progress bars"))
             } header: {
-                Text("Color-Coded Progress Bars")
+                Text("Dynamic Island Progress Bars")
             } footer: {
-                if progressBarStyle == .segmented {
+                if colorCodingDisabled {
                     Text("Color-coded fills and smooth gradients are unavailable in Segmented mode. Switch to Hierarchical or Gradient to adjust these options.")
                         .foregroundStyle(.secondary)
                         .font(.caption)
@@ -1367,7 +1823,7 @@ struct HUD: View {
                 }
             }
         }
-        .navigationTitle("HUDs")
+        .navigationTitle("Controls")
         .onAppear {
             accessibilityPermission.refreshStatus()
         }
@@ -1844,6 +2300,7 @@ struct About: View {
                     .padding(.horizontal, 10)
             }
             .frame(maxWidth: .infinity, alignment: .center)
+            .background(Color(nsColor: .controlBackgroundColor))
         }
         .toolbar {
 //            Button("Welcome window") {
@@ -4537,7 +4994,7 @@ struct CustomOSDSettings: View {
     @State private var previewType: SneakContentType = .volume
     
     private func highlightID(_ title: String) -> String {
-        SettingsTab.osd.highlightID(for: title)
+        SettingsTab.hudAndOSD.highlightID(for: title)
     }
 
     private var hasAccessibilityPermission: Bool {
@@ -4558,46 +5015,7 @@ struct CustomOSDSettings: View {
                 }
             }
 
-            Section {
-                Toggle("Enable Custom OSD", isOn: Binding(
-                    get: { enableCustomOSD },
-                    set: { newValue in
-                        guard hasAccessibilityPermission else {
-                            enableCustomOSD = false
-                            return
-                        }
-                        if newValue && !hasSeenOSDAlphaWarning {
-                            showAlphaWarning = true
-                        } else {
-                            enableCustomOSD = newValue
-                            if newValue {
-                                // Disable System HUD when OSD is enabled
-                                enableSystemHUD = false
-                            }
-                        }
-                    }
-                ))
-                    .settingsHighlight(id: highlightID("Enable Custom OSD"))
-                    .disabled(enableSystemHUD || !hasAccessibilityPermission)
-            } header: {
-                Text("General")
-            } footer: {
-                if enableSystemHUD {
-                    Text("Custom OSD is disabled because HUDs are enabled. Disable HUDs in the HUDs tab to use Custom OSD.")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                } else if !hasAccessibilityPermission {
-                    Text("Grant Accessibility permission in System Settings to customize the on-screen display replacements here.")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                } else {
-                    Text("Display custom macOS-style OSD windows at the bottom center of the screen when adjusting volume, brightness, or keyboard backlight.")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                }
-            }
-            
-            if enableCustomOSD && hasAccessibilityPermission {
+            if hasAccessibilityPermission {
                 Section {
                     Toggle("Volume OSD", isOn: $enableOSDVolume)
                         .settingsHighlight(id: highlightID("Volume OSD"))
@@ -4695,18 +5113,6 @@ struct CustomOSDSettings: View {
                         .font(.caption)
                 }
             }
-        }
-        .alert("Alpha Feature Warning", isPresented: $showAlphaWarning) {
-            Button("Cancel", role: .cancel) {
-                enableCustomOSD = false
-            }
-            Button("Enable Anyway") {
-                hasSeenOSDAlphaWarning = true
-                enableCustomOSD = true
-                enableSystemHUD = false
-            }
-        } message: {
-            Text("Custom OSD is an experimental alpha feature and may contain bugs or unexpected behavior.\n\nThis feature requires macOS 15 or later and is still under active development. It's recommended to keep it disabled unless you want to help test it.")
         }
         .navigationTitle("Custom OSD")
         .onAppear {
