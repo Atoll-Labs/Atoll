@@ -21,7 +21,7 @@
   <a href="https://github.com/sponsors/Ebullioscopic">
     <img src="https://img.shields.io/badge/Sponsor-Ebullioscopic-ff69b4?style=for-the-badge&logo=github" alt="Sponsor Ebullioscopic"/>
   </a>
-  <a href="https://github.com/Ebullioscopic/Atoll/releases/download/v1.0.2-beta/Atoll.dmg">
+  <a href="https://github.com/Ebullioscopic/Atoll/releases/download/v1.2.1-beta/Atoll.1.2.1-beta.dmg">
     <img src="https://img.shields.io/badge/Download-Atoll%20for%20macOS-0A84FF?style=for-the-badge&logo=apple" alt="Download Atoll for macOS"/>
   </a>
   <a href="https://www.buymeacoffee.com/kryoscopic">
