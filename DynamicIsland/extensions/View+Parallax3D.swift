@@ -11,13 +11,14 @@ import Defaults
 
 struct ParallaxMotionModifier: ViewModifier {
     var magnitude: Double
+    var enableOverride: Bool?
     
     @Default(.enableParallaxEffect) var enableParallaxEffect
     @State private var offset: CGSize = .zero
     @State private var isHovering = false
     
     func body(content: Content) -> some View {
-        if !enableParallaxEffect {
+        if !(enableOverride ?? enableParallaxEffect) {
             content
         } else {
             content
@@ -65,6 +66,6 @@ struct ParallaxMotionModifier: ViewModifier {
 
 extension View {
     func parallax3D(magnitude: Double = 10) -> some View {
-        modifier(ParallaxMotionModifier(magnitude: magnitude))
+        modifier(ParallaxMotionModifier(magnitude: magnitude, enableOverride: nil))
     }
 }

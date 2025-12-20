@@ -38,6 +38,7 @@ struct LockScreenMusicPanel: View {
     @Default(.musicControlSlots) private var slotConfig
     @Default(.musicSkipBehavior) private var musicSkipBehavior
     @Default(.enableLyrics) private var enableLyrics
+    @Default(.lockScreenMusicAlbumParallaxEnabled) private var lockScreenParallaxEnabled
 
     init(animator: LockScreenPanelAnimator) {
         _animator = ObservedObject(wrappedValue: animator)
@@ -238,6 +239,7 @@ struct LockScreenMusicPanel: View {
                 }
             }
             .albumArtFlip(angle: musicManager.flipAngle)
+            .modifier(ParallaxMotionModifier(magnitude: 12, enableOverride: lockScreenParallaxEnabled))
             .frame(width: size, height: size)
             .background(albumArtBackground(cornerRadius: cornerRadius))
         }

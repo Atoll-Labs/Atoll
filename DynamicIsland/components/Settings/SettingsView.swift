@@ -1849,6 +1849,7 @@ struct Media: View {
     @Default(.enableLockScreenMediaWidget) private var enableLockScreenMediaWidget
     @Default(.showSneakPeekOnTrackChange) private var showSneakPeekOnTrackChange
     @Default(.lockScreenGlassStyle) private var lockScreenGlassStyle
+    @Default(.lockScreenMusicAlbumParallaxEnabled) private var lockScreenMusicAlbumParallaxEnabled
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.media.highlightID(for: title)
@@ -1904,6 +1905,14 @@ struct Media: View {
                 }
             } header: {
                 Text("Media controls")
+            }
+
+            Section(header: Text("Lock Screen Media")) {
+                Defaults.Toggle("Enable album art parallax", key: .lockScreenMusicAlbumParallaxEnabled)
+                    .settingsHighlight(id: highlightID("Enable album art parallax"))
+                Text("Applies the notch-style parallax effect to the lock screen media widget album art.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             if musicControlWindowEnabled {
                 Section {
