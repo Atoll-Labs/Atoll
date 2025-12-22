@@ -74,11 +74,12 @@ struct CircularHUDView: View {
             if showValue {
                 VStack {
                     Spacer()
-                    Text("\(Int(value * 100))")
-                        .font(.system(size: size * 0.15, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.65))
-                        .contentTransition(.numericText())
-                        .padding(.bottom, size * 0.03)
+                    HUDNumericLabel(
+                        value: value,
+                        font: .system(size: size * 0.15, weight: .bold, design: .rounded),
+                        color: .white.opacity(0.65)
+                    )
+                    .padding(.bottom, size * 0.03)
                 }
             }
 
