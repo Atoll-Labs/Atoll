@@ -2974,6 +2974,7 @@ struct LockScreenSettings: View {
     @Default(.lockScreenWeatherShowsCharging) private var lockScreenWeatherShowsCharging
     @Default(.lockScreenWeatherShowsBatteryGauge) private var lockScreenWeatherShowsBatteryGauge
     @Default(.lockScreenWeatherShowsAQI) private var lockScreenWeatherShowsAQI
+    @Default(.lockScreenWeatherShowsSunrise) private var lockScreenWeatherShowsSunrise
     @Default(.lockScreenWeatherAQIScale) private var lockScreenWeatherAQIScale
 
     private func highlightID(_ title: String) -> String {
@@ -3088,6 +3089,10 @@ struct LockScreenSettings: View {
                         Defaults.Toggle("Show charging percentage", key: .lockScreenWeatherShowsChargingPercentage)
                             .settingsHighlight(id: highlightID("Show charging percentage"))
                     }
+
+                    Defaults.Toggle("Show sunrise time", key: .lockScreenWeatherShowsSunrise)
+                        .disabled(lockScreenWeatherWidgetStyle != .inline)
+                        .settingsHighlight(id: highlightID("Show sunrise time"))
 
                     Defaults.Toggle("Show battery indicator", key: .lockScreenWeatherShowsBatteryGauge)
                         .settingsHighlight(id: highlightID("Show battery indicator"))

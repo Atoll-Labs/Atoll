@@ -12,6 +12,13 @@ struct LockScreenWeatherWidget: View {
 	private let inlinePrimaryFont = Font.system(size: 22, weight: .semibold, design: .rounded)
 	private let inlineSecondaryFont = Font.system(size: 13, weight: .medium, design: .rounded)
 	private let secondaryLabelColor = Color.white.opacity(0.7)
+	private static let sunriseFormatter: DateFormatter = {
+		let formatter = DateFormatter()
+		formatter.dateStyle = .none
+		formatter.timeStyle = .short
+		formatter.locale = .current
+		return formatter
+	}()
 
 	private var isInline: Bool { snapshot.widgetStyle == .inline }
 	private var stackAlignment: VerticalAlignment { isInline ? .firstTextBaseline : .top }
@@ -62,10 +69,19 @@ struct LockScreenWeatherWidget: View {
 
 			weatherSegment
 
+			if snapshot.showsSunrise, let sunriseText = sunriseTimeText {
+				sunriseSegment(text: sunriseText)
+			}
+
 			if shouldShowLocation {
 				locationSegment
 			}
 		}
+	}
+
+	private var sunriseTimeText: String? {
+		guard let sunrise = snapshot.sunCycle?.sunrise else { return nil }
+		return Self.sunriseFormatter.string(from: sunrise)
 	}
 
 	@ViewBuilder
@@ -344,6 +360,20 @@ struct LockScreenWeatherWidget: View {
 			.truncationMode(.tail)
 			.minimumScaleFactor(0.75)
 			.layoutPriority(0.7)
+	}
+
+	private func sunriseSegment(text: String) -> some View {
+		HStack(alignment: .firstTextBaseline, spacing: 4) {
+			Image(systemName: "sunrise.fill")
+				.font(.system(size: 20, weight: .semibold))
+				.symbolRenderingMode(.hierarchical)
+			Text(text)
+				.font(inlinePrimaryFont)
+				.lineLimit(1)
+				.minimumScaleFactor(0.85)
+		}
+		.layoutPriority(0.8)
+		.accessibilityLabel("Sunrise at \(text)")
 	}
 
 	private var shouldShowLocation: Bool {
