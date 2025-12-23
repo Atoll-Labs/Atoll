@@ -466,6 +466,7 @@ extension Defaults.Keys {
     static let lockScreenWeatherShowsBluetooth = Key<Bool>("lockScreenWeatherShowsBluetooth", default: true)
     static let lockScreenWeatherShowsBatteryGauge = Key<Bool>("lockScreenWeatherShowsBatteryGauge", default: true)
     static let lockScreenWeatherBatteryUsesLaptopSymbol = Key<Bool>("lockScreenWeatherBatteryUsesLaptopSymbol", default: true)
+    static let lockScreenWeatherShowsSunrise = Key<Bool>("lockScreenWeatherShowsSunrise", default: true)
     static let lockScreenWeatherWidgetStyle = Key<LockScreenWeatherWidgetStyle>("lockScreenWeatherWidgetStyle", default: .circular)
     static let lockScreenWeatherTemperatureUnit = Key<LockScreenWeatherTemperatureUnit>("lockScreenWeatherTemperatureUnit", default: .celsius)
     static let lockScreenWeatherShowsAQI = Key<Bool>("lockScreenWeatherShowsAQI", default: true)
