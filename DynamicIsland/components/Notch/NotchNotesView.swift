@@ -351,6 +351,8 @@ struct NotchClipboardList: View {
     @State private var justCopiedId: UUID?
     @State private var suppressionToken = UUID()
     @State private var isSuppressing = false
+    @State private var showClearHistoryAlert = false
+    @State private var autoCloseToken = UUID()
     
     var body: some View {
         VStack(spacing: 0) {
@@ -363,10 +365,10 @@ struct NotchClipboardList: View {
                 Spacer()
                 
                 if !clipboardManager.clipboardHistory.isEmpty {
-                    Button(action: { clipboardManager.clearHistory() }) {
+                    Button(action: { showClearHistoryAlert = true }) {
                         Image(systemName: "trash")
                             .font(.system(size: 14))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .foregroundStyle(.red)
                             .padding(6)
                             .background(Color.white.opacity(0.1))
                             .clipShape(Circle())
@@ -431,6 +433,17 @@ struct NotchClipboardList: View {
         }
         .onDisappear {
             updateSuppression(for: false)
+        }
+        .alert("Clear Clipboard History?", isPresented: $showClearHistoryAlert) {
+            Button("Clear History", role: .destructive) {
+                clipboardManager.clearHistory()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes every saved clipboard item from the notch tab.")
+        }
+        .onChange(of: showClearHistoryAlert) { _, isShowing in
+            vm.setAutoCloseSuppression(isShowing, token: autoCloseToken)
         }
     }
 
@@ -513,6 +526,8 @@ struct NoteListView: View {
     @State private var isSearchExpanded = false
     @State private var suppressionToken = UUID()
     @State private var isSuppressing = false
+    @State private var showClearNotesAlert = false
+    @State private var autoCloseToken = UUID()
 
     var sortedNotes: [NoteItem] {
         var filtered = searchText.isEmpty ? notes : notes.filter { 
@@ -575,11 +590,11 @@ struct NoteListView: View {
                 }
                 
                 if !notes.isEmpty {
-                    Button(action: onClearAll) {
+                    Button(action: { showClearNotesAlert = true }) {
                         Image(systemName: "trash")
                             .font(.system(size: 14))
                             .frame(width: 16, height: 16)
-                            .foregroundStyle(.white.opacity(0.6))
+                            .foregroundStyle(.red)
                             .padding(5)
                             .background(Color.white.opacity(0.1))
                             .clipShape(Circle())
@@ -709,6 +724,17 @@ struct NoteListView: View {
         }
         .onDisappear {
             updateSuppression(for: false)
+        }
+        .alert("Delete All Notes?", isPresented: $showClearNotesAlert) {
+            Button("Delete", role: .destructive) {
+                onClearAll()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently removes every saved note and its attachments.")
+        }
+        .onChange(of: showClearNotesAlert) { _, isShowing in
+            vm.setAutoCloseSuppression(isShowing, token: autoCloseToken)
         }
     }
 

@@ -727,6 +727,9 @@ struct SettingsView: View {
 
     private func isTabVisible(_ tab: SettingsTab) -> Bool {
         switch tab {
+        case .notes:
+            // Keep notes configuration visible even when other tabs are hidden in minimalistic mode
+            return true
         case .timer, .stats, .clipboard, .screenAssistant, .colorPicker, .shelf:
             return !enableMinimalisticUI
         default:

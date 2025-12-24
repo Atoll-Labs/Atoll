@@ -22,6 +22,8 @@ struct DynamicIslandHeader: View {
     @State private var showTimerPopover = false
     @Default(.enableTimerFeature) var enableTimerFeature
     @Default(.timerDisplayMode) var timerDisplayMode
+    @Default(.showClipboardIcon) var showClipboardIcon
+    @Default(.clipboardDisplayMode) var clipboardDisplayMode
     
     var body: some View {
         HStack(spacing: 0) {
@@ -68,10 +70,12 @@ struct DynamicIslandHeader: View {
                         .buttonStyle(PlainButtonStyle())
                     }
                     
-                    if Defaults[.enableClipboardManager] && Defaults[.showClipboardIcon] {
+                    if Defaults[.enableClipboardManager]
+                        && showClipboardIcon
+                        && clipboardDisplayMode != .separateTab {
                         Button(action: {
                             // Switch behavior based on display mode
-                            switch Defaults[.clipboardDisplayMode] {
+                            switch clipboardDisplayMode {
                             case .panel:
                                 ClipboardPanelManager.shared.toggleClipboardPanel()
                             case .popover:
@@ -237,7 +241,7 @@ struct DynamicIslandHeader: View {
         .onChange(of: coordinator.shouldToggleClipboardPopover) { _ in
             // Only toggle if clipboard is enabled
             if Defaults[.enableClipboardManager] {
-                switch Defaults[.clipboardDisplayMode] {
+                switch clipboardDisplayMode {
                 case .panel:
                     ClipboardPanelManager.shared.toggleClipboardPanel()
                 case .popover:
@@ -253,7 +257,7 @@ struct DynamicIslandHeader: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ToggleClipboardPopover"))) { _ in
             // Handle keyboard shortcut for popover mode
-            if Defaults[.enableClipboardManager] && Defaults[.clipboardDisplayMode] == .popover {
+            if Defaults[.enableClipboardManager] && clipboardDisplayMode == .popover {
                 showClipboardPopover.toggle()
             }
         }

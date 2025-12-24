@@ -160,6 +160,7 @@ class ClipboardManager: ObservableObject {
     @Published var clipboardHistory: [ClipboardItem] = []
     @Published var pinnedItems: [ClipboardItem] = []
     @Published var isMonitoring: Bool = false
+    @Published private(set) var lastCopiedItemDate: Date?
     
     private var timer: Timer?
     private var lastChangeCount: Int = 0
@@ -450,6 +451,7 @@ class ClipboardManager: ObservableObject {
             
             // Add to beginning of array
             self.clipboardHistory.insert(item, at: 0)
+            self.lastCopiedItemDate = item.timestamp
             
             // Keep only the most recent items and clean up old files
             let itemsToDelete = Array(self.clipboardHistory.dropFirst(self.maxHistoryItems))

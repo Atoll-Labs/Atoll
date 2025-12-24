@@ -38,6 +38,9 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     @Published var shouldRecheckHover: Bool = false
     @Published var isScrollGestureActive: Bool = false
     private var scrollGestureSuppressionTokens: Set<UUID> = []
+    @Published private(set) var isAutoCloseSuppressed: Bool = false
+    private var autoCloseSuppressionTokens: Set<UUID> = []
+    private let clipboardFocusWindow: TimeInterval = 10
 
     func setScrollGestureSuppression(_ active: Bool, token: UUID) {
         if active {
@@ -55,6 +58,34 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     private func resetScrollGestureSuppression() {
         scrollGestureSuppressionTokens.removeAll()
         isScrollGestureActive = false
+    }
+
+    func setAutoCloseSuppression(_ active: Bool, token: UUID) {
+        if active {
+            let inserted = autoCloseSuppressionTokens.insert(token).inserted
+            if inserted {
+                isAutoCloseSuppressed = true
+            }
+        } else if autoCloseSuppressionTokens.remove(token) != nil {
+            isAutoCloseSuppressed = !autoCloseSuppressionTokens.isEmpty
+        }
+    }
+
+    private func resetAutoCloseSuppression() {
+        autoCloseSuppressionTokens.removeAll()
+        isAutoCloseSuppressed = false
+    }
+
+    private func focusClipboardTabIfNeeded() {
+        guard !Defaults[.enableMinimalisticUI] else { return }
+        guard Defaults[.enableClipboardManager] else { return }
+        guard Defaults[.clipboardDisplayMode] == .separateTab else { return }
+        guard let lastCopyDate = ClipboardManager.shared.lastCopiedItemDate else { return }
+        guard Date().timeIntervalSince(lastCopyDate) <= clipboardFocusWindow else { return }
+        guard coordinator.currentView != .notes else { return }
+        withAnimation(.smooth) {
+            coordinator.currentView = .notes
+        }
     }
     
     let webcamManager = WebcamManager.shared
@@ -305,6 +336,7 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
 
         // Force music information update when notch is opened
         MusicManager.shared.forceUpdate()
+        focusClipboardTabIfNeeded()
     }
     
     private func calculateDynamicNotchSize() -> CGSize {
@@ -330,6 +362,7 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
         closedNotchSize = targetSize
         notchState = .closed
         resetScrollGestureSuppression()
+        resetAutoCloseSuppression()
 
         // Set the current view to shelf if it contains files and the user enables openShelfByDefault
         // Otherwise, if the user has not enabled openLastShelfByDefault, set the view to home
@@ -347,6 +380,7 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
             closedNotchSize = targetSize
             notchState = .closed
             resetScrollGestureSuppression()
+            resetAutoCloseSuppression()
         }
     }
 
