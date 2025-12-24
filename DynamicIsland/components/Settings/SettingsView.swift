@@ -35,6 +35,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case downloads
     case shelf
     case shortcuts
+    case notes
     case about
 
     var id: String { rawValue }
@@ -58,6 +59,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .downloads: return "Downloads"
         case .shelf: return "Shelf"
         case .shortcuts: return "Shortcuts"
+        case .notes: return "Notes"
         case .about: return "About"
         }
     }
@@ -81,6 +83,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .downloads: return "square.and.arrow.down"
         case .shelf: return "books.vertical"
         case .shortcuts: return "keyboard"
+        case .notes: return "note.text"
         case .about: return "info.circle"
         }
     }
@@ -104,6 +107,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .downloads: return .gray
         case .shelf: return .brown
         case .shortcuts: return .orange
+        case .notes: return .yellow
         case .about: return .secondary
         }
     }
@@ -387,6 +391,7 @@ struct SettingsView: View {
             .hudAndOSD,
             .battery,
             .stats,
+            .notes,
             .clipboard,
             .screenAssistant,
             .colorPicker,
@@ -722,7 +727,7 @@ struct SettingsView: View {
 
     private func isTabVisible(_ tab: SettingsTab) -> Bool {
         switch tab {
-        case .timer, .stats, .clipboard, .screenAssistant, .colorPicker, .shelf:
+        case .timer, .stats, .clipboard, .screenAssistant, .colorPicker, .shelf, .notes:
             return !enableMinimalisticUI
         default:
             return true
@@ -799,6 +804,10 @@ struct SettingsView: View {
         case .shortcuts:
             SettingsForm(tab: .shortcuts) {
                 Shortcuts()
+            }
+        case .notes:
+            SettingsForm(tab: .notes) {
+                NotesSettingsView()
             }
         case .about:
             if let controller = updaterController {
@@ -4638,9 +4647,11 @@ struct ClipboardSettings: View {
                 } footer: {
                     switch clipboardDisplayMode {
                     case .popover:
-                        Text("Popover mode shows clipboard as a dropdown attached to the clipboard button. Panel mode shows clipboard in a floating window near the notch.")
+                        Text("Popover mode shows clipboard as a dropdown attached to the clipboard button.")
                     case .panel:
-                        Text("Panel mode shows clipboard in a floating window near the notch. Popover mode shows clipboard as a dropdown attached to the clipboard button.")
+                        Text("Panel mode shows clipboard in a floating window near the notch.")
+                    case .separateTab:
+                        Text("Separate Tab mode integrates Copied Items and Notes into a single view. If both are enabled, Notes appear on the right and Clipboard on the left.")
                     }
                 }
                 
@@ -5195,4 +5206,35 @@ struct SettingsPermissionCallout: View {
 
 #Preview {
     HUD()
+}
+
+struct NotesSettingsView: View {
+    @EnvironmentObject var vm: DynamicIslandViewModel
+    @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
+
+    private func highlightID(_ title: String) -> String {
+        SettingsTab.notes.highlightID(for: title)
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle("Enable Notes", key: .enableNotes)
+                if Defaults[.enableNotes] {
+                    Defaults.Toggle("Enable Note Pinning", key: .enableNotePinning)
+                    Defaults.Toggle("Enable Note Search", key: .enableNoteSearch)
+                    Defaults.Toggle("Enable Color Filtering", key: .enableNoteColorFiltering)
+                    Defaults.Toggle("Enable Create from Clipboard", key: .enableCreateFromClipboard)
+                    Defaults.Toggle("Show Character Count", key: .enableNoteCharCount)
+                }
+            } header: {
+                Text("General")
+            } footer: {
+                Text("Customize how you organize and create notes. Enabling color filtering and search helps manage large lists.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Notes")
+    }
 }

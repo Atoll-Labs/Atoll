@@ -45,6 +45,16 @@ struct ContentView: View {
     var dynamicNotchSize: CGSize {
         var baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
         
+        if coordinator.currentView == .timer {
+            return CGSize(width: baseSize.width, height: 250) // Extra height for timer presets
+        }
+        
+        if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
+            let preferredHeight = coordinator.notesLayoutState.preferredHeight
+            let resolvedHeight = max(baseSize.height, preferredHeight)
+            return CGSize(width: baseSize.width, height: resolvedHeight)
+        }
+        
         guard coordinator.currentView == .stats else {
             return baseSize
         }
@@ -580,6 +590,10 @@ struct ContentView: View {
                                   NotchStatsView()
                               case .colorPicker:
                                   NotchColorPickerView()
+                            case .notes:
+                                NotchNotesView()
+                            case .clipboard:
+                                NotchNotesView()
                           }
                       }
                       .transition(.asymmetric(
@@ -837,7 +851,7 @@ struct ContentView: View {
     }
 
     private func shouldPreventAutoClose() -> Bool {
-        hasAnyActivePopovers() || SharingStateManager.shared.preventNotchClose
+        hasAnyActivePopovers() || vm.isAutoCloseSuppressed || SharingStateManager.shared.preventNotchClose
     }
     
     // Helper to prevent rapid haptic feedback
@@ -893,7 +907,7 @@ struct ContentView: View {
     }
     
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        if vm.notchState == .open && !vm.isHoveringCalendar {
+        if vm.notchState == .open && !vm.isHoveringCalendar && !vm.isScrollGestureActive {
             withAnimation(.smooth) {
                 gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20
             }

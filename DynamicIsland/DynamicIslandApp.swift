@@ -277,8 +277,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return CGSize(width: inlineSneakPeekWidth, height: vm.effectiveClosedNotchHeight)
         }
         
-        // Use minimalistic or normal size based on settings, then adjust for stats layout
-        let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        // Use minimalistic or normal size based on settings
+        var baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        
+        // Use a consistent height for different view types
+        if coordinator.currentView == .timer {
+            baseSize.height = 250 // Extra space for timer presets
+        } else if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
+            let preferredHeight = coordinator.notesLayoutState.preferredHeight
+            baseSize.height = max(baseSize.height, preferredHeight)
+        }
+        
         let adjustedContentSize = statsAdjustedNotchSize(
             from: baseSize,
             isStatsTabActive: coordinator.currentView == .stats,
@@ -366,10 +375,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Setup Privacy Indicator Manager (camera and microphone monitoring)
         PrivacyIndicatorManager.shared.startMonitoring()
         
-        // Observe tab changes - use debounced updates
+        // Observe tab changes - use immediate updates to prevent clipping
         coordinator.$currentView.sink { [weak self] newView in
-            self?.debouncedUpdateWindowSize()
+            self?.updateWindowSizeIfNeeded()
         }.store(in: &cancellables)
+
+        coordinator.$notesLayoutState
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                self?.updateWindowSizeIfNeeded()
+            }
+            .store(in: &cancellables)
         
         // Observe stats settings changes - use debounced updates
         Defaults.publisher(.enableStatsFeature, options: []).sink { [weak self] _ in
@@ -577,6 +593,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 } else {
                     NotificationCenter.default.post(name: NSNotification.Name("ToggleClipboardPopover"), object: nil)
+                }
+            case .separateTab:
+                if self.vm.notchState == .closed {
+                    self.vm.open()
+                    self.coordinator.currentView = .notes
+                } else {
+                    if self.coordinator.currentView == .notes {
+                        self.vm.close()
+                    } else {
+                        self.coordinator.currentView = .notes
+                    }
                 }
             }
         }

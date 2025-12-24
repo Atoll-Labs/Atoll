@@ -16,7 +16,7 @@ let batterySneakSize: CGSize = .init(width: 160, height: 1)
 
 var openNotchSize: CGSize {
     let width = Defaults[.openNotchWidth]
-    return .init(width: width, height: 190)
+    return .init(width: width, height: 200) // Adjusted to a better middle ground
 }
 private let minimalisticBaseOpenNotchSize: CGSize = .init(width: 420, height: 180)
 private let minimalisticLyricsExtraHeight: CGFloat = 40
