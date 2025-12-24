@@ -445,6 +445,11 @@ struct NotchClipboardList: View {
         .onChange(of: showClearHistoryAlert) { _, isShowing in
             vm.setAutoCloseSuppression(isShowing, token: autoCloseToken)
         }
+        .onAppear {
+            if !clipboardManager.isMonitoring {
+                clipboardManager.startMonitoring()
+            }
+        }
     }
 
     private func updateSuppression(for hovering: Bool) {
