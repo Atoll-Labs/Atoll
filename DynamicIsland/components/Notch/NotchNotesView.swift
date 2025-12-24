@@ -395,35 +395,47 @@ struct NotchClipboardList: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.vertical, 30) // Add padding so it's not touching header
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 4) { // Tighter spacing
-                        ForEach(clipboardManager.clipboardHistory) { item in
-                            NotchClipboardItemRow(
-                                item: item,
-                                isHovered: hoveredItemId == item.id,
-                                justCopied: justCopiedId == item.id
-                            )
-                            .contentShape(Rectangle())
-                            .onHover { isHovered in
-                                hoveredItemId = isHovered ? item.id : nil
-                            }
-                            .onTapGesture {
-                                clipboardManager.copyToClipboard(item)
-                                withAnimation {
-                                    justCopiedId = item.id
+                ZStack {
+                    ScrollView {
+                        LazyVStack(spacing: 4) { // Tighter spacing
+                            ForEach(clipboardManager.clipboardHistory) { item in
+                                NotchClipboardItemRow(
+                                    item: item,
+                                    isHovered: hoveredItemId == item.id,
+                                    justCopied: justCopiedId == item.id
+                                )
+                                .contentShape(Rectangle())
+                                .onHover { isHovered in
+                                    hoveredItemId = isHovered ? item.id : nil
                                 }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                    if justCopiedId == item.id {
-                                        withAnimation {
-                                            justCopiedId = nil
+                                .onTapGesture {
+                                    clipboardManager.copyToClipboard(item)
+                                    withAnimation {
+                                        justCopiedId = item.id
+                                    }
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                        if justCopiedId == item.id {
+                                            withAnimation {
+                                                justCopiedId = nil
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 20)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 20)
+
+                    LinearGradient(colors: [Color.black.opacity(0.65), .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 16)
+                        .allowsHitTesting(false)
+                        .frame(maxHeight: .infinity, alignment: .top)
+
+                    LinearGradient(colors: [.clear, Color.black.opacity(0.65)], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 16)
+                        .allowsHitTesting(false)
+                        .frame(maxHeight: .infinity, alignment: .bottom)
                 }
             }
         }
@@ -700,26 +712,38 @@ struct NoteListView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ScrollView {
-                    let useGrid = sortedNotes.count > 3
-                    let columns = useGrid ? [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)] : [GridItem(.flexible())]
-                    
-                    LazyVGrid(columns: columns, spacing: 8) {
-                        ForEach(sortedNotes) { note in
-                            NoteRow(
-                                note: note, 
-                                onDelete: { onDeleteItem(note) },
-                                onTogglePin: { onTogglePin(note) },
-                                isCompact: useGrid
-                            )
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                onSelect(note)
+                ZStack {
+                    ScrollView {
+                        let useGrid = sortedNotes.count > 3
+                        let columns = useGrid ? [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)] : [GridItem(.flexible())]
+                        
+                        LazyVGrid(columns: columns, spacing: 8) {
+                            ForEach(sortedNotes) { note in
+                                NoteRow(
+                                    note: note, 
+                                    onDelete: { onDeleteItem(note) },
+                                    onTogglePin: { onTogglePin(note) },
+                                    isCompact: useGrid
+                                )
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    onSelect(note)
+                                }
                             }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 20)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 20)
+
+                    LinearGradient(colors: [Color.black.opacity(0.65), .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 16)
+                        .allowsHitTesting(false)
+                        .frame(maxHeight: .infinity, alignment: .top)
+
+                    LinearGradient(colors: [.clear, Color.black.opacity(0.65)], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 16)
+                        .allowsHitTesting(false)
+                        .frame(maxHeight: .infinity, alignment: .bottom)
                 }
             }
         }
