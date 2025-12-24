@@ -284,7 +284,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if coordinator.currentView == .timer {
             baseSize.height = 250 // Extra space for timer presets
         } else if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
-            baseSize.height = 230
+            let preferredHeight = coordinator.notesLayoutState.preferredHeight
+            baseSize.height = max(baseSize.height, preferredHeight)
         }
         
         let adjustedContentSize = statsAdjustedNotchSize(
@@ -378,6 +379,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         coordinator.$currentView.sink { [weak self] newView in
             self?.updateWindowSizeIfNeeded()
         }.store(in: &cancellables)
+
+        coordinator.$notesLayoutState
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                self?.updateWindowSizeIfNeeded()
+            }
+            .store(in: &cancellables)
         
         // Observe stats settings changes - use debounced updates
         Defaults.publisher(.enableStatsFeature, options: []).sink { [weak self] _ in

@@ -9,6 +9,8 @@ import SwiftUI
 import Defaults
 
 struct NotchNotesView: View {
+    @EnvironmentObject var vm: DynamicIslandViewModel
+    @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @FocusState private var isFocused: Bool
     @Default(.savedNotes) var savedNotes
     @Default(.clipboardDisplayMode) var clipboardDisplayMode
@@ -85,6 +87,27 @@ struct NotchNotesView: View {
             }
         }
         .frame(maxHeight: .infinity)
+        .onAppear {
+            updateLayoutState()
+        }
+        .onDisappear {
+            coordinator.notesLayoutState = .list
+        }
+        .onChange(of: isEditingNewNote) { _, _ in
+            updateLayoutState()
+        }
+        .onChange(of: selectedNoteId) { _, _ in
+            updateLayoutState()
+        }
+        .onChange(of: enableClipboardManager) { _, _ in
+            updateLayoutState()
+        }
+        .onChange(of: clipboardDisplayMode) { _, _ in
+            updateLayoutState()
+        }
+        .onChange(of: enableNotes) { _, _ in
+            updateLayoutState()
+        }
     }
     
     // MARK: - Actions
@@ -300,15 +323,34 @@ struct NotchNotesView: View {
             editorTitle = ""
             editorContent = ""
         }
+        updateLayoutState()
+    }
+
+    private func updateLayoutState() {
+        let newState: NotesLayoutState
+        if enableNotes && (isEditingNewNote || selectedNoteId != nil) {
+            newState = .editor
+        } else if showSplitView {
+            newState = .split
+        } else {
+            newState = .list
+        }
+
+        if coordinator.notesLayoutState != newState {
+            coordinator.notesLayoutState = newState
+        }
     }
 }
 
 // MARK: - Subviews
 
 struct NotchClipboardList: View {
+    @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var clipboardManager = ClipboardManager.shared
     @State private var hoveredItemId: UUID?
     @State private var justCopiedId: UUID?
+    @State private var suppressionToken = UUID()
+    @State private var isSuppressing = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -384,6 +426,18 @@ struct NotchClipboardList: View {
             }
         }
         .frame(maxHeight: .infinity)
+        .onHover { hovering in
+            updateSuppression(for: hovering)
+        }
+        .onDisappear {
+            updateSuppression(for: false)
+        }
+    }
+
+    private func updateSuppression(for hovering: Bool) {
+        guard hovering != isSuppressing else { return }
+        isSuppressing = hovering
+        vm.setScrollGestureSuppression(hovering, token: suppressionToken)
     }
 }
 
@@ -440,6 +494,7 @@ struct NotchClipboardItemRow: View {
 
 
 struct NoteListView: View {
+    @EnvironmentObject var vm: DynamicIslandViewModel
     let notes: [NoteItem]
     let onSelect: (NoteItem) -> Void
     let onCreate: () -> Void
@@ -456,6 +511,8 @@ struct NoteListView: View {
     @State private var searchText = ""
     @State private var selectedColorFilter: Int? = nil
     @State private var isSearchExpanded = false
+    @State private var suppressionToken = UUID()
+    @State private var isSuppressing = false
 
     var sortedNotes: [NoteItem] {
         var filtered = searchText.isEmpty ? notes : notes.filter { 
@@ -647,6 +704,18 @@ struct NoteListView: View {
             }
         }
         .frame(maxHeight: .infinity)
+        .onHover { hovering in
+            updateSuppression(for: hovering)
+        }
+        .onDisappear {
+            updateSuppression(for: false)
+        }
+    }
+
+    private func updateSuppression(for hovering: Bool) {
+        guard hovering != isSuppressing else { return }
+        isSuppressing = hovering
+        vm.setScrollGestureSuppression(hovering, token: suppressionToken)
     }
 }
 

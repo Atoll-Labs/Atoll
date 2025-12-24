@@ -63,6 +63,7 @@ class DynamicIslandViewCoordinator: ObservableObject {
     private var statsSecondRowWorkItem: DispatchWorkItem?
     private let statsSecondRowRevealDelay: TimeInterval = 0.5
     private let statsSecondRowAnimationDuration: TimeInterval = 0.3
+    @Published var notesLayoutState: NotesLayoutState = .list
     
     
     @AppStorage("firstLaunch") var firstLaunch: Bool = true

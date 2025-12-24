@@ -50,7 +50,9 @@ struct ContentView: View {
         }
         
         if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
-            return CGSize(width: baseSize.width, height: 230) // Consistent height for split views
+            let preferredHeight = coordinator.notesLayoutState.preferredHeight
+            let resolvedHeight = max(baseSize.height, preferredHeight)
+            return CGSize(width: baseSize.width, height: resolvedHeight)
         }
         
         guard coordinator.currentView == .stats else {
@@ -905,7 +907,7 @@ struct ContentView: View {
     }
     
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        if vm.notchState == .open && !vm.isHoveringCalendar {
+        if vm.notchState == .open && !vm.isHoveringCalendar && !vm.isScrollGestureActive {
             withAnimation(.smooth) {
                 gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20
             }

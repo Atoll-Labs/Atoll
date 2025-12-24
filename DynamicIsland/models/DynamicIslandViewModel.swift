@@ -36,6 +36,26 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     @Published var isMediaOutputPopoverActive: Bool = false
     @Published var isTimerPopoverActive: Bool = false
     @Published var shouldRecheckHover: Bool = false
+    @Published var isScrollGestureActive: Bool = false
+    private var scrollGestureSuppressionTokens: Set<UUID> = []
+
+    func setScrollGestureSuppression(_ active: Bool, token: UUID) {
+        if active {
+            let inserted = scrollGestureSuppressionTokens.insert(token).inserted
+            if inserted {
+                isScrollGestureActive = true
+            }
+        } else {
+            if scrollGestureSuppressionTokens.remove(token) != nil {
+                isScrollGestureActive = !scrollGestureSuppressionTokens.isEmpty
+            }
+        }
+    }
+
+    private func resetScrollGestureSuppression() {
+        scrollGestureSuppressionTokens.removeAll()
+        isScrollGestureActive = false
+    }
     
     let webcamManager = WebcamManager.shared
     @Published var isCameraExpanded: Bool = false
@@ -144,6 +164,27 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
                     delegate.ensureWindowSize(
                         addShadowPadding(to: updatedTarget, isMinimalistic: Defaults[.enableMinimalisticUI]),
                         animated: false,
+                        force: false
+                    )
+                }
+            }
+            .store(in: &cancellables)
+
+        coordinator.$notesLayoutState
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                guard self.notchState == .open else { return }
+                let updatedTarget = self.calculateDynamicNotchSize()
+                guard self.notchSize != updatedTarget else { return }
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self.notchSize = updatedTarget
+                }
+                if let delegate = AppDelegate.shared {
+                    delegate.ensureWindowSize(
+                        addShadowPadding(to: updatedTarget, isMinimalistic: Defaults[.enableMinimalisticUI]),
+                        animated: true,
                         force: false
                     )
                 }
@@ -267,15 +308,18 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     }
     
     private func calculateDynamicNotchSize() -> CGSize {
-        // Use minimalistic size if minimalistic UI is enabled
         let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
-        if DynamicIslandViewCoordinator.shared.currentView == .notes {
-            return CGSize(width: baseSize.width, height: 360)
+        var adjustedSize = baseSize
+
+        if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
+            let preferred = coordinator.notesLayoutState.preferredHeight
+            adjustedSize.height = max(adjustedSize.height, preferred)
+            return adjustedSize
         }
 
         return statsAdjustedNotchSize(
-            from: baseSize,
-            isStatsTabActive: DynamicIslandViewCoordinator.shared.currentView == .stats,
+            from: adjustedSize,
+            isStatsTabActive: coordinator.currentView == .stats,
             secondRowProgress: coordinator.statsSecondRowExpansion
         )
     }
@@ -285,6 +329,7 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
         notchSize = targetSize
         closedNotchSize = targetSize
         notchState = .closed
+        resetScrollGestureSuppression()
 
         // Set the current view to shelf if it contains files and the user enables openShelfByDefault
         // Otherwise, if the user has not enabled openLastShelfByDefault, set the view to home
@@ -301,6 +346,7 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
             notchSize = targetSize
             closedNotchSize = targetSize
             notchState = .closed
+            resetScrollGestureSuppression()
         }
     }
 

@@ -7,6 +7,7 @@
 
 import Foundation
 import Defaults
+import CoreGraphics
 
 public enum Style {
     case notch
@@ -32,6 +33,23 @@ public enum NotchViews {
     case colorPicker
     case notes
     case clipboard
+}
+
+enum NotesLayoutState: Equatable {
+    case list
+    case split
+    case editor
+
+    var preferredHeight: CGFloat {
+        switch self {
+        case .list:
+            return 240
+        case .split:
+            return 260
+        case .editor:
+            return 320
+        }
+    }
 }
 
 enum SettingsEnum {
