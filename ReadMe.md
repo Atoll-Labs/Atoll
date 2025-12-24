@@ -144,6 +144,12 @@ open DynamicIsland.xcodeproj
 - Remap global shortcuts and adjust hover behaviour.
 - Enable lock screen widgets and select data sources.
 
+## Gesture Controls
+- Two-finger swipe down to open the notch when hover-to-open is disabled; swipe up to close.
+- Enable horizontal media gestures in **Settings → General → Gesture control** to turn the music pane into a trackpad for previous/next or ±10 second seeks.
+- Pick the gesture skip behaviour (track vs ±10s) independently from the skip button configuration so swipes can scrub while buttons change tracks—or vice versa.
+- Horizontal swipes trigger the same haptics and button animations you see in the notch, keeping visual feedback consistent with tap interactions.
+
 ## Troubleshooting (Basics)
 - After granting Accessibility or Screen Recording, quit and relaunch the app.
 - If metrics are empty, enable categories in Settings → Stats.

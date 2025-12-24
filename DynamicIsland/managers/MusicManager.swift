@@ -28,6 +28,19 @@ let defaultImage: NSImage = .init(
 )!
 
 class MusicManager: ObservableObject {
+    enum SkipDirection: Equatable {
+        case backward
+        case forward
+    }
+
+    struct SkipGesturePulse: Equatable {
+        let token: Int
+        let direction: SkipDirection
+        let behavior: MusicSkipBehavior
+    }
+
+    static let skipGestureSeekInterval: TimeInterval = 10
+
     // MARK: - Properties
     static let shared = MusicManager()
     private var cancellables = Set<AnyCancellable>()
@@ -61,6 +74,7 @@ class MusicManager: ObservableObject {
     @Published var isLiveStream: Bool = false
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @Published var usingAppIconForArtwork: Bool = false
+    @Published private(set) var skipGesturePulse: SkipGesturePulse?
 
     // MARK: - Lyrics Properties
     @Published var currentLyrics: String = ""
@@ -89,6 +103,7 @@ class MusicManager: ObservableObject {
 
     @Published var isTransitioning: Bool = false
     private var transitionWorkItem: DispatchWorkItem?
+    private var skipGestureToken: Int = 0
 
     // MARK: - Initialization
     init() {
@@ -554,6 +569,34 @@ class MusicManager: ObservableObject {
 
         let target = min(max(0, current + offset), duration)
         seek(to: target)
+    }
+
+    @MainActor
+    func handleSkipGesture(direction: SkipDirection) {
+        guard Defaults[.enableHorizontalMusicGestures] else { return }
+        guard !isPlayerIdle || bundleIdentifier != nil else { return }
+
+        let behavior = Defaults[.musicGestureBehavior]
+
+        switch behavior {
+        case .track:
+            if direction == .forward {
+                nextTrack()
+            } else {
+                previousTrack()
+            }
+        case .tenSecond:
+            let interval = Self.skipGestureSeekInterval
+            let offset = direction == .forward ? interval : -interval
+            seek(by: offset)
+        }
+
+        skipGestureToken = skipGestureToken &+ 1
+        skipGesturePulse = SkipGesturePulse(
+            token: skipGestureToken,
+            direction: direction,
+            behavior: behavior
+        )
     }
 
     func openMusicApp() {

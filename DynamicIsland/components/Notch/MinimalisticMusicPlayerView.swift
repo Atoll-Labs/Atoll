@@ -674,6 +674,11 @@ private struct MinimalisticReminderDetailsView: View {
         )
     }
     
+    private struct SkipTrigger {
+        let token: Int
+        let pressEffect: MinimalisticSquircircleButton.PressEffect
+    }
+
     private func controlButton(
         icon: String,
         size: CGFloat = 18,
@@ -681,6 +686,7 @@ private struct MinimalisticReminderDetailsView: View {
         activeColor: Color = .red,
         pressEffect: MinimalisticSquircircleButton.PressEffect = .none,
         symbolEffect: MinimalisticSquircircleButton.SymbolEffectStyle = .none,
+        trigger: SkipTrigger? = nil,
         action: @escaping () -> Void
     ) -> some View {
         MinimalisticSquircircleButton(
@@ -692,6 +698,8 @@ private struct MinimalisticReminderDetailsView: View {
             foregroundColor: isActive ? activeColor : .white.opacity(0.85),
             pressEffect: pressEffect,
             symbolEffectStyle: symbolEffect,
+            externalTriggerToken: trigger?.token,
+            externalTriggerEffect: trigger?.pressEffect,
             action: action
         )
     }
@@ -723,6 +731,7 @@ private struct MinimalisticReminderDetailsView: View {
                 size: 18,
                 pressEffect: .nudge(-skipMagnitude),
                 symbolEffect: .replace,
+                trigger: skipGestureTrigger(for: .trackBackward),
                 action: { musicManager.previousTrack() }
             )
         case .trackForward:
@@ -731,6 +740,7 @@ private struct MinimalisticReminderDetailsView: View {
                 size: 18,
                 pressEffect: .nudge(skipMagnitude),
                 symbolEffect: .replace,
+                trigger: skipGestureTrigger(for: .trackForward),
                 action: { musicManager.nextTrack() }
             )
         case .seekBackward:
@@ -739,6 +749,7 @@ private struct MinimalisticReminderDetailsView: View {
                 size: 18,
                 pressEffect: .wiggle(.counterClockwise),
                 symbolEffect: .wiggle,
+                trigger: skipGestureTrigger(for: .seekBackward),
                 action: { musicManager.seek(by: -seekInterval) }
             )
         case .seekForward:
@@ -747,6 +758,7 @@ private struct MinimalisticReminderDetailsView: View {
                 size: 18,
                 pressEffect: .wiggle(.clockwise),
                 symbolEffect: .wiggle,
+                trigger: skipGestureTrigger(for: .seekForward),
                 action: { musicManager.seek(by: seekInterval) }
             )
         case .shuffle:
@@ -768,6 +780,23 @@ private struct MinimalisticReminderDetailsView: View {
             ) {
                 enableLyrics.toggle()
             }
+        }
+    }
+
+    private func skipGestureTrigger(for control: MusicControlButton) -> SkipTrigger? {
+        guard let pulse = musicManager.skipGesturePulse else { return nil }
+
+        switch control {
+        case .trackBackward where pulse.behavior == .track && pulse.direction == .backward:
+            return SkipTrigger(token: pulse.token, pressEffect: .nudge(-skipMagnitude))
+        case .trackForward where pulse.behavior == .track && pulse.direction == .forward:
+            return SkipTrigger(token: pulse.token, pressEffect: .nudge(skipMagnitude))
+        case .seekBackward where pulse.behavior == .tenSecond && pulse.direction == .backward:
+            return SkipTrigger(token: pulse.token, pressEffect: .wiggle(.counterClockwise))
+        case .seekForward where pulse.behavior == .tenSecond && pulse.direction == .forward:
+            return SkipTrigger(token: pulse.token, pressEffect: .wiggle(.clockwise))
+        default:
+            return nil
         }
     }
     private struct MinimalisticMediaOutputButton: View {
@@ -901,12 +930,15 @@ private struct MinimalisticSquircircleButton: View {
     let foregroundColor: Color
     let pressEffect: PressEffect
     let symbolEffectStyle: SymbolEffectStyle
+    let externalTriggerToken: Int?
+    let externalTriggerEffect: PressEffect?
     let action: () -> Void
 
     @State private var isHovering = false
     @State private var pressOffset: CGFloat = 0
     @State private var rotationAngle: Double = 0
     @State private var wiggleToken: Int = 0
+    @State private var lastExternalTriggerToken: Int?
 
     init(
         icon: String,
@@ -917,6 +949,8 @@ private struct MinimalisticSquircircleButton: View {
         foregroundColor: Color,
         pressEffect: PressEffect = .none,
         symbolEffectStyle: SymbolEffectStyle = .none,
+        externalTriggerToken: Int? = nil,
+        externalTriggerEffect: PressEffect? = nil,
         action: @escaping () -> Void
     ) {
         self.icon = icon
@@ -927,6 +961,8 @@ private struct MinimalisticSquircircleButton: View {
         self.foregroundColor = foregroundColor
         self.pressEffect = pressEffect
         self.symbolEffectStyle = symbolEffectStyle
+        self.externalTriggerToken = externalTriggerToken
+        self.externalTriggerEffect = externalTriggerEffect
         self.action = action
     }
 
@@ -951,10 +987,17 @@ private struct MinimalisticSquircircleButton: View {
                 isHovering = hovering
             }
         }
+        .onChange(of: externalTriggerToken) { _, newToken in
+            guard let newToken, newToken != lastExternalTriggerToken else { return }
+            lastExternalTriggerToken = newToken
+            triggerPressEffect(override: externalTriggerEffect)
+        }
     }
 
-    private func triggerPressEffect() {
-        switch pressEffect {
+    private func triggerPressEffect(override: PressEffect? = nil) {
+        let effect = override ?? pressEffect
+
+        switch effect {
         case .none:
             return
         case .nudge(let amount):

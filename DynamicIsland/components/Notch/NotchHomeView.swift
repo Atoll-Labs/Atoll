@@ -271,19 +271,35 @@ struct MusicControlsView: View {
                 MusicManager.shared.togglePlay()
             }
         case .trackBackward:
-            playbackButton(icon: "backward.fill", press: .nudge(-skipMagnitude)) {
+            playbackButton(
+                icon: "backward.fill",
+                press: .nudge(-skipMagnitude),
+                trigger: skipGestureTrigger(for: .trackBackward)
+            ) {
                 musicManager.previousTrack()
             }
         case .trackForward:
-            playbackButton(icon: "forward.fill", press: .nudge(skipMagnitude)) {
+            playbackButton(
+                icon: "forward.fill",
+                press: .nudge(skipMagnitude),
+                trigger: skipGestureTrigger(for: .trackForward)
+            ) {
                 musicManager.nextTrack()
             }
         case .seekBackward:
-            playbackButton(icon: "gobackward.10", press: .wiggle(.counterClockwise)) {
+            playbackButton(
+                icon: "gobackward.10",
+                press: .wiggle(.counterClockwise),
+                trigger: skipGestureTrigger(for: .seekBackward)
+            ) {
                 musicManager.seek(by: -seekInterval)
             }
         case .seekForward:
-            playbackButton(icon: "goforward.10", press: .wiggle(.clockwise)) {
+            playbackButton(
+                icon: "goforward.10",
+                press: .wiggle(.clockwise),
+                trigger: skipGestureTrigger(for: .seekForward)
+            ) {
                 musicManager.seek(by: seekInterval)
             }
         case .shuffle:
@@ -315,17 +331,42 @@ struct MusicControlsView: View {
         }
     }
 
+    private struct SkipTrigger {
+        let token: Int
+        let pressEffect: HoverButton.PressEffect
+    }
+
     private func playbackButton(
         icon: String,
         press: HoverButton.PressEffect?,
+        trigger: SkipTrigger?,
         action: @escaping () -> Void
     ) -> some View {
         HoverButton(
             icon: icon,
             scale: .medium,
-            pressEffect: press
+            pressEffect: press,
+            externalTriggerToken: trigger?.token,
+            externalTriggerEffect: trigger?.pressEffect
         ) {
             action()
+        }
+    }
+
+    private func skipGestureTrigger(for control: MusicControlButton) -> SkipTrigger? {
+        guard let pulse = musicManager.skipGesturePulse else { return nil }
+
+        switch control {
+        case .trackBackward where pulse.behavior == .track && pulse.direction == .backward:
+            return SkipTrigger(token: pulse.token, pressEffect: .nudge(-skipMagnitude))
+        case .trackForward where pulse.behavior == .track && pulse.direction == .forward:
+            return SkipTrigger(token: pulse.token, pressEffect: .nudge(skipMagnitude))
+        case .seekBackward where pulse.behavior == .tenSecond && pulse.direction == .backward:
+            return SkipTrigger(token: pulse.token, pressEffect: .wiggle(.counterClockwise))
+        case .seekForward where pulse.behavior == .tenSecond && pulse.direction == .forward:
+            return SkipTrigger(token: pulse.token, pressEffect: .wiggle(.clockwise))
+        default:
+            return nil
         }
     }
 }

@@ -831,6 +831,8 @@ struct GeneralSettings: View {
     @Default(.enableGestures) var enableGestures
     @Default(.openNotchOnHover) var openNotchOnHover
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
+    @Default(.enableHorizontalMusicGestures) var enableHorizontalMusicGestures
+    @Default(.musicGestureBehavior) var musicGestureBehavior
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.general.highlightID(for: title)
@@ -973,8 +975,24 @@ struct GeneralSettings: View {
                 .disabled(!openNotchOnHover)
                 .settingsHighlight(id: highlightID("Enable gestures"))
             if enableGestures {
-                Toggle("Media change with horizontal gestures", isOn: .constant(false))
-                    .disabled(true)
+                Defaults.Toggle("Media change with horizontal gestures", key: .enableHorizontalMusicGestures)
+                    .settingsHighlight(id: highlightID("Horizontal media gestures"))
+
+                if enableHorizontalMusicGestures {
+                    Picker("Gesture skip behavior", selection: $musicGestureBehavior) {
+                        ForEach(MusicSkipBehavior.allCases) { behavior in
+                            Text(behavior.displayName)
+                                .tag(behavior)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .settingsHighlight(id: highlightID("Gesture skip behavior"))
+
+                    Text(musicGestureBehavior.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Defaults.Toggle("Close gesture", key: .closeGestureEnabled)
                     .settingsHighlight(id: highlightID("Close gesture"))
                 Slider(value: $gestureSensitivity, in: 100...300, step: 100) {
