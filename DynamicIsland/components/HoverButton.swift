@@ -9,16 +9,19 @@ import SwiftUI
 
 struct HoverButton: View {
     var icon: String
-    var iconColor: Color = .white;
+    var iconColor: Color = .white
     var scale: Image.Scale = .medium
     var pressEffect: PressEffect? = nil
+    var contentTransition: ContentTransition = .symbolEffect
+    var externalTriggerToken: Int? = nil
+    var externalTriggerEffect: PressEffect? = nil
     var action: () -> Void
-    var contentTransition: ContentTransition = .symbolEffect;
     
     @State private var isHovering = false
     @State private var pressOffset: CGFloat = 0
     @State private var wiggleAngle: Double = 0
     @State private var wiggleToken: Int = 0
+    @State private var lastExternalTriggerToken: Int?
 
     var body: some View {
         let size = CGFloat(scale == .large ? 40 : 30)
@@ -66,12 +69,17 @@ struct HoverButton: View {
                 isHovering = hovering
             }
         }
+        .onChange(of: externalTriggerToken) { _, newToken in
+            guard let newToken, newToken != lastExternalTriggerToken else { return }
+            lastExternalTriggerToken = newToken
+            triggerPressEffect(override: externalTriggerEffect)
+        }
     }
 
-    private func triggerPressEffect() {
-        guard let pressEffect else { return }
+    private func triggerPressEffect(override: PressEffect? = nil) {
+        guard let effect = override ?? pressEffect else { return }
 
-        switch pressEffect {
+        switch effect {
         case .nudge(let amount):
             withAnimation(.spring(response: 0.2, dampingFraction: 0.55)) {
                 pressOffset = amount

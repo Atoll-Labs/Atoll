@@ -39,6 +39,7 @@ struct ContentView: View {
     @Default(.enableReminderLiveActivity) var enableReminderLiveActivity
     @Default(.enableTimerFeature) var enableTimerFeature
     @Default(.timerDisplayMode) var timerDisplayMode
+    @Default(.enableHorizontalMusicGestures) var enableHorizontalMusicGestures
     
     // Dynamic sizing based on view type and graph count with smooth transitions
     var dynamicNotchSize: CGSize {
@@ -64,6 +65,7 @@ struct ContentView: View {
     @State private var lastHapticTime: Date = Date()
 
     @State private var gestureProgress: CGFloat = .zero
+    @State private var skipGestureActiveDirection: MusicManager.SkipDirection?
     @State private var isMusicControlWindowVisible = false
     @State private var pendingMusicControlTask: Task<Void, Never>?
     @State private var musicControlHideTask: Task<Void, Never>?
@@ -211,6 +213,12 @@ struct ContentView: View {
                             view
                                 .panGesture(direction: .down) { translation, phase in
                                     handleDownGesture(translation: translation, phase: phase)
+                                }
+                                .panGesture(direction: .left) { translation, phase in
+                                    handleSkipGesture(direction: .forward, translation: translation, phase: phase)
+                                }
+                                .panGesture(direction: .right) { translation, phase in
+                                    handleSkipGesture(direction: .backward, translation: translation, phase: phase)
                                 }
                         }
                 }
@@ -908,6 +916,37 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private func handleSkipGesture(direction: MusicManager.SkipDirection, translation: CGFloat, phase: NSEvent.Phase) {
+        if phase == .ended {
+            skipGestureActiveDirection = nil
+            return
+        }
+
+        guard canPerformSkipGesture() else {
+            skipGestureActiveDirection = nil
+            return
+        }
+
+        if skipGestureActiveDirection == nil && translation > Defaults[.gestureSensitivity] {
+            skipGestureActiveDirection = direction
+
+            if Defaults[.enableHaptics] {
+                triggerHapticIfAllowed()
+            }
+
+            musicManager.handleSkipGesture(direction: direction)
+        }
+    }
+
+    private func canPerformSkipGesture() -> Bool {
+        enableHorizontalMusicGestures
+            && vm.notchState == .open
+            && coordinator.currentView == .home
+            && (!musicManager.isPlayerIdle || musicManager.bundleIdentifier != nil)
+            && !lockScreenManager.isLocked
+            && !hasAnyActivePopovers()
     }
 
     private func handleMusicControlPlaybackChange(isPlaying: Bool) {
