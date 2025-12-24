@@ -386,14 +386,77 @@ struct NoteItem: Codable, Identifiable, Defaults.Serializable, Hashable {
     var content: String
     var creationDate: Date
     var colorIndex: Int // 0: Yellow, 1: Blue, 2: Red, 3: Green
+    var isPinned: Bool = false
+    var imageFileName: String? = nil // Store filename instead of raw data
+    
+    // Internal property for migration
+    private enum CodingKeys: String, CodingKey {
+        case id, title, content, creationDate, colorIndex, isPinned, imageFileName, imageData
+    }
+    
+    init(id: UUID = UUID(), title: String, content: String, creationDate: Date, colorIndex: Int, isPinned: Bool = false, imageFileName: String? = nil) {
+        self.id = id
+        self.title = title
+        self.content = content
+        self.creationDate = creationDate
+        self.colorIndex = colorIndex
+        self.isPinned = isPinned
+        self.imageFileName = imageFileName
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        content = try container.decode(String.self, forKey: .content)
+        creationDate = try container.decode(Date.self, forKey: .creationDate)
+        colorIndex = try container.decode(Int.self, forKey: .colorIndex)
+        isPinned = try container.decode(Bool.self, forKey: .isPinned)
+        
+        // Migration logic: if imageData exists but imageFileName doesn't, save it to disk
+        if let data = try container.decodeIfPresent(Data.self, forKey: .imageData) {
+            let fileName = "note_image_\(id.uuidString).png"
+            let fileURL = NoteItem.noteImageDataDirectory.appendingPathComponent(fileName)
+            try? data.write(to: fileURL)
+            imageFileName = fileName
+        } else {
+            imageFileName = try container.decodeIfPresent(String.self, forKey: .imageFileName)
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(content, forKey: .content)
+        try container.encode(creationDate, forKey: .creationDate)
+        try container.encode(colorIndex, forKey: .colorIndex)
+        try container.encode(isPinned, forKey: .isPinned)
+        try container.encode(imageFileName, forKey: .imageFileName)
+    }
     
     static let colors: [Color] = [.yellow, .blue, .red, .green, .purple, .orange]
+    
+    // Directory for storing note image files
+    static let noteImageDataDirectory: URL = {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let notesDir = documentsPath.appendingPathComponent("NoteImages")
+        try? FileManager.default.createDirectory(at: notesDir, withIntermediateDirectories: true)
+        return notesDir
+    }()
     
     var color: Color {
         if colorIndex >= 0 && colorIndex < NoteItem.colors.count {
             return NoteItem.colors[colorIndex]
         }
         return .yellow
+    }
+    
+    // Helper to get image data from file
+    func getImageData() -> Data? {
+        guard let fileName = imageFileName else { return nil }
+        let fileURL = NoteItem.noteImageDataDirectory.appendingPathComponent(fileName)
+        return try? Data(contentsOf: fileURL)
     }
 }
 
@@ -661,6 +724,11 @@ extension Defaults.Keys {
     
     // MARK: Notes Feature
     static let enableNotes = Key<Bool>("enableNotes", default: false)
+    static let enableNotePinning = Key<Bool>("enableNotePinning", default: true)
+    static let enableNoteSearch = Key<Bool>("enableNoteSearch", default: false)
+    static let enableNoteColorFiltering = Key<Bool>("enableNoteColorFiltering", default: false)
+    static let enableCreateFromClipboard = Key<Bool>("enableCreateFromClipboard", default: true)
+    static let enableNoteCharCount = Key<Bool>("enableNoteCharCount", default: true)
     static let savedNotes = Key<[NoteItem]>("savedNotes", default: [])
     
     // Helper to determine the default media controller based on macOS version

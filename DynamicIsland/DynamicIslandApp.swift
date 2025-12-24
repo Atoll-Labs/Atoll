@@ -277,8 +277,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return CGSize(width: inlineSneakPeekWidth, height: vm.effectiveClosedNotchHeight)
         }
         
-        // Use minimalistic or normal size based on settings, then adjust for stats layout
-        let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        // Use minimalistic or normal size based on settings
+        var baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        
+        // Use a consistent height for different view types
+        if coordinator.currentView == .timer {
+            baseSize.height = 250 // Extra space for timer presets
+        } else if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
+            baseSize.height = 230
+        }
+        
         let adjustedContentSize = statsAdjustedNotchSize(
             from: baseSize,
             isStatsTabActive: coordinator.currentView == .stats,
@@ -366,9 +374,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Setup Privacy Indicator Manager (camera and microphone monitoring)
         PrivacyIndicatorManager.shared.startMonitoring()
         
-        // Observe tab changes - use debounced updates
+        // Observe tab changes - use immediate updates to prevent clipping
         coordinator.$currentView.sink { [weak self] newView in
-            self?.debouncedUpdateWindowSize()
+            self?.updateWindowSizeIfNeeded()
         }.store(in: &cancellables)
         
         // Observe stats settings changes - use debounced updates

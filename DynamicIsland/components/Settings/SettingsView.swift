@@ -4714,10 +4714,17 @@ struct NotesSettingsView: View {
         Form {
             Section {
                 Defaults.Toggle("Enable Notes", key: .enableNotes)
+                if Defaults[.enableNotes] {
+                    Defaults.Toggle("Enable Note Pinning", key: .enableNotePinning)
+                    Defaults.Toggle("Enable Note Search", key: .enableNoteSearch)
+                    Defaults.Toggle("Enable Color Filtering", key: .enableNoteColorFiltering)
+                    Defaults.Toggle("Enable Create from Clipboard", key: .enableCreateFromClipboard)
+                    Defaults.Toggle("Show Character Count", key: .enableNoteCharCount)
+                }
             } header: {
                 Text("General")
             } footer: {
-                Text("Enabling notes will add a quick access button to the Dynamic Island header.")
+                Text("Customize how you organize and create notes. Enabling color filtering and search helps manage large lists.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

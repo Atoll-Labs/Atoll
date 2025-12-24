@@ -44,6 +44,14 @@ struct ContentView: View {
     var dynamicNotchSize: CGSize {
         var baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
         
+        if coordinator.currentView == .timer {
+            return CGSize(width: baseSize.width, height: 250) // Extra height for timer presets
+        }
+        
+        if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
+            return CGSize(width: baseSize.width, height: 230) // Consistent height for split views
+        }
+        
         guard coordinator.currentView == .stats else {
             return baseSize
         }
