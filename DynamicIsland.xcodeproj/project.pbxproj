@@ -25,6 +25,7 @@
 		7E8840D72E9A346700C5CB8C /* Dog waiting.json in Resources */ = {isa = PBXBuildFile; fileRef = 7E8840D62E9A346700C5CB8C /* Dog waiting.json */; };
 		7E8840D92E9A347000C5CB8C /* Moody Dog.json in Resources */ = {isa = PBXBuildFile; fileRef = 7E8840D82E9A347000C5CB8C /* Moody Dog.json */; };
 		7E8840DB2E9A347800C5CB8C /* Orange Cat Peeping.json in Resources */ = {isa = PBXBuildFile; fileRef = 7E8840DA2E9A347800C5CB8C /* Orange Cat Peeping.json */; };
+		7E9911B02EFD7D1B002EDFD5 /* Reindeer.json in Resources */ = {isa = PBXBuildFile; fileRef = 7E9911AF2EFD7D1B002EDFD5 /* Reindeer.json */; };
 		7EE1D73D2E6B1E0B00997219 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7EE1D73C2E6B1E0B00997219 /* ApplicationServices.framework */; };
 		7EE1D73F2E6B1E1200997219 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7EE1D73E2E6B1E1200997219 /* IOKit.framework */; };
 		BA90505C953246D0AB206451 /* MediaRemoteAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F4C1DD09EC134302938E84F6 /* MediaRemoteAdapter.framework */; };
@@ -55,6 +56,7 @@
 		7E8840D62E9A346700C5CB8C /* Dog waiting.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Dog waiting.json"; sourceTree = "<group>"; };
 		7E8840D82E9A347000C5CB8C /* Moody Dog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Moody Dog.json"; sourceTree = "<group>"; };
 		7E8840DA2E9A347800C5CB8C /* Orange Cat Peeping.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Orange Cat Peeping.json"; sourceTree = "<group>"; };
+		7E9911AF2EFD7D1B002EDFD5 /* Reindeer.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Reindeer.json; sourceTree = "<group>"; };
 		7EE1D73C2E6B1E0B00997219 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
 		7EE1D73E2E6B1E1200997219 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		F4C1DD09EC134302938E84F6 /* MediaRemoteAdapter.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaRemoteAdapter.framework; path = Frameworks/MediaRemoteAdapter.framework; sourceTree = SOURCE_ROOT; };
@@ -122,6 +124,7 @@
 			children = (
 				7E6856472EA963FD00D261F5 /* Lock.json */,
 				7E8840D62E9A346700C5CB8C /* Dog waiting.json */,
+				7E9911AF2EFD7D1B002EDFD5 /* Reindeer.json */,
 				7E8840D82E9A347000C5CB8C /* Moody Dog.json */,
 				7E8840DA2E9A347800C5CB8C /* Orange Cat Peeping.json */,
 			);
@@ -241,6 +244,7 @@
 				7E8130412E3FB40500E08F3F /* NowPlayingTestClient in Resources */,
 				7E6856482EA963FD00D261F5 /* Lock.json in Resources */,
 				7E8840D92E9A347000C5CB8C /* Moody Dog.json in Resources */,
+				7E9911B02EFD7D1B002EDFD5 /* Reindeer.json in Resources */,
 				7E8840D72E9A346700C5CB8C /* Dog waiting.json in Resources */,
 				7E8840DB2E9A347800C5CB8C /* Orange Cat Peeping.json in Resources */,
 			);
@@ -429,7 +433,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = "1.2.1-beta";
+				MARKETING_VERSION = "1.2.2-beta";
 				PRODUCT_BUNDLE_IDENTIFIER = com.Ebullioscopic.Atoll.dev;
 				PRODUCT_NAME = Atoll;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -500,7 +504,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = "1.2.1-beta";
+				MARKETING_VERSION = "1.2.2-beta";
 				PRODUCT_BUNDLE_IDENTIFIER = com.Ebullioscopic.Atoll;
 				PRODUCT_NAME = Atoll;
 				PROVISIONING_PROFILE_SPECIFIER = "";
