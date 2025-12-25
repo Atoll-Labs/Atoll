@@ -36,7 +36,7 @@ struct AnimationEditorView: View {
     @State private var isImporting = false
     
     // Preview state
-    @State private var previewScale: CGFloat = 1.0
+    @State private var previewScale: CGFloat = 10.0
     
     init(sourceURL: URL, isRemoteURL: Bool, animation: Binding<CustomIdleAnimation?>, existingAnimation: CustomIdleAnimation? = nil) {
         self.sourceURL = sourceURL
@@ -69,404 +69,382 @@ struct AnimationEditorView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text(existingAnimation != nil ? "Edit Animation" : "Customize Animation")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                Button("Cancel") {
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-            }
-            .padding()
-            
+            header
             Divider()
-            
-            HSplitView {
-                // Preview Panel
-                VStack {
-                    Text("Preview")
-                        .font(.headline)
-                        .padding(.top)
-                    
-                    ZStack {
-                        // Background to show bounds
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(nsColor: .controlBackgroundColor))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .strokeBorder(Color.gray.opacity(0.3), lineWidth: 1)
-                            )
-                        
-                        // Target size indicator (30x20 - actual size in notch)
-                        Rectangle()
-                            .strokeBorder(Color.blue.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
-                            .frame(width: 30 * previewScale, height: 20 * previewScale)
-                        
-                        // Animation preview with transformations
-                        if let existing = existingAnimation, case .builtInFace = existing.source {
-                            // Show built-in face
-                            MinimalFaceFeatures(height: 20, width: 30)
-                                .scaleEffect(previewScale)
-                                .frame(width: cropWidth * scale * previewScale, height: cropHeight * scale * previewScale)
-                                .offset(x: offsetX * previewScale, y: offsetY * previewScale)
-                                .rotationEffect(.degrees(rotation))
-                                .opacity(opacity)
-                                .padding(.bottom, paddingBottom * previewScale)
-                                .clipped()
-                        } else {
-                            // Show Lottie animation
-                            LottieView(state: LUStateData(
-                                type: .loadedFrom(sourceURL),
-                                speed: speed,
-                                loopMode: loopMode.lottieLoopMode
-                            ))
-                            .frame(width: cropWidth * scale * previewScale, height: cropHeight * scale * previewScale)
-                            .offset(x: offsetX * previewScale, y: offsetY * previewScale)
-                            .rotationEffect(.degrees(rotation))
-                            .opacity(opacity)
-                            .padding(.bottom, paddingBottom * previewScale)
-                            .clipped()
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding()
-                    
-                    // Preview Scale Control
-                    HStack {
-                        Text("Preview Zoom:")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Slider(value: $previewScale, in: 1...10)
-                            .frame(width: 150)
-                        Text("\(Int(previewScale))x")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 30)
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom)
-                }
-                .frame(minWidth: 300)
-                
+            HStack(spacing: 0) {
+                previewPanel
+                    .frame(minWidth: 320, maxWidth: 360)
                 Divider()
-                
-                // Controls Panel
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        // Name
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Animation Name")
-                                .font(.headline)
-                            TextField("Name", text: $name)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                        
-                        Divider()
-                        
-                        // Size Controls
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Size & Scale")
-                                .font(.headline)
-                            
-                            // Scale
-                            HStack {
-                                Text("Scale:")
-                                    .frame(width: 80, alignment: .leading)
-                                Slider(value: $scale, in: 0.1...5.0)
-                                Text(String(format: "%.2f", scale))
-                                    .frame(width: 50, alignment: .trailing)
-                                    .foregroundStyle(.secondary)
-                                Button("Reset") {
-                                    withAnimation { scale = 1.0 }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                            
-                            // Crop Width
-                            HStack {
-                                Text("Width:")
-                                    .frame(width: 80, alignment: .leading)
-                                Slider(value: $cropWidth, in: 5...100)
-                                Text(String(format: "%.0f", cropWidth))
-                                    .frame(width: 50, alignment: .trailing)
-                                    .foregroundStyle(.secondary)
-                                Button("30") {
-                                    withAnimation { cropWidth = 30 }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                            
-                            // Crop Height
-                            HStack {
-                                Text("Height:")
-                                    .frame(width: 80, alignment: .leading)
-                                Slider(value: $cropHeight, in: 5...100)
-                                Text(String(format: "%.0f", cropHeight))
-                                    .frame(width: 50, alignment: .trailing)
-                                    .foregroundStyle(.secondary)
-                                Button("20") {
-                                    withAnimation { cropHeight = 20 }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        // Position Controls
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Position")
-                                .font(.headline)
-                            
-                            // Offset X
-                            HStack {
-                                Text("Horizontal:")
-                                    .frame(width: 80, alignment: .leading)
-                                Slider(value: $offsetX, in: -50...50)
-                                Text(String(format: "%.1f", offsetX))
-                                    .frame(width: 50, alignment: .trailing)
-                                    .foregroundStyle(.secondary)
-                                Button("Center") {
-                                    withAnimation { offsetX = 0 }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                            
-                            // Offset Y
-                            HStack {
-                                Text("Vertical:")
-                                    .frame(width: 80, alignment: .leading)
-                                Slider(value: $offsetY, in: -50...50)
-                                Text(String(format: "%.1f", offsetY))
-                                    .frame(width: 50, alignment: .trailing)
-                                    .foregroundStyle(.secondary)
-                                Button("Center") {
-                                    withAnimation { offsetY = 0 }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                            
-                            // Padding Bottom
-                            HStack {
-                                Text("Bottom Pad:")
-                                    .frame(width: 80, alignment: .leading)
-                                Slider(value: $paddingBottom, in: -20...20)
-                                Text(String(format: "%.1f", paddingBottom))
-                                    .frame(width: 50, alignment: .trailing)
-                                    .foregroundStyle(.secondary)
-                                Button("Reset") {
-                                    withAnimation { paddingBottom = 0 }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        // Rotation & Opacity
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Transform")
-                                .font(.headline)
-                            
-                            // Rotation
-                            HStack {
-                                Text("Rotation:")
-                                    .frame(width: 80, alignment: .leading)
-                                Slider(value: $rotation, in: -180...180)
-                                Text(String(format: "%.0f°", rotation))
-                                    .frame(width: 50, alignment: .trailing)
-                                    .foregroundStyle(.secondary)
-                                Button("Reset") {
-                                    withAnimation { rotation = 0 }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                            
-                            // Opacity
-                            HStack {
-                                Text("Opacity:")
-                                    .frame(width: 80, alignment: .leading)
-                                Slider(value: $opacity, in: 0...1)
-                                Text(String(format: "%.0f%%", opacity * 100))
-                                    .frame(width: 50, alignment: .trailing)
-                                    .foregroundStyle(.secondary)
-                                Button("100%") {
-                                    withAnimation { opacity = 1.0 }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        // Animation Speed
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Animation")
-                                .font(.headline)
-                            
-                            HStack {
-                                Text("Speed:")
-                                    .frame(width: 80, alignment: .leading)
-                                Slider(value: $speed, in: 0.1...3.0)
-                                Text(String(format: "%.2fx", speed))
-                                    .frame(width: 50, alignment: .trailing)
-                                    .foregroundStyle(.secondary)
-                                Button("1x") {
-                                    withAnimation { speed = 1.0 }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                            
-                            // Loop Mode
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Loop Mode:")
-                                    .font(.subheadline)
-                                Picker("Loop Mode", selection: $loopMode) {
-                                    ForEach(AnimationLoopMode.allCases, id: \.self) { mode in
-                                        Text(mode.rawValue).tag(mode)
-                                    }
-                                }
-                                .pickerStyle(.segmented)
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        // Display Options
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Display Options")
-                                .font(.headline)
-                            
-                            Toggle(isOn: $expandWithAnimation) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Expand Notch with Animation")
-                                        .font(.body)
-                                    Text("When enabled, the Atoll will expand horizontally to match the animation size")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        // Presets
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Quick Presets")
-                                .font(.headline)
-                            
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                                Button("Fit to Notch") {
-                                    withAnimation {
-                                        scale = 1.0
-                                        cropWidth = 30
-                                        cropHeight = 20
-                                        offsetX = 0
-                                        offsetY = 0
-                                        rotation = 0
-                                        paddingBottom = 0
-                                        expandWithAnimation = false
-                                    }
-                                }
-                                .buttonStyle(.bordered)
-                                
-                                Button("Fill Notch") {
-                                    withAnimation {
-                                        scale = 1.5
-                                        cropWidth = 30
-                                        cropHeight = 20
-                                        offsetX = 0
-                                        offsetY = 0
-                                        paddingBottom = 0
-                                        expandWithAnimation = false
-                                    }
-                                }
-                                .buttonStyle(.bordered)
-                                
-                                Button("Scale Up 2x") {
-                                    withAnimation {
-                                        scale = 2.0
-                                        expandWithAnimation = true
-                                    }
-                                }
-                                .buttonStyle(.bordered)
-                                
-                                Button("Scale Down") {
-                                    withAnimation {
-                                        scale = 0.75
-                                    }
-                                }
-                                .buttonStyle(.bordered)
-                                
-                                Button("Reset All") {
-                                    withAnimation {
-                                        scale = 1.0
-                                        cropWidth = 30
-                                        cropHeight = 20
-                                        offsetX = 0
-                                        offsetY = 0
-                                        rotation = 0
-                                        opacity = 1.0
-                                        speed = 1.0
-                                        paddingBottom = 0
-                                        expandWithAnimation = false
-                                    }
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(.red)
-                            }
-                        }
-                    }
-                    .padding()
-                }
-                .frame(minWidth: 350, maxWidth: 450)
+                controlsPanel
             }
-            
             Divider()
-            
-            // Footer with actions
-            HStack {
-                HStack(spacing: 4) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
-                    Text("Blue dashed box shows actual size in Atoll")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                
-                Spacer()
-                
-                Button(existingAnimation != nil ? "Save Changes" : "Import") {
-                    importAnimation()
-                }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.defaultAction)
-                .disabled(name.isEmpty || isImporting)
-            }
-            .padding()
+            footer
         }
-        .frame(idealWidth: 900, idealHeight: 650)
-        .frame(minWidth: 800, minHeight: 600)
+        .frame(idealWidth: 980, idealHeight: 640)
+        .frame(minWidth: 860, minHeight: 620)
         .fixedSize()
         .alert("Import Error", isPresented: $showingError) {
             Button("OK") { }
         } message: {
             Text(errorMessage)
         }
+    }
+    
+    // MARK: - Layout Sections
+    
+    private var header: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(existingAnimation != nil ? "Edit Animation" : "Customize Animation")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Text(sourceDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("Cancel") {
+                dismiss()
+            }
+            .keyboardShortcut(.cancelAction)
+        }
+        .padding()
+    }
+    
+    private var footer: some View {
+        HStack {
+            Label("Blue outline matches the notch canvas", systemImage: "info.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button(existingAnimation != nil ? "Save Changes" : "Import") {
+                importAnimation()
+            }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
+            .disabled(name.isEmpty || isImporting)
+        }
+        .padding()
+    }
+    
+    private var previewPanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Live Preview")
+                    .font(.headline)
+                Text("Dash outline equals the exact notch bounds.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            previewCanvas
+            previewZoomControls
+            previewStats
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+    }
+    
+    @ViewBuilder
+    private var previewCanvas: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.15), radius: 16, x: 0, y: 8)
+            
+            Rectangle()
+                .strokeBorder(Color.blue.opacity(0.55), style: StrokeStyle(lineWidth: 2, dash: [6, 3]))
+                .frame(width: 30 * previewScale, height: 20 * previewScale)
+            
+            Group {
+                if let existing = existingAnimation, case .builtInFace = existing.source {
+                    MinimalFaceFeatures(height: 20, width: 30)
+                        .scaleEffect(previewScale)
+                } else {
+                    LottieView(state: LUStateData(
+                        type: .loadedFrom(sourceURL),
+                        speed: speed,
+                        loopMode: loopMode.lottieLoopMode
+                    ))
+                }
+            }
+            .frame(width: cropWidth * scale * previewScale, height: cropHeight * scale * previewScale)
+            .offset(x: offsetX * previewScale, y: offsetY * previewScale)
+            .rotationEffect(.degrees(rotation))
+            .opacity(opacity)
+            .padding(.bottom, paddingBottom * previewScale)
+            .clipped()
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 280)
+    }
+    
+    private var previewZoomControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("Preview Zoom", systemImage: "magnifyingglass")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(Int(previewScale))x")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            HStack(spacing: 10) {
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        previewScale = max(1, previewScale - 1)
+                    }
+                } label: {
+                    Image(systemName: "minus")
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
+                
+                Slider(value: $previewScale, in: 1...10)
+                
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        previewScale = min(10, previewScale + 1)
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
+                
+                Button("Reset") {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        previewScale = 10
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
+            }
+        }
+    }
+    
+    private var previewStats: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Current Transform")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                PreviewStatChip(title: "Scale", value: String(format: "%.2fx", scale))
+                PreviewStatChip(title: "Output", value: "\(Int(cropWidth * scale))x\(Int(cropHeight * scale)) px")
+                PreviewStatChip(title: "Offset", value: String(format: "%.1f / %.1f", offsetX, offsetY))
+            }
+        }
+    }
+    
+    private var controlsPanel: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                EditorSectionCard(title: "Animation Details", subtitle: "Give it a friendly name and control playback speed.") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Animation Name")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            TextField("Name", text: $name)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                        ParameterSliderRow(
+                            title: "Playback Speed",
+                            value: $speed,
+                            range: 0.1...3.0,
+                            formatter: { String(format: "%.2fx", $0) },
+                            resetLabel: "1x",
+                            resetValue: 1.0,
+                            step: 0.05
+                        )
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Loop Mode")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Picker("Loop Mode", selection: $loopMode) {
+                                ForEach(AnimationLoopMode.allCases, id: \.self) { mode in
+                                    Text(mode.rawValue).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        }
+                    }
+                }
+                
+                EditorSectionCard(title: "Size & Crop", subtitle: "Match the notch footprint or intentionally exceed it.") {
+                    VStack(spacing: 12) {
+                        ParameterSliderRow(
+                            title: "Scale",
+                            value: $scale,
+                            range: 0.1...5.0,
+                            formatter: { String(format: "%.2fx", $0) },
+                            resetLabel: "Reset",
+                            resetValue: 1.0
+                        )
+                        ParameterSliderRow(
+                            title: "Visible Width",
+                            value: $cropWidth,
+                            range: 5...100,
+                            formatter: { "\(Int($0)) px" },
+                            resetLabel: "30",
+                            resetValue: 30
+                        )
+                        ParameterSliderRow(
+                            title: "Visible Height",
+                            value: $cropHeight,
+                            range: 5...100,
+                            formatter: { "\(Int($0)) px" },
+                            resetLabel: "20",
+                            resetValue: 20
+                        )
+                    }
+                }
+                
+                EditorSectionCard(title: "Position & Padding", subtitle: "Nudge the animation inside the notch.") {
+                    VStack(spacing: 12) {
+                        ParameterSliderRow(
+                            title: "Horizontal Offset",
+                            value: $offsetX,
+                            range: -50...50,
+                            formatter: { String(format: "%.1f px", $0) },
+                            resetLabel: "Center",
+                            resetValue: 0
+                        )
+                        ParameterSliderRow(
+                            title: "Vertical Offset",
+                            value: $offsetY,
+                            range: -50...50,
+                            formatter: { String(format: "%.1f px", $0) },
+                            resetLabel: "Center",
+                            resetValue: 0
+                        )
+                        ParameterSliderRow(
+                            title: "Bottom Padding",
+                            value: $paddingBottom,
+                            range: -20...20,
+                            formatter: { String(format: "%.1f px", $0) },
+                            resetLabel: "Reset",
+                            resetValue: 0
+                        )
+                    }
+                }
+                
+                EditorSectionCard(title: "Transform & Display", subtitle: "Dial in the final polish.") {
+                    VStack(spacing: 12) {
+                        ParameterSliderRow(
+                            title: "Rotation",
+                            value: $rotation,
+                            range: -180...180,
+                            formatter: { String(format: "%.0f°", $0) },
+                            resetLabel: "Reset",
+                            resetValue: 0,
+                            step: 1
+                        )
+                        ParameterSliderRow(
+                            title: "Opacity",
+                            value: $opacity,
+                            range: 0...1,
+                            formatter: { "\(Int($0 * 100))%" },
+                            resetLabel: "100%",
+                            resetValue: 1,
+                            step: 0.01
+                        )
+                        Toggle(isOn: $expandWithAnimation) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Expand notch to follow animation width")
+                                    .fontWeight(.medium)
+                                Text("Enable when scaling beyond 30x20px so the Atoll opens gracefully.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                
+                EditorSectionCard(title: "Quick Presets", subtitle: "Start from a popular layout and tweak from there.") {
+                    let columns = [GridItem(.adaptive(minimum: 160), spacing: 12)]
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        Button("Fit to Notch") {
+                            withAnimation {
+                                scale = 1.0
+                                cropWidth = 30
+                                cropHeight = 20
+                                offsetX = 0
+                                offsetY = 0
+                                rotation = 0
+                                paddingBottom = 0
+                                expandWithAnimation = false
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button("Fill Notch") {
+                            withAnimation {
+                                scale = 1.5
+                                cropWidth = 30
+                                cropHeight = 20
+                                offsetX = 0
+                                offsetY = 0
+                                paddingBottom = 0
+                                expandWithAnimation = false
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button("Scale Up 2x") {
+                            withAnimation {
+                                scale = 2.0
+                                expandWithAnimation = true
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button("Scale Down") {
+                            withAnimation {
+                                scale = 0.75
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button("Reset All") {
+                            withAnimation {
+                                scale = 1.0
+                                cropWidth = 30
+                                cropHeight = 20
+                                offsetX = 0
+                                offsetY = 0
+                                rotation = 0
+                                opacity = 1.0
+                                speed = 1.0
+                                paddingBottom = 0
+                                expandWithAnimation = false
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
+                    }
+                }
+            }
+            .padding(20)
+        }
+        .frame(minWidth: 500, maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private var sourceDescription: String {
+        if let existing = existingAnimation {
+            return existing.name
+        }
+        if isRemoteURL {
+            return sourceURL.absoluteString
+        }
+        return sourceURL.deletingPathExtension().lastPathComponent
     }
     
     // MARK: - Import Logic
@@ -531,6 +509,117 @@ struct AnimationEditorView: View {
             showingError = true
             isImporting = false
         }
+    }
+}
+
+// MARK: - Supporting Views
+
+private struct EditorSectionCard<Content: View>: View {
+    let title: String
+    let subtitle: String?
+    let content: Content
+    
+    init(title: String, subtitle: String? = nil, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.subtitle = subtitle
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            content
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+        )
+    }
+}
+
+private struct ParameterSliderRow: View {
+    let title: String
+    @Binding var value: CGFloat
+    let range: ClosedRange<CGFloat>
+    let formatter: (CGFloat) -> String
+    var resetLabel: String? = nil
+    var resetValue: CGFloat? = nil
+    var step: CGFloat? = nil
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                    .fontWeight(.medium)
+                Spacer()
+                Text(formatter(value))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            HStack(spacing: 10) {
+                slider
+                if let resetLabel, let resetValue {
+                    Button(resetLabel) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                            value = resetValue
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var slider: some View {
+        let binding = Binding<Double>(
+            get: { Double(value) },
+            set: { value = CGFloat($0) }
+        )
+        let bounds = Double(range.lowerBound)...Double(range.upperBound)
+        if let step {
+            Slider(value: binding, in: bounds, step: Double(step))
+        } else {
+            Slider(value: binding, in: bounds)
+        }
+    }
+}
+
+private struct PreviewStatChip: View {
+    let title: String
+    let value: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .monospacedDigit()
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+        )
     }
 }
 
