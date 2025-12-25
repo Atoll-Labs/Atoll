@@ -1057,7 +1057,7 @@ private struct MinimalisticSquircircleButton: View {
                 image
             }
         case .wiggle:
-            if #available(macOS 14.0, *) {
+            if #available(macOS 15.0, *) {
                 image.symbolEffect(
                     .wiggle.byLayer,
                     options: .nonRepeating,

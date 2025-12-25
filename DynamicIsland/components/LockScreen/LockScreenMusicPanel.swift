@@ -925,7 +925,7 @@ private struct PanelControlButton: View {
                 base.contentTransition(.symbolEffect(.replace))
             }
         case .wiggle:
-            if #available(macOS 14.0, *) {
+            if #available(macOS 15.0, *) {
                 base
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.wiggle.byLayer, options: .nonRepeating, value: wiggleToken)

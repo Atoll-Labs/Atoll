@@ -228,7 +228,7 @@ private struct FloatingMediaButton: View {
                 return AnyView(image)
             }
         case .wiggle:
-            if #available(macOS 14.0, *) {
+            if #available(macOS 15.0, *) {
                 return AnyView(
                     image.symbolEffect(
                         .wiggle.byLayer,
