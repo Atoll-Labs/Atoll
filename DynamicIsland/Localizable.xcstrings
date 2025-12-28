@@ -747,6 +747,16 @@
         }
       }
     },
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
     "%@ Models" : {
       "localizations" : {
         "fr" : {
@@ -10810,6 +10820,9 @@
         }
       }
     },
+    "Join the meeting" : {
+
+    },
     "Keyboard Backlight HUD" : {
       "localizations" : {
         "fr" : {
@@ -12429,6 +12442,9 @@
           }
         }
       }
+    },
+    "Meeting starts at %@" : {
+
     },
     "Memory Usage" : {
       "localizations" : {

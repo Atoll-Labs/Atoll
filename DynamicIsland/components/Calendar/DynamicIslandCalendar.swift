@@ -429,6 +429,11 @@ struct EventListView: View {
                                 .foregroundColor(Color(white: 0.65))
                                 .lineLimit(1)
                         }
+                        
+                        // Show Join button if conference URL is available
+                        if let conferenceURL = event.conferenceURL {
+                            ConferenceJoinButton(url: conferenceURL, event: event)
+                        }
                     }
                     Spacer(minLength: 0)
                     VStack(alignment: .trailing, spacing: 4) {
@@ -481,6 +486,74 @@ struct ReminderToggle: View {
         .buttonStyle(PlainButtonStyle())
         .padding(0)
         .accessibilityLabel(isOn ? "Mark as incomplete" : "Mark as complete")
+    }
+}
+
+struct ConferenceJoinButton: View {
+    let url: URL
+    let event: EventModel
+    @Environment(\.openURL) private var openURL
+    
+    private var isJoinable: Bool {
+        // Allow joining 15 minutes before the event starts
+        let joinableTime = event.start.addingTimeInterval(-15 * 60)
+        return Date() >= joinableTime
+    }
+    
+    private var buttonText: String {
+        if event.eventStatus == .inProgress {
+            return "Rejoin"
+        } else {
+            return "Join"
+        }
+    }
+    
+    private var conferenceService: String? {
+        let host = url.host?.lowercased() ?? ""
+        if host.contains("zoom.us") {
+            return "Zoom"
+        } else if host.contains("teams.microsoft.com") {
+            return "Teams"
+        } else if host.contains("meet.google.com") {
+            return "Meet"
+        } else if host.contains("webex.com") {
+            return "Webex"
+        } else if host.contains("facetime.apple.com") {
+            return "FaceTime"
+        }
+        return nil
+    }
+    
+    var body: some View {
+        Button(action: {
+            openURL(url)
+        }) {
+            HStack(spacing: 4) {
+                Image(systemName: "video.fill")
+                    .font(.system(size: 9))
+                if let service = conferenceService {
+                    Text("\(buttonText) \(service)")
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                } else {
+                    Text(buttonText)
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                }
+            }
+            .foregroundColor(isJoinable ? .white : Color(white: 0.5))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                isJoinable 
+                    ? Color.accentColor.opacity(0.8)
+                    : Color.gray.opacity(0.3)
+            )
+            .cornerRadius(6)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(!isJoinable)
+        .help(isJoinable ? "Join the meeting" : "Meeting starts at \(event.start.formatted(date: .omitted, time: .shortened))")
     }
 }
 
