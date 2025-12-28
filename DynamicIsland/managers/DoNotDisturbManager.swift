@@ -307,6 +307,7 @@ enum FocusModeType: String, CaseIterable {
     case gaming = "com.apple.focus.gaming"
     case mindfulness = "com.apple.focus.mindfulness"
     case reading = "com.apple.focus.reading"
+    case reduceInterruptions = "com.apple.focus.reduce-interruptions"
     case custom = "com.apple.focus.custom"
     case unknown = ""
     
@@ -321,6 +322,7 @@ enum FocusModeType: String, CaseIterable {
         case .gaming: return "Gaming"
         case .mindfulness: return "Mindfulness"
         case .reading: return "Reading"
+        case .reduceInterruptions: return "Reduce Interruptions"
         case .custom: return "Focus"
         case .unknown: return "Focus Mode"
         }
@@ -337,6 +339,7 @@ enum FocusModeType: String, CaseIterable {
         case .gaming: return "gamecontroller.fill"
         case .mindfulness: return "circle.hexagongrid"
         case .reading: return "book.closed.fill"
+        case .reduceInterruptions: return "apple.intelligence"
         case .custom: return "app.badge"
         case .unknown: return "moon.fill"
         }
@@ -385,6 +388,8 @@ enum FocusModeType: String, CaseIterable {
             return Color(red: 0.361, green: 0.898, blue: 0.883, opacity: 1.0)
         case .reading:
             return Color(red: 1.000, green: 0.622, blue: 0.044, opacity: 1.0)
+        case .reduceInterruptions:
+            return Color(red: 0.686, green: 0.322, blue: 0.871, opacity: 1.0)
         case .custom:
             return Color(red: 0.513, green: 0.478, blue: 0.965)
         case .unknown:
