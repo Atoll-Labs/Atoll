@@ -689,6 +689,7 @@ private struct TimerPresetCard: View {
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                 }
+                .foregroundStyle(preset.color)
 
                 Spacer()
 
