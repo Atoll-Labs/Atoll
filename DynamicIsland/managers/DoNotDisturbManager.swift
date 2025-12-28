@@ -425,7 +425,7 @@ extension FocusModeType {
             return
         }
 
-        if normalizedLowercased.hasPrefix("com.apple.focus.") {
+        if normalizedLowercased.hasPrefix("com.apple.focus") {
             self = .custom
             return
         }
