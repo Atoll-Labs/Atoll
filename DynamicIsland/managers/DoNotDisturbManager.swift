@@ -434,19 +434,17 @@ extension FocusModeType {
     }
 
     static func resolve(identifier: String?, name: String?) -> FocusModeType {
-        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !trimmedName.isEmpty {
+        if let name, !name.isEmpty {
             if let match = FocusModeType.allCases.first(where: {
                 guard !$0.displayName.isEmpty else { return false }
-                return $0.displayName.compare(trimmedName, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+                return $0.displayName.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
             }) {
                 return match
             }
         }
 
-        let trimmedIdentifier = identifier?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !trimmedIdentifier.isEmpty {
-            return FocusModeType(identifier: trimmedIdentifier)
+        if let identifier, !identifier.isEmpty {
+            return FocusModeType(identifier: identifier)
         }
 
         return .doNotDisturb
