@@ -57,7 +57,7 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
         case .repeatMode:
             return "Repeat"
         case .mediaOutput:
-            return "Media Output"
+            return "Change Media Output"
         case .lyrics:
             return "Lyrics"
         case .seekBackward:

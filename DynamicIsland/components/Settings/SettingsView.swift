@@ -1923,6 +1923,9 @@ struct Media: View {
                     }
                 }
                 if showShuffleAndRepeat {
+                    Defaults.Toggle("Show \"Change Media Output\" control", key: .showMediaOutputControl)
+                        .settingsHighlight(id: highlightID("Show Change Media Output control"))
+                        .help("Adds the AirPlay/route picker button back to the customizable controls palette.")
                     MusicSlotConfigurationView()
                 } else {
                     Text("Turn on customizable controls to rearrange media buttons.")

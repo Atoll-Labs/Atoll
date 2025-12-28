@@ -530,7 +530,7 @@ extension Defaults.Keys {
     static let enableParallaxEffect = Key<Bool>("enableParallaxEffect", default: true)
     static let waitInterval = Key<Double>("waitInterval", default: 3)
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: true)
-    static let showMediaOutputControl = Key<Bool>("showMediaOutputControl", default: false)
+    static let showMediaOutputControl = Key<Bool>("showMediaOutputControl", default: true)
     static let musicAuxLeftControl = Key<MusicAuxiliaryControl>("musicAuxLeftControl", default: .shuffle)
     static let musicAuxRightControl = Key<MusicAuxiliaryControl>("musicAuxRightControl", default: .repeatMode)
     static let didMigrateMusicAuxControls = Key<Bool>("didMigrateMusicAuxControls", default: false)
