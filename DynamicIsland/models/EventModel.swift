@@ -24,6 +24,7 @@ struct EventModel: Equatable, Identifiable {
     let timeZone: TimeZone?
     let hasRecurrenceRules: Bool
     let priority: Priority?
+    let conferenceURL: URL?
 }
 
 enum AttendanceStatus: Comparable {

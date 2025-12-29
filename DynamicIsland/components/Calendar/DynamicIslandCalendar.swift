@@ -429,6 +429,11 @@ struct EventListView: View {
                                 .foregroundColor(Color(white: 0.65))
                                 .lineLimit(1)
                         }
+                        
+                        // Show Join button if conference URL is available
+                        if let conferenceURL = event.conferenceURL {
+                            ConferenceJoinButton(url: conferenceURL, event: event)
+                        }
                     }
                     Spacer(minLength: 0)
                     VStack(alignment: .trailing, spacing: 4) {
@@ -481,6 +486,104 @@ struct ReminderToggle: View {
         .buttonStyle(PlainButtonStyle())
         .padding(0)
         .accessibilityLabel(isOn ? "Mark as incomplete" : "Mark as complete")
+    }
+}
+
+// MARK: - Conference Provider
+
+enum ConferenceProvider: CaseIterable {
+    case zoom, teams, meet, webex, facetime, gotomeeting, bluejeans, whereby, jitsi, discord, generic
+    
+    var name: String {
+        switch self {
+        case .zoom: return "Zoom"
+        case .teams: return "Teams"
+        case .meet: return "Meet"
+        case .webex: return "Webex"
+        case .facetime: return "FaceTime"
+        case .gotomeeting: return "GoToMeeting"
+        case .bluejeans: return "BlueJeans"
+        case .whereby: return "Whereby"
+        case .jitsi: return "Jitsi"
+        case .discord: return "Discord"
+        case .generic: return ""
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .zoom: return Color(red: 0.16, green: 0.52, blue: 0.95)
+        case .teams: return Color(red: 0.36, green: 0.42, blue: 0.89)
+        case .meet: return Color(red: 0.0, green: 0.65, blue: 0.42)
+        case .webex: return Color(red: 0.0, green: 0.71, blue: 0.84)
+        case .facetime: return Color(red: 0.2, green: 0.78, blue: 0.35)
+        case .gotomeeting: return Color(red: 0.95, green: 0.5, blue: 0.13)
+        case .bluejeans: return Color(red: 0.0, green: 0.48, blue: 0.87)
+        case .whereby: return Color(red: 0.27, green: 0.51, blue: 0.96)
+        case .jitsi: return Color(red: 0.16, green: 0.68, blue: 0.95)
+        case .discord: return Color(red: 0.35, green: 0.39, blue: 0.98)
+        case .generic: return Color.accentColor
+        }
+    }
+    
+    private var hostIdentifiers: [String] {
+        switch self {
+        case .zoom: return ["zoom.us"]
+        case .teams: return ["teams.microsoft.com"]
+        case .meet: return ["meet.google.com"]
+        case .webex: return ["webex.com"]
+        case .facetime: return ["facetime.apple.com"]
+        case .gotomeeting: return ["gotomeeting.com"]
+        case .bluejeans: return ["bluejeans.com"]
+        case .whereby: return ["whereby.com"]
+        case .jitsi: return ["meet.jit.si", "jitsi"]
+        case .discord: return ["discord.gg", "discord.com"]
+        case .generic: return []
+        }
+    }
+    
+    static func detect(from url: URL) -> ConferenceProvider {
+        let host = url.host?.lowercased() ?? ""
+        return allCases.first { provider in
+            provider.hostIdentifiers.contains { host.contains($0) }
+        } ?? .generic
+    }
+}
+
+// MARK: - Conference Join Button
+
+struct ConferenceJoinButton: View {
+    let url: URL
+    let event: EventModel
+    @Environment(\.openURL) private var openURL
+    
+    private var provider: ConferenceProvider { .detect(from: url) }
+    private var isJoinable: Bool {
+        event.start.addingTimeInterval(-15 * 60) <= Date()
+    }
+    
+    private var buttonText: String {
+        event.eventStatus == .inProgress ? "Rejoin" : "Join"
+    }
+    
+    var body: some View {
+        Button(action: { openURL(url) }) {
+            HStack(spacing: 4) {
+                Image(systemName: "video.fill")
+                    .font(.system(size: 9))
+                Text(provider.name.isEmpty ? buttonText : "\(buttonText) \(provider.name)")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+            }
+            .foregroundColor(isJoinable ? .white : Color(white: 0.5))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(isJoinable ? provider.color.opacity(0.85) : Color.gray.opacity(0.3))
+            .cornerRadius(6)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(!isJoinable)
+        .help(isJoinable ? "Join the meeting" : "Meeting starts at \(event.start.formatted(date: .omitted, time: .shortened))")
     }
 }
 

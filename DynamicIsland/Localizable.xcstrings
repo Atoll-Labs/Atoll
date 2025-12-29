@@ -10810,6 +10810,9 @@
         }
       }
     },
+    "Join the meeting" : {
+
+    },
     "Keyboard Backlight HUD" : {
       "localizations" : {
         "fr" : {
@@ -12429,6 +12432,9 @@
           }
         }
       }
+    },
+    "Meeting starts at %@" : {
+
     },
     "Memory Usage" : {
       "localizations" : {

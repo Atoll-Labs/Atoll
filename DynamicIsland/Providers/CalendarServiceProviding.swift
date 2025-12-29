@@ -39,27 +39,19 @@ class CalendarService: CalendarServiceProviding {
     }
 
     private func performAccessRequest(for type: EKEntityType) async throws -> Bool {
-        if #available(macOS 14.0, *) {
-            switch type {
-            case .event:
-                return try await store.requestFullAccessToEvents()
-            case .reminder:
-                return try await store.requestFullAccessToReminders()
-            @unknown default:
-                return false
-            }
-        } else {
-            return try await store.requestAccess(to: type)
+        switch type {
+        case .event:
+            return try await store.requestFullAccessToEvents()
+        case .reminder:
+            return try await store.requestFullAccessToReminders()
+        @unknown default:
+            return false
         }
     }
     
     private func hasAccess(to entityType: EKEntityType) -> Bool {
         let status = EKEventStore.authorizationStatus(for: entityType)
-        if #available(macOS 14.0, *) {
-            return status == .fullAccess
-        } else {
-            return status == .authorized
-        }
+        return status == .fullAccess
     }
     
     func calendars() async -> [CalendarModel] {
@@ -168,7 +160,8 @@ extension EventModel {
             participants: .init(from: event),
             timeZone: calendar.isSubscribed || calendar.isDelegate ? nil : event.timeZone,
             hasRecurrenceRules: event.hasRecurrenceRules || event.isDetached,
-            priority: nil
+            priority: nil,
+            conferenceURL: event.extractConferenceURL()
         )
     }
     
@@ -192,7 +185,8 @@ extension EventModel {
             participants: [],
             timeZone: calendar.isSubscribed || calendar.isDelegate ? nil : reminder.timeZone,
             hasRecurrenceRules: reminder.hasRecurrenceRules,
-            priority: .init(from: reminder.priority)
+            priority: .init(from: reminder.priority),
+            conferenceURL: nil
         )
     }
 }
@@ -271,11 +265,7 @@ private extension EKCalendar {
     }
     
     var isDelegate: Bool {
-        if #available(macOS 13.0, *) {
-            return source.isDelegate
-        } else {
-            return false
-        }
+        return source.isDelegate
     }
 }
 
@@ -290,6 +280,60 @@ private extension EKEvent {
         let startOfDay = calendar.startOfDay(for: startDate)
         let endOfDay = calendar.dateInterval(of: .day, for: endDate)?.end
         return startDate == startOfDay && endDate == endOfDay
+    }
+    
+    /// Extract conference call URL from various sources
+    func extractConferenceURL() -> URL? {
+        // First try the URL field if it's a conference URL
+        if let eventURL = url, isConferenceURL(eventURL) {
+            return eventURL
+        }
+        
+        // Then try to extract from location field
+        if let location = location, let conferenceURL = extractURLFromText(location) {
+            return conferenceURL
+        }
+        
+        // Finally try to extract from notes
+        if let notes = notes, let conferenceURL = extractURLFromText(notes) {
+            return conferenceURL
+        }
+        
+        return nil
+    }
+    
+    /// Check if a URL is likely a conference URL
+    private func isConferenceURL(_ url: URL) -> Bool {
+        let host = url.host?.lowercased() ?? ""
+        let conferenceHosts = [
+            "zoom.us",
+            "teams.microsoft.com",
+            "meet.google.com",
+            "webex.com",
+            "gotomeeting.com",
+            "bluejeans.com",
+            "whereby.com",
+            "meet.jit.si",
+            "discord.gg",
+            "discord.com",
+            "facetime.apple.com"
+        ]
+        
+        return conferenceHosts.contains { host.contains($0) }
+    }
+    
+    /// Extract first valid conference URL from text
+    private func extractURLFromText(_ text: String) -> URL? {
+        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+        let matches = detector?.matches(in: text, options: [], range: NSRange(text.startIndex..., in: text))
+        
+        for match in matches ?? [] {
+            if let url = match.url, isConferenceURL(url) {
+                return url
+            }
+        }
+        
+        return nil
     }
 }
 
