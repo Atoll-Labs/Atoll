@@ -28,6 +28,8 @@ struct LockScreenMusicPanel: View {
     @State private var isExpanded = false
     @State private var isVolumeSliderVisible = false
     @State private var collapseWorkItem: DispatchWorkItem?
+    @State private var parallaxResumeWorkItem: DispatchWorkItem?
+    @State private var isParallaxSuspended = false
     @State private var lastLoggedGlassSnapshot: GlassLogSnapshot?
     @Default(.lockScreenGlassStyle) var lockScreenGlassStyle
     @Default(.lockScreenShowAppIcon) var showAppIcon
@@ -113,6 +115,9 @@ struct LockScreenMusicPanel: View {
             isActive = false
             cancelCollapseTimer()
             isVolumeSliderVisible = false
+            parallaxResumeWorkItem?.cancel()
+            parallaxResumeWorkItem = nil
+            isParallaxSuspended = false
         }
         .onChange(of: isExpanded) { _, expanded in
             updatePanelSize()
@@ -239,7 +244,7 @@ struct LockScreenMusicPanel: View {
                 }
             }
             .albumArtFlip(angle: musicManager.flipAngle)
-            .modifier(ParallaxMotionModifier(magnitude: 12, enableOverride: lockScreenParallaxEnabled))
+            .parallax3D(magnitude: 12, enableOverride: lockScreenParallaxEnabled, suspended: isParallaxSuspended)
             .frame(width: size, height: size)
             .background(albumArtBackground(cornerRadius: cornerRadius))
         }
@@ -264,6 +269,7 @@ struct LockScreenMusicPanel: View {
 
     private func toggleExpanded() {
         let newState = !isExpanded
+        suspendParallaxInteraction()
         withAnimation(.spring(response: 0.5, dampingFraction: 0.82)) {
             isExpanded = newState
         }
@@ -282,6 +288,7 @@ struct LockScreenMusicPanel: View {
         guard isExpanded else { return }
 
         let workItem = DispatchWorkItem {
+            suspendParallaxInteraction()
             withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
                 isExpanded = false
             }
@@ -290,6 +297,17 @@ struct LockScreenMusicPanel: View {
 
         collapseWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + collapseTimeout, execute: workItem)
+    }
+
+    private func suspendParallaxInteraction(for duration: TimeInterval = 0.65) {
+        parallaxResumeWorkItem?.cancel()
+        isParallaxSuspended = true
+
+        let workItem = DispatchWorkItem {
+            isParallaxSuspended = false
+        }
+        parallaxResumeWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
     }
 
     private func cancelCollapseTimer() {

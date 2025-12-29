@@ -116,6 +116,7 @@ Atoll turns the MacBook notch into a focused command surface for media, system i
 - Productivity: rich timers with live activity, precise colour picker with formats, and a searchable clipboard history.
 - Calendar: streamlined agenda with snapshot-driven updates to keep EventKit usage lean.
 - Lock Screen: weather, media, charging, and Bluetooth battery widgets that respect system accessory styles.
+- Parallax interactions: hover tilt now stays responsive while clicks fire immediately, and the lock screen album art suspends the effect mid-animation for smooth expansions.
 - Customisation: minimalistic/standard layouts, animation styles, hover behaviour, and full shortcut remapping.
 
 ## Requirements
