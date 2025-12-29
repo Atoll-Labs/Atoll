@@ -615,7 +615,7 @@ private struct DurationInputRow: View {
     private var colon: some View {
         Text(":")
             .font(.system(size: 26, weight: .black, design: .monospaced))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.white.opacity(0.65))
     }
 }
 
@@ -643,13 +643,15 @@ private struct DurationField: View {
                 .font(.system(size: 28, weight: .semibold, design: .monospaced))
                 .multilineTextAlignment(.center)
                 .textFieldStyle(.plain)
+                .foregroundColor(.white)
+                .tint(.white)
                 .frame(width: width, height: 46)
                 .background(Color.white.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             Text(label)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.white.opacity(0.65))
         }
     }
 

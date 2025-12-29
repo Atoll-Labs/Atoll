@@ -154,6 +154,7 @@ struct InlineHUD: View {
                         .lineLimit(1)
                         .allowsTightening(true)
                         .contentTransition(.numericText())
+                        .foregroundStyle(.white)
                 }
             }
             .frame(width: infoWidth, height: vm.notchSize.height - (hoverAnimation ? 0 : 12), alignment: .leading)

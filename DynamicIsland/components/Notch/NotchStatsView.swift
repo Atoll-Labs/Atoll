@@ -557,13 +557,13 @@ struct UnifiedStatsCard: View {
             // Header - consistent across all card types
             HStack(spacing: 4) {
                 Image(systemName: graphData.icon)
-                    .foregroundColor(graphData.color)
+                    .foregroundStyle(graphData.color)
                     .font(.caption) // Match boring.notch font size
                 
                 Text(graphData.title)
                     .font(.caption) // Match boring.notch font size
                     .fontWeight(.medium)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(Color.white.opacity(0.8))
                 
                 Spacer()
                 
@@ -572,7 +572,7 @@ struct UnifiedStatsCard: View {
                     Text(singleData.value)
                         .font(.caption) // Match boring.notch font size
                         .fontWeight(.bold)
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.white)
                 }
             }
             
@@ -586,7 +586,7 @@ struct UnifiedStatsCard: View {
                     
                     Text("•")
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(Color.white.opacity(0.45))
                     
                     Text(dualData.negativeValue)
                         .font(.caption)
@@ -615,7 +615,7 @@ struct UnifiedStatsCard: View {
             if ["CPU", "Memory", "GPU", "Network", "Disk"].contains(graphData.title) {
                 Text("Click for details")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(Color.white.opacity(0.75))
                     .opacity(isHovered ? 1.0 : 0.0)
                     .animation(.easeInOut(duration: 0.2), value: isHovered)
             }
@@ -623,10 +623,10 @@ struct UnifiedStatsCard: View {
         .padding(8) // Match boring.notch padding - reduced from 10
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.controlBackgroundColor).opacity(0.7)) // Match boring.notch opacity
+                .fill(Color.white.opacity(0.08))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(graphData.color.opacity(isHovered ? 0.5 : 0.2), lineWidth: 1)
+                        .stroke(Color.white.opacity(isHovered ? 0.45 : 0.18), lineWidth: 1)
                 )
         )
         .scaleEffect(isHovered ? 1.02 : 1.0)
