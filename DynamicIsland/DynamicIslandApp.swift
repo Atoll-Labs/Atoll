@@ -107,6 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingWindowController: NSWindowController?
     private var cancellables = Set<AnyCancellable>()
     private var windowsHiddenForLock = false
+    private var optionalShortcutHandlersRegistered = false
     
     // Debouncing mechanism for window size updates
     private var windowSizeUpdateWorkItem: DispatchWorkItem?
@@ -433,8 +434,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             .store(in: &cancellables)
 
-        Defaults.publisher(.enableShortcuts, options: []).sink { change in
-            KeyboardShortcuts.isEnabled = change.newValue
+        Defaults.publisher(.enableShortcuts, options: []).sink { [weak self] change in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                KeyboardShortcuts.isEnabled = change.newValue
+                self.updateFeatureShortcutAvailability()
+            }
+        }.store(in: &cancellables)
+
+        Defaults.publisher(.enableTimerFeature, options: []).sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updateFeatureShortcutAvailability()
+            }
+        }.store(in: &cancellables)
+
+        Defaults.publisher(.enableClipboardManager, options: []).sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updateFeatureShortcutAvailability()
+            }
+        }.store(in: &cancellables)
+
+        Defaults.publisher(.enableColorPickerFeature, options: []).sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updateFeatureShortcutAvailability()
+            }
+        }.store(in: &cancellables)
+
+        Defaults.publisher(.enableScreenAssistant, options: []).sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updateFeatureShortcutAvailability()
+            }
         }.store(in: &cancellables)
         
         // Observe minimalistic UI setting changes - trigger window resize
@@ -519,7 +548,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self, selector: #selector(onScreenUnlocked(_:)),
             name: NSNotification.Name(rawValue: "com.apple.screenIsUnlocked"), object: nil)
 
-        _ = KeyboardShortcuts.onKeyDown(for: .toggleSneakPeek) { [weak self] in
+        KeyboardShortcuts.onKeyDown(for: .toggleSneakPeek) { [weak self] in
             guard let self = self else { return }
             guard Defaults[.enableShortcuts] else { return }
 
@@ -530,7 +559,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             )
         }
 
-        _ = KeyboardShortcuts.onKeyDown(for: .toggleNotchOpen) { [weak self] in
+        KeyboardShortcuts.onKeyDown(for: .toggleNotchOpen) { [weak self] in
             guard let self = self else { return }
             guard Defaults[.enableShortcuts] else { return }
 
@@ -567,74 +596,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        _ = KeyboardShortcuts.onKeyDown(for: .startDemoTimer) {
-            guard Defaults[.enableShortcuts] else { return }
-            guard Defaults[.enableTimerFeature] else { return }
-            TimerManager.shared.startDemoTimer(duration: 300)
-        }
-
-        _ = KeyboardShortcuts.onKeyDown(for: .clipboardHistoryPanel) { [weak self] in
-            guard let self = self else { return }
-            guard Defaults[.enableShortcuts] else { return }
-            guard Defaults[.enableClipboardManager] else { return }
-
-            if !ClipboardManager.shared.isMonitoring {
-                ClipboardManager.shared.startMonitoring()
-            }
-
-            switch Defaults[.clipboardDisplayMode] {
-            case .panel:
-                ClipboardPanelManager.shared.toggleClipboardPanel()
-            case .popover:
-                if self.vm.notchState == .closed {
-                    self.vm.open()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        NotificationCenter.default.post(name: NSNotification.Name("ToggleClipboardPopover"), object: nil)
-                    }
-                } else {
-                    NotificationCenter.default.post(name: NSNotification.Name("ToggleClipboardPopover"), object: nil)
-                }
-            case .separateTab:
-                if self.vm.notchState == .closed {
-                    self.vm.open()
-                    self.coordinator.currentView = .notes
-                } else {
-                    if self.coordinator.currentView == .notes {
-                        self.vm.close()
-                    } else {
-                        self.coordinator.currentView = .notes
-                    }
-                }
-            }
-        }
-
-        _ = KeyboardShortcuts.onKeyDown(for: .colorPickerPanel) {
-            guard Defaults[.enableShortcuts] else { return }
-            guard Defaults[.enableColorPickerFeature] else { return }
-            ColorPickerPanelManager.shared.toggleColorPickerPanel()
-        }
-
-        _ = KeyboardShortcuts.onKeyDown(for: .screenAssistantPanel) { [weak self] in
-            guard let self = self else { return }
-            guard Defaults[.enableShortcuts] else { return }
-            guard Defaults[.enableScreenAssistant] else { return }
-
-            switch Defaults[.screenAssistantDisplayMode] {
-            case .panel:
-                ScreenAssistantPanelManager.shared.toggleScreenAssistantPanel()
-            case .popover:
-                if self.vm.notchState == .closed {
-                    self.vm.open()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        NotificationCenter.default.post(name: NSNotification.Name("ToggleScreenAssistantPopover"), object: nil)
-                    }
-                } else {
-                    NotificationCenter.default.post(name: NSNotification.Name("ToggleScreenAssistantPopover"), object: nil)
-                }
-            }
-        }
-
         KeyboardShortcuts.isEnabled = Defaults[.enableShortcuts]
+        registerOptionalShortcutHandlers()
+        updateFeatureShortcutAvailability()
 
         if !Defaults[.showOnAllDisplays] {
             let viewModel = self.vm
@@ -669,6 +633,91 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Ensure the reminder widget mirrors live activity snapshots as soon as they exist.
         _ = LockScreenReminderWidgetManager.shared
+    }
+
+    private func registerOptionalShortcutHandlers() {
+        guard !optionalShortcutHandlersRegistered else { return }
+        optionalShortcutHandlersRegistered = true
+
+        KeyboardShortcuts.onKeyDown(for: .startDemoTimer) {
+            guard Defaults[.enableShortcuts], Defaults[.enableTimerFeature] else { return }
+            TimerManager.shared.startDemoTimer(duration: 300)
+        }
+
+        KeyboardShortcuts.onKeyDown(for: .clipboardHistoryPanel) { [weak self] in
+            guard let self else { return }
+            guard Defaults[.enableShortcuts], Defaults[.enableClipboardManager] else { return }
+
+            if !ClipboardManager.shared.isMonitoring {
+                ClipboardManager.shared.startMonitoring()
+            }
+
+            switch Defaults[.clipboardDisplayMode] {
+            case .panel:
+                ClipboardPanelManager.shared.toggleClipboardPanel()
+            case .popover:
+                if vm.notchState == .closed {
+                    vm.open()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        NotificationCenter.default.post(name: NSNotification.Name("ToggleClipboardPopover"), object: nil)
+                    }
+                } else {
+                    NotificationCenter.default.post(name: NSNotification.Name("ToggleClipboardPopover"), object: nil)
+                }
+            case .separateTab:
+                if vm.notchState == .closed {
+                    vm.open()
+                    coordinator.currentView = .notes
+                } else {
+                    if coordinator.currentView == .notes {
+                        vm.close()
+                    } else {
+                        coordinator.currentView = .notes
+                    }
+                }
+            }
+        }
+
+        KeyboardShortcuts.onKeyDown(for: .colorPickerPanel) {
+            guard Defaults[.enableShortcuts], Defaults[.enableColorPickerFeature] else { return }
+            ColorPickerPanelManager.shared.toggleColorPickerPanel()
+        }
+
+        KeyboardShortcuts.onKeyDown(for: .screenAssistantPanel) { [weak self] in
+            guard let self else { return }
+            guard Defaults[.enableShortcuts], Defaults[.enableScreenAssistant] else { return }
+
+            switch Defaults[.screenAssistantDisplayMode] {
+            case .panel:
+                ScreenAssistantPanelManager.shared.toggleScreenAssistantPanel()
+            case .popover:
+                if vm.notchState == .closed {
+                    vm.open()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        NotificationCenter.default.post(name: NSNotification.Name("ToggleScreenAssistantPopover"), object: nil)
+                    }
+                } else {
+                    NotificationCenter.default.post(name: NSNotification.Name("ToggleScreenAssistantPopover"), object: nil)
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func updateFeatureShortcutAvailability() {
+        updateShortcut(.startDemoTimer, isEnabled: Defaults[.enableShortcuts] && Defaults[.enableTimerFeature])
+        updateShortcut(.clipboardHistoryPanel, isEnabled: Defaults[.enableShortcuts] && Defaults[.enableClipboardManager])
+        updateShortcut(.colorPickerPanel, isEnabled: Defaults[.enableShortcuts] && Defaults[.enableColorPickerFeature])
+        updateShortcut(.screenAssistantPanel, isEnabled: Defaults[.enableShortcuts] && Defaults[.enableScreenAssistant])
+    }
+
+    @MainActor
+    private func updateShortcut(_ name: KeyboardShortcuts.Name, isEnabled: Bool) {
+        if isEnabled {
+            KeyboardShortcuts.enable(name)
+        } else {
+            KeyboardShortcuts.disable(name)
+        }
     }
     
     func playWelcomeSound() {
