@@ -520,6 +520,8 @@ extension Defaults.Keys {
     static let gestureSensitivity = Key<CGFloat>("gestureSensitivity", default: 200.0)
     static let enableHorizontalMusicGestures = Key<Bool>("enableHorizontalMusicGestures", default: true)
     static let musicGestureBehavior = Key<MusicSkipBehavior>("musicGestureBehavior", default: .track)
+    static let reverseSwipeGestures = Key<Bool>("reverseSwipeGestures", default: false)
+    static let reverseScrollGestures = Key<Bool>("reverseScrollGestures", default: false)
     
         // MARK: Media playback
     static let coloredSpectrogram = Key<Bool>("coloredSpectrogram", default: true)

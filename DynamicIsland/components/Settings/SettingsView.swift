@@ -577,6 +577,8 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .general, title: "Hide Dynamic Island during screenshots & recordings", keywords: ["privacy", "screenshot", "recording"], highlightID: SettingsTab.general.highlightID(for: "Hide Dynamic Island during screenshots & recordings")),
             SettingsSearchEntry(tab: .general, title: "Enable gestures", keywords: ["gestures", "trackpad"], highlightID: SettingsTab.general.highlightID(for: "Enable gestures")),
             SettingsSearchEntry(tab: .general, title: "Close gesture", keywords: ["pinch", "swipe"], highlightID: SettingsTab.general.highlightID(for: "Close gesture")),
+            SettingsSearchEntry(tab: .general, title: "Reverse swipe gestures", keywords: ["reverse", "swipe", "media"], highlightID: SettingsTab.general.highlightID(for: "Reverse swipe gestures")),
+            SettingsSearchEntry(tab: .general, title: "Reverse scroll gestures", keywords: ["reverse", "scroll", "open", "close"], highlightID: SettingsTab.general.highlightID(for: "Reverse scroll gestures")),
             SettingsSearchEntry(tab: .general, title: "Extend hover area", keywords: ["hover", "cursor"], highlightID: SettingsTab.general.highlightID(for: "Extend hover area")),
             SettingsSearchEntry(tab: .general, title: "Enable haptics", keywords: ["haptic", "feedback"], highlightID: SettingsTab.general.highlightID(for: "Enable haptics")),
             SettingsSearchEntry(tab: .general, title: "Open notch on hover", keywords: ["hover to open", "auto open"], highlightID: SettingsTab.general.highlightID(for: "Open notch on hover")),
@@ -845,6 +847,8 @@ struct GeneralSettings: View {
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
     @Default(.enableHorizontalMusicGestures) var enableHorizontalMusicGestures
     @Default(.musicGestureBehavior) var musicGestureBehavior
+    @Default(.reverseSwipeGestures) var reverseSwipeGestures
+    @Default(.reverseScrollGestures) var reverseScrollGestures
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.general.highlightID(for: title)
@@ -1003,6 +1007,9 @@ struct GeneralSettings: View {
                     Text(musicGestureBehavior.description)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    Defaults.Toggle("Reverse swipe gestures", key: .reverseSwipeGestures)
+                        .settingsHighlight(id: highlightID("Reverse swipe gestures"))
                 }
 
                 Defaults.Toggle("Close gesture", key: .closeGestureEnabled)
@@ -1015,6 +1022,9 @@ struct GeneralSettings: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                Defaults.Toggle("Reverse open/close scroll gestures", key: .reverseScrollGestures)
+                    .settingsHighlight(id: highlightID("Reverse scroll gestures"))
             }
         } header: {
             HStack {
