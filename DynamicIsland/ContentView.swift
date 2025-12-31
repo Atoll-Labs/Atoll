@@ -232,7 +232,7 @@ struct ContentView: View {
                                 }
                         }
                 }
-                .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures] && interactionsEnabled) { view in
+                .conditionalModifier((Defaults[.closeGestureEnabled] || Defaults[.reverseScrollGestures]) && Defaults[.enableGestures] && interactionsEnabled) { view in
                     view
                         .panGesture(direction: .up) { translation, phase in
                             handleUpGesture(translation: translation, phase: phase)
@@ -883,18 +883,38 @@ struct ContentView: View {
     // MARK: - Gesture Handling
     
     private func handleDownGesture(translation: CGFloat, phase: NSEvent.Phase) {
+        handleScrollGesture(isDownward: true, translation: translation, phase: phase)
+    }
+    
+    private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
+        handleScrollGesture(isDownward: false, translation: translation, phase: phase)
+    }
+
+    private func handleScrollGesture(isDownward: Bool, translation: CGFloat, phase: NSEvent.Phase) {
+        let reverse = Defaults[.reverseScrollGestures]
+        let shouldOpen = isDownward ? !reverse : reverse
+
+        if shouldOpen {
+            handleOpenScrollGesture(translation: translation, phase: phase)
+        } else {
+            guard Defaults[.closeGestureEnabled] else { return }
+            handleCloseScrollGesture(translation: translation, phase: phase)
+        }
+    }
+
+    private func handleOpenScrollGesture(translation: CGFloat, phase: NSEvent.Phase) {
         guard vm.notchState == .closed else { return }
-        
+
         withAnimation(.smooth) {
             gestureProgress = (translation / Defaults[.gestureSensitivity]) * 20
         }
-        
+
         if phase == .ended {
             withAnimation(.smooth) {
                 gestureProgress = .zero
             }
         }
-        
+
         if translation > Defaults[.gestureSensitivity] {
             if Defaults[.enableHaptics] {
                 triggerHapticIfAllowed()
@@ -905,29 +925,29 @@ struct ContentView: View {
             openNotch()
         }
     }
-    
-    private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        if vm.notchState == .open && !vm.isHoveringCalendar && !vm.isScrollGestureActive {
+
+    private func handleCloseScrollGesture(translation: CGFloat, phase: NSEvent.Phase) {
+        guard vm.notchState == .open, !vm.isHoveringCalendar, !vm.isScrollGestureActive else { return }
+
+        withAnimation(.smooth) {
+            gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20
+        }
+
+        if phase == .ended {
             withAnimation(.smooth) {
-                gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20
+                gestureProgress = .zero
             }
-            
-            if phase == .ended {
-                withAnimation(.smooth) {
-                    gestureProgress = .zero
-                }
+        }
+
+        if translation > Defaults[.gestureSensitivity] {
+            withAnimation(.smooth) {
+                gestureProgress = .zero
+                isHovering = false
             }
-            
-            if translation > Defaults[.gestureSensitivity] {
-                withAnimation(.smooth) {
-                    gestureProgress = .zero
-                    isHovering = false
-                }
-                vm.close()
-                
-                if Defaults[.enableHaptics] {
-                    triggerHapticIfAllowed()
-                }
+            vm.close()
+
+            if Defaults[.enableHaptics] {
+                triggerHapticIfAllowed()
             }
         }
     }
@@ -944,13 +964,19 @@ struct ContentView: View {
         }
 
         if skipGestureActiveDirection == nil && translation > Defaults[.gestureSensitivity] {
-            skipGestureActiveDirection = direction
+            let effectiveDirection: MusicManager.SkipDirection
+            if Defaults[.reverseSwipeGestures] {
+                effectiveDirection = direction == .forward ? .backward : .forward
+            } else {
+                effectiveDirection = direction
+            }
+            skipGestureActiveDirection = effectiveDirection
 
             if Defaults[.enableHaptics] {
                 triggerHapticIfAllowed()
             }
 
-            musicManager.handleSkipGesture(direction: direction)
+            musicManager.handleSkipGesture(direction: effectiveDirection)
         }
     }
 
