@@ -1840,6 +1840,7 @@
       }
     },
     "Activate" : {
+      "extractionState" : "stale",
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -1850,6 +1851,7 @@
       }
     },
     "Activate your license" : {
+      "extractionState" : "stale",
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -1860,6 +1862,7 @@
       }
     },
     "Activation" : {
+      "extractionState" : "stale",
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -7757,6 +7760,7 @@
       }
     },
     "Email address" : {
+      "extractionState" : "stale",
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -10962,6 +10966,7 @@
 
     },
     "License key" : {
+      "extractionState" : "stale",
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -19274,6 +19279,7 @@
       }
     },
     "Transform your notch truly yours" : {
+      "extractionState" : "stale",
       "localizations" : {
         "fr" : {
           "stringUnit" : {

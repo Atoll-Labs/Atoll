@@ -34,11 +34,6 @@ struct DynamicNotchApp: App {
             Button("Settings") {
                 SettingsWindowController.shared.showWindow()
             }
-            if false {
-                Button("Activate License") {
-                    openWindow(id: "activation")
-                }
-            }
             CheckForUpdatesView(updater: updaterController.updater)
             Divider()
             Button("Restart Atoll") {
@@ -62,12 +57,6 @@ struct DynamicNotchApp: App {
             }
             .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
         }
-
-        Window("Activation", id: "activation") {
-            ActivationWindow()
-        }
-        .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentSize)
     }
 
     var commands: some Commands {
