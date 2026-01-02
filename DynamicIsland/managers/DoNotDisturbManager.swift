@@ -365,7 +365,11 @@ enum FocusModeType: String, CaseIterable {
             return image
         }
 
-        return Image(systemName: sfSymbol)
+        return Image(
+            systemName: self == .custom
+            ? self.getCustomIconFromFile()
+            : sfSymbol
+        )
     }
 
     var accentColor: Color {
@@ -391,7 +395,7 @@ enum FocusModeType: String, CaseIterable {
         case .reduceInterruptions:
             return Color(red: 0.686, green: 0.322, blue: 0.871, opacity: 1.0)
         case .custom:
-            return Color(red: 0.513, green: 0.478, blue: 0.965)
+            return self.getCustomAccentColorFromFile()
         case .unknown:
             return Color(red: 0.370, green: 0.360, blue: 0.902)
         }
@@ -453,6 +457,16 @@ extension FocusModeType {
         }
 
         return .doNotDisturb
+    }
+    
+    func getCustomIconFromFile() -> String {
+        return FocusMetadataReader.shared
+            .getIcon(for: DoNotDisturbManager.shared.currentFocusModeName)
+    }
+    
+    func getCustomAccentColorFromFile() -> Color {
+        return FocusMetadataReader.shared
+            .getColor(for: DoNotDisturbManager.shared.currentFocusModeName)
     }
 }
 
@@ -944,5 +958,89 @@ private enum FocusMetadataDecoder {
         }
 
         return nil
+    }
+}
+
+private final class FocusMetadataReader {
+    private let pathToDatabase:URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/DoNotDisturb/DB/ModeConfigurations.json")
+    
+    struct DNDConfigRoot: Codable {
+        let data: [DNDDataEntry]
+    }
+    
+    struct DNDDataEntry: Codable {
+        let modeConfigurations: [String: DNDModeWrapper]
+    }
+    
+    struct DNDModeWrapper: Codable {
+            let mode: DNDMode
+    }
+    
+    struct DNDMode: Codable {
+        let name: String
+        let symbolImageName: String?
+        let tintColorName: String?
+    }
+    
+    private init(){}
+    
+    static let shared = FocusMetadataReader()
+    
+    private func getModeConfig(for focusName: String) -> DNDMode? {
+        print(">>> Debug: Reading from \(pathToDatabase.path)")
+        
+        do {
+            let data = try Data(contentsOf: pathToDatabase)
+            let root = try JSONDecoder().decode(DNDConfigRoot.self, from: data)
+            
+            for entry in root.data {
+                for wrapper in entry.modeConfigurations.values {
+                    if wrapper.mode.name
+                        .localizedCaseInsensitiveContains(focusName){
+                        return wrapper.mode
+                    }
+                }
+            }
+        } catch {
+            print(">>> JSON Error: \(error)")
+        }
+        return nil
+    }
+    
+    func getIcon(for focus: String) -> String {
+        guard let mode = getModeConfig(for: focus) else { return "app.badge" }
+        return mode.symbolImageName ?? "app.badge"
+    }
+    
+    func getColor(for focus: String) -> Color {
+        guard let mode = getModeConfig(for: focus),
+              let colorName = mode.tintColorName else { return .gray }
+        
+        return Color.stringToColor(for: colorName)
+    }
+    
+}
+
+extension Color {
+    static func stringToColor(for string:String) -> Color {
+        let cleanName = string.lowercased()
+            .replacingOccurrences(of: "system", with: "")
+            .replacingOccurrences(of: "color", with: "")
+        
+        switch cleanName {
+        case "red": return .red
+        case "orange": return .orange
+        case "yellow": return .yellow
+        case "green": return .green
+        case "mint": return .mint
+        case "teal": return .teal
+        case "cyan": return .cyan
+        case "blue": return .blue
+        case "indigo": return .indigo
+        case "purple": return .purple
+        case "pink": return .pink
+        case "gray", "grey": return .gray
+        default: return .indigo
+        }
     }
 }
