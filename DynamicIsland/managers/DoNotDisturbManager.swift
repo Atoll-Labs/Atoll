@@ -131,6 +131,9 @@ final class DoNotDisturbManager: ObservableObject {
 
             if nameChanged {
                 self.currentFocusModeName = finalName
+                    .localizedCaseInsensitiveContains(
+                        "Reduce Interruptions"
+                    ) ? "Reduce Interr." : finalName
             }
 
             if identifierChanged || nameChanged || shouldToggleActive {
@@ -307,6 +310,7 @@ enum FocusModeType: String, CaseIterable {
     case gaming = "com.apple.focus.gaming"
     case mindfulness = "com.apple.focus.mindfulness"
     case reading = "com.apple.focus.reading"
+    case reduceInterruptions = "com.apple.focus.reduce-interruptions"
     case custom = "com.apple.focus.custom"
     case unknown = ""
     
@@ -321,6 +325,7 @@ enum FocusModeType: String, CaseIterable {
         case .gaming: return "Gaming"
         case .mindfulness: return "Mindfulness"
         case .reading: return "Reading"
+        case .reduceInterruptions: return "Reduce Interr."
         case .custom: return "Focus"
         case .unknown: return "Focus Mode"
         }
@@ -337,6 +342,7 @@ enum FocusModeType: String, CaseIterable {
         case .gaming: return "gamecontroller.fill"
         case .mindfulness: return "circle.hexagongrid"
         case .reading: return "book.closed.fill"
+        case .reduceInterruptions: return "apple.intelligence"
         case .custom: return "app.badge"
         case .unknown: return "moon.fill"
         }
@@ -362,7 +368,11 @@ enum FocusModeType: String, CaseIterable {
             return image
         }
 
-        return Image(systemName: sfSymbol)
+        return Image(
+            systemName: self == .custom
+            ? self.getCustomIconFromFile()
+            : sfSymbol
+        )
     }
 
     var accentColor: Color {
@@ -385,8 +395,10 @@ enum FocusModeType: String, CaseIterable {
             return Color(red: 0.361, green: 0.898, blue: 0.883, opacity: 1.0)
         case .reading:
             return Color(red: 1.000, green: 0.622, blue: 0.044, opacity: 1.0)
+        case .reduceInterruptions:
+            return Color(red: 0.686, green: 0.322, blue: 0.871, opacity: 1.0)
         case .custom:
-            return Color(red: 0.513, green: 0.478, blue: 0.965)
+            return self.getCustomAccentColorFromFile()
         case .unknown:
             return Color(red: 0.370, green: 0.360, blue: 0.902)
         }
@@ -425,7 +437,7 @@ extension FocusModeType {
             return
         }
 
-        if normalizedLowercased.hasPrefix("com.apple.focus.") {
+        if normalizedLowercased.hasPrefix("com.apple.focus") {
             self = .custom
             return
         }
@@ -434,22 +446,30 @@ extension FocusModeType {
     }
 
     static func resolve(identifier: String?, name: String?) -> FocusModeType {
-        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !trimmedName.isEmpty {
+        if let name, !name.isEmpty {
             if let match = FocusModeType.allCases.first(where: {
                 guard !$0.displayName.isEmpty else { return false }
-                return $0.displayName.compare(trimmedName, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+                return $0.displayName.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
             }) {
                 return match
             }
         }
 
-        let trimmedIdentifier = identifier?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !trimmedIdentifier.isEmpty {
-            return FocusModeType(identifier: trimmedIdentifier)
+        if let identifier, !identifier.isEmpty {
+            return FocusModeType(identifier: identifier)
         }
 
         return .doNotDisturb
+    }
+    
+    func getCustomIconFromFile() -> String {
+        return FocusMetadataReader.shared
+            .getIcon(for: DoNotDisturbManager.shared.currentFocusModeName)
+    }
+    
+    func getCustomAccentColorFromFile() -> Color {
+        return FocusMetadataReader.shared
+            .getAccentColor(for: DoNotDisturbManager.shared.currentFocusModeName)
     }
 }
 
@@ -941,5 +961,91 @@ private enum FocusMetadataDecoder {
         }
 
         return nil
+    }
+}
+
+private final class FocusMetadataReader {
+    private let pathToDatabase:URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/DoNotDisturb/DB/ModeConfigurations.json")
+    
+    struct DNDConfigRoot: Codable {
+        let data: [DNDDataEntry]
+    }
+    
+    struct DNDDataEntry: Codable {
+        let modeConfigurations: [String: DNDModeWrapper]
+    }
+    
+    struct DNDModeWrapper: Codable {
+            let mode: DNDMode
+    }
+    
+    struct DNDMode: Codable {
+        let name: String
+        let symbolImageName: String?
+        let tintColorName: String?
+    }
+    
+    private init(){}
+    
+    static let shared = FocusMetadataReader()
+    
+    private func getModeConfig(for focusName: String) -> DNDMode? {
+        do {
+            let data = try Data(contentsOf: pathToDatabase)
+            let root = try JSONDecoder().decode(DNDConfigRoot.self, from: data)
+            
+            for entry in root.data {
+                for wrapper in entry.modeConfigurations.values {
+                    if wrapper.mode.name
+                        .localizedCaseInsensitiveCompare(focusName) == .orderedSame {
+                        return wrapper.mode
+                    }
+                }
+            }
+        } catch {
+            print("JSON Error: \(error)")
+        }
+        return nil
+    }
+    
+    /// Fetch the icon for the current focus from disk. If the focus is not found return the placeholder `app.badge`
+    /// - Returns A string representing the sfSymbol of the current focus
+    func getIcon(for focus: String) -> String {
+        guard let mode = getModeConfig(for: focus) else { return "app.badge" }
+        return mode.symbolImageName ?? "app.badge"
+    }
+    
+    /// Fetch the accent color for the current focus from disk. If the focus is not found return the placeholder `Color.indigo`
+    /// - Returns A Color representing the accent color for the current focus
+    func getAccentColor(for focus: String) -> Color {
+        guard let mode = getModeConfig(for: focus),
+              let colorName = mode.tintColorName else { return .indigo }
+        
+        return Color.stringToColor(for: colorName)
+    }
+    
+}
+
+extension Color {
+    static func stringToColor(for string:String) -> Color {
+        let cleanName = string.lowercased()
+            .replacingOccurrences(of: "system", with: "")
+            .replacingOccurrences(of: "color", with: "")
+        
+        switch cleanName {
+        case "red": return .red
+        case "orange": return .orange
+        case "yellow": return .yellow
+        case "green": return .green
+        case "mint": return .mint
+        case "teal": return .teal
+        case "cyan": return .cyan
+        case "blue": return .blue
+        case "indigo": return .indigo
+        case "purple": return .purple
+        case "pink": return .pink
+        case "gray", "grey": return .gray
+        default: return .indigo
+        }
     }
 }
