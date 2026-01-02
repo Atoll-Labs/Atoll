@@ -990,6 +990,7 @@ private final class FocusMetadataReader {
     static let shared = FocusMetadataReader()
     
     private func getModeConfig(for focusName: String) -> DNDMode? {
+        guard FullDiskAccessAuthorization.hasPermission() else { return nil }
         do {
             let data = try Data(contentsOf: pathToDatabase)
             let root = try JSONDecoder().decode(DNDConfigRoot.self, from: data)

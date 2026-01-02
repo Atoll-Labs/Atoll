@@ -2402,6 +2402,7 @@ struct Shelf: View {
     @Default(.copyOnDrag) var copyOnDrag
     @Default(.autoRemoveShelfItems) var autoRemoveShelfItems
     @StateObject private var quickShareService = QuickShareService.shared
+    @ObservedObject private var fullDiskAccessPermission = FullDiskAccessPermissionStore.shared
 
     private var selectedProvider: QuickShareProvider? {
         quickShareService.availableProviders.first(where: { $0.id == quickShareProvider })
@@ -2417,8 +2418,26 @@ struct Shelf: View {
 
     var body: some View {
         Form {
+            if !fullDiskAccessPermission.isAuthorized {
+                Section {
+                    SettingsPermissionCallout(
+                        title: "Full Disk Access required",
+                        message: "Grant Full Disk Access so the Shelf can index and move files outside the app sandbox.",
+                        icon: "internaldrive.badge.exclamationmark",
+                        iconColor: .purple,
+                        requestButtonTitle: "Request Full Disk Access",
+                        openSettingsButtonTitle: "Open Privacy & Security",
+                        requestAction: { fullDiskAccessPermission.requestAccessPrompt() },
+                        openSettingsAction: { fullDiskAccessPermission.openSystemSettings() }
+                    )
+                } header: {
+                    Text("Permissions")
+                }
+            }
+
             Section {
                 Defaults.Toggle("Enable shelf", key: .dynamicShelf)
+                    .disabled(!fullDiskAccessPermission.isAuthorized)
                     .settingsHighlight(id: highlightID("Enable shelf"))
 
                 Defaults.Toggle("Open shelf tab by default if items added", key: .openShelfByDefault)
@@ -2503,6 +2522,9 @@ struct Shelf: View {
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Shelf")
+        .onAppear {
+            fullDiskAccessPermission.refreshStatus()
+        }
     }
 }
 
@@ -2511,6 +2533,7 @@ struct LiveActivitiesSettings: View {
     @ObservedObject var recordingManager = ScreenRecordingManager.shared
     @ObservedObject var privacyManager = PrivacyIndicatorManager.shared
     @ObservedObject var doNotDisturbManager = DoNotDisturbManager.shared
+    @ObservedObject private var fullDiskAccessPermission = FullDiskAccessPermissionStore.shared
 
     @Default(.enableScreenRecordingDetection) var enableScreenRecordingDetection
     @Default(.enableDoNotDisturbDetection) var enableDoNotDisturbDetection
@@ -2555,6 +2578,19 @@ struct LiveActivitiesSettings: View {
             }
 
             Section {
+                if !fullDiskAccessPermission.isAuthorized {
+                    SettingsPermissionCallout(
+                        title: "Custom Focus metadata",
+                        message: "Full Disk Access unlocks custom Focus icons, colors, and labels. Standard Focus detection still works without it—grant access only if you need personalized indicators.",
+                        icon: "internaldrive.badge.exclamationmark",
+                        iconColor: .purple,
+                        requestButtonTitle: "Request Full Disk Access",
+                        openSettingsButtonTitle: "Open Privacy & Security",
+                        requestAction: { fullDiskAccessPermission.requestAccessPrompt() },
+                        openSettingsAction: { fullDiskAccessPermission.openSystemSettings() }
+                    )
+                }
+
                 Defaults.Toggle("Enable Focus Detection", key: .enableDoNotDisturbDetection)
                     .settingsHighlight(id: highlightID("Enable Focus Detection"))
 
@@ -2672,6 +2708,9 @@ struct LiveActivitiesSettings: View {
             }
         }
         .navigationTitle("Live Activities")
+        .onAppear {
+            fullDiskAccessPermission.refreshStatus()
+        }
     }
 }
 
@@ -5217,27 +5256,52 @@ struct CustomOSDSettings: View {
 }
 
 struct SettingsPermissionCallout: View {
+    let title: String
     let message: String
+    let icon: String
+    let iconColor: Color
+    let requestButtonTitle: String
+    let openSettingsButtonTitle: String
     let requestAction: () -> Void
     let openSettingsAction: () -> Void
 
+    init(
+        title: String = "Accessibility permission required",
+        message: String,
+        icon: String = "exclamationmark.triangle.fill",
+        iconColor: Color = .orange,
+        requestButtonTitle: String = "Request Access",
+        openSettingsButtonTitle: String = "Open Settings",
+        requestAction: @escaping () -> Void,
+        openSettingsAction: @escaping () -> Void
+    ) {
+        self.title = title
+        self.message = message
+        self.icon = icon
+        self.iconColor = iconColor
+        self.requestButtonTitle = requestButtonTitle
+        self.openSettingsButtonTitle = openSettingsButtonTitle
+        self.requestAction = requestAction
+        self.openSettingsAction = openSettingsAction
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Accessibility permission required", systemImage: "exclamationmark.triangle.fill")
+            Label(title, systemImage: icon)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(iconColor)
 
             Text(message)
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 8) {
-                Button("Request Access") {
+                Button(requestButtonTitle) {
                     requestAction()
                 }
                 .buttonStyle(.borderedProminent)
 
-                Button("Open Settings") {
+                Button(openSettingsButtonTitle) {
                     openSettingsAction()
                 }
                 .buttonStyle(.bordered)
