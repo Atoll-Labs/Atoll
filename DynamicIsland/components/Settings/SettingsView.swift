@@ -3084,8 +3084,8 @@ struct LockScreenSettings: View {
     @Default(.lockScreenWeatherWidgetStyle) private var lockScreenWeatherWidgetStyle
     @Default(.lockScreenWeatherProviderSource) private var lockScreenWeatherProviderSource
     @Default(.lockScreenWeatherTemperatureUnit) private var lockScreenWeatherTemperatureUnit
-    @Default(.lockScreenWeatherShowsCharging) private var lockScreenWeatherShowsCharging
-    @Default(.lockScreenWeatherShowsBatteryGauge) private var lockScreenWeatherShowsBatteryGauge
+    @Default(.lockScreenBatteryShowsCharging) private var lockScreenWeatherShowsCharging
+    @Default(.lockScreenBatteryShowsBatteryGauge) private var lockScreenWeatherShowsBatteryGauge
     @Default(.lockScreenWeatherShowsAQI) private var lockScreenWeatherShowsAQI
     @Default(.lockScreenWeatherShowsSunrise) private var lockScreenWeatherShowsSunrise
     @Default(.lockScreenWeatherAQIScale) private var lockScreenWeatherAQIScale
@@ -3230,22 +3230,22 @@ struct LockScreenSettings: View {
             
             if BatteryActivityManager.shared.hasBattery() {
                 Section {
-                    Defaults.Toggle("Show battery indicator", key: .lockScreenWeatherShowsBatteryGauge)
+                    Defaults.Toggle("Show battery indicator", key: .lockScreenBatteryShowsBatteryGauge)
                         .settingsHighlight(id: highlightID("Show battery indicator"))
                     
                     if lockScreenWeatherShowsBatteryGauge {
-                        Defaults.Toggle("Use MacBook icon when on battery", key: .lockScreenWeatherBatteryUsesLaptopSymbol)
+                        Defaults.Toggle("Use MacBook icon when on battery", key: .lockScreenBatteryUsesLaptopSymbol)
                             .settingsHighlight(id: highlightID("Use MacBook icon when on battery"))
                         
-                        Defaults.Toggle("Show charging status", key: .lockScreenWeatherShowsCharging)
+                        Defaults.Toggle("Show charging status", key: .lockScreenBatteryShowsCharging)
                             .settingsHighlight(id: highlightID("Show charging status"))
                         
                         if lockScreenWeatherShowsCharging {
-                            Defaults.Toggle("Show charging percentage", key: .lockScreenWeatherShowsChargingPercentage)
+                            Defaults.Toggle("Show charging percentage", key: .lockScreenBatteryShowsChargingPercentage)
                                 .settingsHighlight(id: highlightID("Show charging percentage"))
                         }
                         
-                        Defaults.Toggle("Show Bluetooth battery", key: .lockScreenWeatherShowsBluetooth)
+                        Defaults.Toggle("Show Bluetooth battery", key: .lockScreenBatteryShowsBluetooth)
                             .settingsHighlight(id: highlightID("Show Bluetooth battery"))
                     }
                 } header: {
