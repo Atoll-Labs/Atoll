@@ -573,7 +573,10 @@ extension Defaults.Keys {
     static let showPowerStatusIcons = Key<Bool>("showPowerStatusIcons", default: true)
     static let playLowBatteryAlertSound = Key<Bool>("playLowBatteryAlertSound", default: true)
     
-    static let lockScreenBatteryShowsBatteryGauge = Key<Bool>("lockScreenWeatherShowsBatteryGauge", default: true)
+    static let lockScreenBatteryShowsBatteryGauge = Key<Bool>(
+        "lockScreenWeatherShowsBatteryGauge",
+        default: BatteryActivityManager.shared.hasBattery()
+    )
     static let lockScreenBatteryUsesLaptopSymbol = Key<Bool>("lockScreenWeatherBatteryUsesLaptopSymbol", default: true)
     static let lockScreenBatteryShowsCharging = Key<Bool>("lockScreenWeatherShowsCharging", default: true)
     static let lockScreenBatteryShowsChargingPercentage = Key<Bool>("lockScreenWeatherShowsChargingPercentage", default: true)
