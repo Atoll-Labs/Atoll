@@ -38,7 +38,7 @@ final class LockScreenWeatherPanelManager {
     }
 
     private func render(snapshot: LockScreenWeatherSnapshot, makeVisible: Bool) {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = currentScreen() else { return }
         if !makeVisible, window == nil {
             return
         }
@@ -111,7 +111,7 @@ final class LockScreenWeatherPanelManager {
 
     func refreshPositionForOffsets(animated: Bool = true) {
         guard let window, let snapshot = lastSnapshot else { return }
-        guard let screen = NSScreen.main else { return }
+        guard let screen = currentScreen() else { return }
         let size = lastContentSize ?? window.frame.size
         let targetFrame = frame(for: size, snapshot: snapshot, on: screen)
         latestFrame = targetFrame
@@ -152,5 +152,9 @@ final class LockScreenWeatherPanelManager {
         guard window?.isVisible == true else { return }
         refreshPositionForOffsets(animated: false)
         print("LockScreenWeatherPanelManager: realigned window due to \(reason)")
+    }
+
+    private func currentScreen() -> NSScreen? {
+        LockScreenDisplayContextProvider.shared.contextSnapshot()?.screen ?? NSScreen.main
     }
 }

@@ -74,7 +74,7 @@ class LockScreenPanelManager {
             return
         }
 
-        guard let screen = NSScreen.main else {
+        guard let screen = currentScreen() else {
             print("[\(timestamp())] LockScreenPanelManager: no main screen available")
             return
         }
@@ -188,7 +188,7 @@ class LockScreenPanelManager {
     }
 
     func applyOffsetAdjustment(animated: Bool = true) {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = currentScreen() else { return }
         let screenFrame = screen.frame
         let newCollapsed = collapsedFrame(for: screenFrame)
         collapsedFrame = newCollapsed
@@ -225,7 +225,7 @@ class LockScreenPanelManager {
     private func handleScreenGeometryChange(reason: String) {
         guard let window = panelWindow else { return }
         guard window.isVisible || panelAnimator.isPresented else { return }
-        guard let screen = NSScreen.main else { return }
+        guard let screen = currentScreen() else { return }
 
         let screenFrame = screen.frame
         collapsedFrame = collapsedFrame(for: screenFrame)
@@ -244,5 +244,9 @@ class LockScreenPanelManager {
         let clampedOffset = min(max(userOffset, -160), 160)
         let originY = baseOriginY + defaultLowering + clampedOffset
         return NSRect(x: originX, y: originY, width: collapsedSize.width, height: collapsedSize.height)
+    }
+
+    private func currentScreen() -> NSScreen? {
+        LockScreenDisplayContextProvider.shared.contextSnapshot()?.screen ?? NSScreen.main
     }
 }

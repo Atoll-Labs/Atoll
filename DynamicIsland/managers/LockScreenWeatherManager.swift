@@ -35,19 +35,32 @@ final class LockScreenWeatherManager: ObservableObject {
         }
 
         locationProvider.prepareAuthorization()
+        let existingSnapshot = snapshot
+        let hadSnapshot = existingSnapshot != nil
+        var cachedSnapshot = existingSnapshot
+
+        if cachedSnapshot == nil, let payload = latestWeatherPayload {
+            let derivedSnapshot = makeSnapshot(from: payload)
+            snapshot = derivedSnapshot
+            cachedSnapshot = derivedSnapshot
+        }
+
+        if let cachedSnapshot {
+            deliver(cachedSnapshot, forceShow: true)
+        }
+
+        let needsForceShowOnRefresh = cachedSnapshot == nil
+        let shouldForceRefresh = !hadSnapshot
 
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let snapshot = await self.refresh(force: self.snapshot == nil)
+            let refreshedSnapshot = await self.refresh(force: shouldForceRefresh)
 
-            guard LockScreenManager.shared.currentLockStatus else {
-                LockScreenWeatherPanelManager.shared.hide()
-                return
-            }
+            guard LockScreenManager.shared.currentLockStatus else { return }
 
-            if let snapshot {
-                self.deliver(snapshot, forceShow: true)
-            } else {
+            if let refreshedSnapshot {
+                self.deliver(refreshedSnapshot, forceShow: needsForceShowOnRefresh)
+            } else if needsForceShowOnRefresh {
                 LockScreenWeatherPanelManager.shared.hide()
             }
         }
