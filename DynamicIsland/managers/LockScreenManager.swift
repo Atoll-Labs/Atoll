@@ -87,6 +87,7 @@ class LockScreenManager: ObservableObject {
         print("[\(timestamp())] LockScreenManager: 🔒 Screen LOCKED event received")
         Logger.log("LockScreenManager: Screen locked", category: .lifecycle)
         LockSoundPlayer.shared.playLockChime()
+        LockScreenDisplayContextProvider.shared.refresh(reason: "screen-locked")
         
         // Update state SYNCHRONOUSLY without Task/await to avoid any delay
         lastUpdated = Date()
@@ -134,6 +135,7 @@ class LockScreenManager: ObservableObject {
         print("[\(timestamp())] LockScreenManager: 🔓 Screen UNLOCKED event received")
         Logger.log("LockScreenManager: Screen unlocked", category: .lifecycle)
         LockSoundPlayer.shared.playUnlockChime()
+        LockScreenDisplayContextProvider.shared.refresh(reason: "screen-unlocked")
         lastUpdated = Date()
         updateIdleState(locked: false)
         isLocked = false

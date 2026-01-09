@@ -35,7 +35,7 @@ final class LockScreenReminderWidgetPanelManager {
     }
 
     func refreshPosition(animated: Bool) {
-        guard let window, window.isVisible, let screen = NSScreen.main else { return }
+        guard let window, window.isVisible, let screen = currentScreen() else { return }
         let target = frame(for: window.frame.size, on: screen)
         if animated {
             NSAnimationContext.runAnimationGroup { context in
@@ -49,7 +49,7 @@ final class LockScreenReminderWidgetPanelManager {
     }
 
     private func render(snapshot: LockScreenReminderWidgetSnapshot, makeVisible: Bool) {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = currentScreen() else { return }
         if !makeVisible, window == nil {
             return
         }
@@ -160,6 +160,10 @@ final class LockScreenReminderWidgetPanelManager {
         guard window?.isVisible == true else { return }
         refreshPosition(animated: false)
         print("LockScreenReminderWidgetPanelManager: realigned window due to \(reason)")
+    }
+
+    private func currentScreen() -> NSScreen? {
+        LockScreenDisplayContextProvider.shared.contextSnapshot()?.screen ?? NSScreen.main
     }
 }
 

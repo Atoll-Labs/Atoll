@@ -110,7 +110,7 @@ final class LockScreenTimerWidgetPanelManager {
     }
 
     func showWidget() {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = currentScreen() else { return }
         let window = ensureWindow()
         let frame = targetFrame(on: screen)
         window.setFrame(frame, display: true)
@@ -150,7 +150,7 @@ final class LockScreenTimerWidgetPanelManager {
 
 
     func refreshPosition(animated: Bool) {
-        guard let window, window.isVisible, let screen = NSScreen.main else { return }
+        guard let window, window.isVisible, let screen = currentScreen() else { return }
         let frame = targetFrame(on: screen)
         if animated {
             NSAnimationContext.runAnimationGroup { context in
@@ -278,5 +278,9 @@ final class LockScreenTimerWidgetPanelManager {
         guard window?.isVisible == true else { return }
         refreshPosition(animated: false)
         print("LockScreenTimerWidgetPanelManager: realigned window due to \(reason)")
+    }
+
+    private func currentScreen() -> NSScreen? {
+        LockScreenDisplayContextProvider.shared.contextSnapshot()?.screen ?? NSScreen.main
     }
 }

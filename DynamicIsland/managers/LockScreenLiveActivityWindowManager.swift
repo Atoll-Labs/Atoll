@@ -83,7 +83,7 @@ class LockScreenLiveActivityWindowManager {
     }
 
     private func lockContext() -> (notchSize: CGSize, screen: NSScreen)? {
-        guard let screen = NSScreen.main else {
+        guard let screen = LockScreenDisplayContextProvider.shared.contextSnapshot()?.screen ?? NSScreen.main else {
             print("[\(timestamp())] LockScreenLiveActivityWindowManager: no main screen available")
             return nil
         }
