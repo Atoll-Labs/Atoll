@@ -478,6 +478,31 @@ struct ContentView: View {
                       .padding(.top, 40)
                       Spacer()
                   } else {
+                      let musicPairingEligible = vm.notchState == .closed
+                          && (musicManager.isPlaying || !musicManager.isPlayerIdle)
+                          && coordinator.musicLiveActivityEnabled
+                          && !vm.hideOnClosed
+                          && !lockScreenManager.isLocked
+                      let musicSecondary = resolveMusicSecondaryLiveActivity()
+                      let expansionMatchesSecondary: Bool = {
+                          guard let musicSecondary else { return false }
+                          switch musicSecondary {
+                          case .timer:
+                              return coordinator.expandingView.type == .timer
+                          case .reminder:
+                              return coordinator.expandingView.type == .reminder
+                          case .recording:
+                              return coordinator.expandingView.type == .recording
+                          case .focus:
+                              return coordinator.expandingView.type == .doNotDisturb
+                          case .capsLock, .coolFace:
+                              return false
+                          }
+                      }()
+                      let canShowMusicDuringExpansion = !coordinator.expandingView.show
+                          || coordinator.expandingView.type == .music
+                          || expansionMatchesSecondary
+
                       if coordinator.expandingView.type == .battery && coordinator.expandingView.show && vm.notchState == .closed && Defaults[.showPowerStatusNotifications] {
                         HStack(spacing: 0) {
                             HStack {
@@ -512,13 +537,13 @@ struct ContentView: View {
                       } else if vm.notchState == .closed && capsLockManager.isCapsLockActive && Defaults[.enableCapsLockIndicator] && !vm.hideOnClosed && !lockScreenManager.isLocked {
                           InlineHUD(type: .constant(.capsLock), value: .constant(1.0), icon: .constant(""), hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.move(edge: .trailing).combined(with: .opacity))
-                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed && !lockScreenManager.isLocked {
-                          MusicLiveActivity()
+                      } else if canShowMusicDuringExpansion && musicPairingEligible {
+                          MusicLiveActivity(secondary: musicSecondary)
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .timer) && vm.notchState == .closed && timerManager.isTimerActive && coordinator.timerLiveActivityEnabled && !vm.hideOnClosed {
                           TimerLiveActivity()
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .reminder) && vm.notchState == .closed && reminderManager.isActive && enableReminderLiveActivity && !vm.hideOnClosed {
                           ReminderLiveActivity()
-                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .recording) && vm.notchState == .closed && (recordingManager.isRecording || !recordingManager.isRecorderIdle) && Defaults[.enableScreenRecordingDetection] && !vm.hideOnClosed {
+                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .recording) && vm.notchState == .closed && (recordingManager.isRecording || !recordingManager.isRecorderIdle) && Defaults[.enableScreenRecordingDetection] && !vm.hideOnClosed && !musicPairingEligible {
                           RecordingLiveActivity()
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .download) && vm.notchState == .closed && downloadManager.isDownloading && Defaults[.enableDownloadListener] && !vm.hideOnClosed {
                           DownloadLiveActivity()
@@ -687,8 +712,8 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    func MusicLiveActivity() -> some View {
-        let secondary = resolveMusicSecondaryLiveActivity()
+    private func MusicLiveActivity(secondary preResolvedSecondary: MusicSecondaryLiveActivity? = nil) -> some View {
+        let secondary = preResolvedSecondary ?? resolveMusicSecondaryLiveActivity()
         let notchContentHeight = max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
         let wingBaseWidth = max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12) + gestureProgress / 2)
         let rawCenterBaseWidth = vm.closedNotchSize.width + (isHovering ? 8 : 0)
@@ -874,8 +899,12 @@ struct ContentView: View {
     }
 
     private func recordingRightWingWidth(baseWidth: CGFloat) -> CGFloat {
-        // Recording keeps the spectrum but should stay near the default width with a small inset.
-        return max(baseWidth + 18, 54)
+        // Keep recording pairings compact by reducing the width relative to the notch height.
+        let absoluteMin: CGFloat = 38
+        let preferredWidth = max(baseWidth * 0.6, 0)
+        let maxWidth = min(baseWidth - 6, 52)
+        let clampedPreferred = min(preferredWidth, maxWidth)
+        return min(baseWidth, max(absoluteMin, clampedPreferred))
     }
 
     private func scaledWingWidth(baseWidth: CGFloat, centerBaseWidth: CGFloat, factor: CGFloat, extra: CGFloat) -> CGFloat {
