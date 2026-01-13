@@ -24,6 +24,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case lockScreen
     case media
     case devices
+    case extensions
     case timer
     case calendar
     case hudAndOSD
@@ -48,6 +49,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .lockScreen: return "Lock Screen"
         case .media: return "Media"
         case .devices: return "Devices"
+        case .extensions: return "Extensions"
         case .timer: return "Timer"
         case .calendar: return "Calendar"
         case .hudAndOSD: return "Controls"
@@ -72,6 +74,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .lockScreen: return "lock.laptopcomputer"
         case .media: return "play.laptopcomputer"
         case .devices: return "headphones"
+        case .extensions: return "puzzlepiece.extension"
         case .timer: return "timer"
         case .calendar: return "calendar"
         case .hudAndOSD: return "dial.medium.fill"
@@ -96,6 +99,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .lockScreen: return .orange
         case .media: return .green
         case .devices: return Color(red: 0.1, green: 0.11, blue: 0.12)
+        case .extensions: return Color(red: 0.557, green: 0.353, blue: 0.957)
         case .timer: return .red
         case .calendar: return .cyan
         case .hudAndOSD: return .indigo
@@ -386,6 +390,7 @@ struct SettingsView: View {
             .lockScreen,
             .media,
             .devices,
+            .extensions,
             .timer,
             .calendar,
             .hudAndOSD,
@@ -689,6 +694,13 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .lockScreen, title: "Air quality scale", keywords: ["aqi", "scale"], highlightID: SettingsTab.lockScreen.highlightID(for: "Air quality scale")),
             SettingsSearchEntry(tab: .lockScreen, title: "Use colored gauges", keywords: ["gauge tint", "monochrome"], highlightID: SettingsTab.lockScreen.highlightID(for: "Use colored gauges")),
 
+            // Extensions
+            SettingsSearchEntry(tab: .extensions, title: "Enable third-party extensions", keywords: ["extensions", "authorization", "third party"], highlightID: SettingsTab.extensions.highlightID(for: "Enable third-party extensions")),
+            SettingsSearchEntry(tab: .extensions, title: "Allow extension live activities", keywords: ["extensions", "live activities", "permissions"], highlightID: SettingsTab.extensions.highlightID(for: "Allow extension live activities")),
+            SettingsSearchEntry(tab: .extensions, title: "Allow extension lock screen widgets", keywords: ["extensions", "lock screen", "widgets"], highlightID: SettingsTab.extensions.highlightID(for: "Allow extension lock screen widgets")),
+            SettingsSearchEntry(tab: .extensions, title: "Enable extension diagnostics logging", keywords: ["extensions", "diagnostics", "logging"], highlightID: SettingsTab.extensions.highlightID(for: "Enable extension diagnostics logging")),
+            SettingsSearchEntry(tab: .extensions, title: "Manage app permissions", keywords: ["extensions", "permissions", "apps"], highlightID: SettingsTab.extensions.highlightID(for: "App permissions list")),
+
             // Shortcuts
             SettingsSearchEntry(tab: .shortcuts, title: "Enable global keyboard shortcuts", keywords: ["keyboard", "shortcut"], highlightID: SettingsTab.shortcuts.highlightID(for: "Enable global keyboard shortcuts")),
 
@@ -765,6 +777,10 @@ struct SettingsView: View {
         case .devices:
             SettingsForm(tab: .devices) {
                 DevicesSettingsView()
+            }
+        case .extensions:
+            SettingsForm(tab: .extensions) {
+                ExtensionsSettingsView()
             }
         case .timer:
             SettingsForm(tab: .timer) {

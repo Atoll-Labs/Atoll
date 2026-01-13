@@ -11,6 +11,7 @@ enum LogCategory: String {
     case warning = "⚠️"
     case success = "✅"
     case debug = "🔍"
+    case extensions = "🧩"
 }
 
 struct Logger {

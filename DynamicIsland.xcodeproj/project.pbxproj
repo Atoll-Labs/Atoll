@@ -26,6 +26,7 @@
 		7E9918722EFDAE5B002EDFD5 /* MediaRemoteAdapter.framework in Resources */ = {isa = PBXBuildFile; fileRef = F4C1DD09EC134302938E84F6 /* MediaRemoteAdapter.framework */; };
 		7EE1D73D2E6B1E0B00997219 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7EE1D73C2E6B1E0B00997219 /* ApplicationServices.framework */; };
 		7EE1D73F2E6B1E1200997219 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7EE1D73E2E6B1E1200997219 /* IOKit.framework */; };
+		B2C8B0032F11AABB00887766 /* AtollExtensionKit in Frameworks */ = {isa = PBXBuildFile; productRef = B2C8B0022F11AABB00887766 /* AtollExtensionKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -58,6 +59,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B2C8B0032F11AABB00887766 /* AtollExtensionKit in Frameworks */,
 				7E1ADF1D2EA209B1001DA867 /* SkyLightWindow in Frameworks */,
 				7EE1D73F2E6B1E1200997219 /* IOKit.framework in Frameworks */,
 				7EE1D73D2E6B1E0B00997219 /* ApplicationServices.framework in Frameworks */,
@@ -148,6 +150,7 @@
 			);
 			name = DynamicIsland;
 			packageProductDependencies = (
+				B2C8B0022F11AABB00887766 /* AtollExtensionKit */,
 				14D032192C68F32E0096E6A1 /* LaunchAtLogin */,
 				14D0321C2C68F3350096E6A1 /* Sparkle */,
 				B18654382C6F4990000B926A /* KeyboardShortcuts */,
@@ -190,6 +193,7 @@
 			mainGroup = F54406DE2CD4987A00C7AFD9;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				B2C8B0012F11AABB00887766 /* XCLocalSwiftPackageReference "../AtollExtensionKit" */,
 				F54407082CD4A23F00C7AFD9 /* XCRemoteSwiftPackageReference "swift-collections" */,
 				14D032182C68F32E0096E6A1 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */,
 				14D0321B2C68F3350096E6A1 /* XCRemoteSwiftPackageReference "Sparkle" */,
@@ -524,6 +528,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		B2C8B0012F11AABB00887766 /* XCLocalSwiftPackageReference "../AtollExtensionKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../AtollExtensionKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		146BC4352D366E9B0047C66A /* XCRemoteSwiftPackageReference "MacroVisionKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -660,6 +671,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B19424072CD0DB52003E5DC2 /* XCRemoteSwiftPackageReference "LottieUI" */;
 			productName = LottieUI;
+		};
+		B2C8B0022F11AABB00887766 /* AtollExtensionKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B2C8B0012F11AABB00887766 /* XCLocalSwiftPackageReference "../AtollExtensionKit" */;
+			productName = AtollExtensionKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

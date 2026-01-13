@@ -34,6 +34,7 @@ struct ContentView: View {
     @ObservedObject var doNotDisturbManager = DoNotDisturbManager.shared
     @ObservedObject var lockScreenManager = LockScreenManager.shared
     @ObservedObject var capsLockManager = CapsLockManager.shared
+    @ObservedObject var extensionLiveActivityManager = ExtensionLiveActivityManager.shared
     @State private var downloadManager = DownloadManager.shared
     
     @Default(.enableStatsFeature) var enableStatsFeature
@@ -60,6 +61,7 @@ struct ContentView: View {
     @Default(.focusIndicatorNonPersistent) var focusIndicatorNonPersistent
     @Default(.enableScreenRecordingDetection) var enableScreenRecordingDetection
     @Default(.enableCapsLockIndicator) var enableCapsLockIndicator
+    @Default(.enableExtensionLiveActivities) var enableExtensionLiveActivities
     
     // Dynamic sizing based on view type and graph count with smooth transitions
     var dynamicNotchSize: CGSize {
@@ -484,6 +486,8 @@ struct ContentView: View {
                           && !vm.hideOnClosed
                           && !lockScreenManager.isLocked
                       let musicSecondary = resolveMusicSecondaryLiveActivity()
+                      let extensionSecondaryPayloadID = extensionSecondaryPayloadID(for: musicSecondary)
+                      let extensionStandalonePayload = resolvedExtensionStandalonePayload(excluding: extensionSecondaryPayloadID)
                       let expansionMatchesSecondary: Bool = {
                           guard let musicSecondary else { return false }
                           switch musicSecondary {
@@ -496,6 +500,8 @@ struct ContentView: View {
                           case .focus:
                               return coordinator.expandingView.type == .doNotDisturb
                           case .capsLock:
+                              return false
+                          case .extensionPayload:
                               return false
                           }
                       }()
@@ -554,6 +560,14 @@ struct ContentView: View {
                         LockScreenLiveActivity()
                     } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .privacy) && vm.notchState == .closed && privacyManager.hasAnyIndicator && (Defaults[.enableCameraDetection] || Defaults[.enableMicrophoneDetection]) && !vm.hideOnClosed {
                         PrivacyLiveActivity()
+                      } else if let extensionPayload = extensionStandalonePayload {
+                          ExtensionLiveActivityStandaloneView(
+                              payload: extensionPayload,
+                              notchWidth: extensionStandaloneNotchWidth(for: vm.effectiveClosedNotchHeight, isHovering: isHovering),
+                              notchHeight: vm.effectiveClosedNotchHeight,
+                              isHovering: isHovering
+                          )
+                          .transition(.opacity.combined(with: .scale))
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
                           DynamicIslandFaceAnimation().animation(.interactiveSpring, value: musicManager.isPlayerIdle)
                       } else if vm.notchState == .open {
@@ -823,6 +837,10 @@ struct ContentView: View {
             return .capsLock(showLabel: showCapsLockLabel)
         }
 
+        if let extensionPayload = resolvedExtensionMusicPayload() {
+            return .extensionPayload(extensionPayload)
+        }
+
         return nil
     }
 
@@ -840,6 +858,9 @@ struct ContentView: View {
             return focusRightWingWidth(baseWidth: baseWidth)
         case .recording:
             return recordingRightWingWidth(baseWidth: baseWidth)
+        case .extensionPayload(let payload):
+            let maxWidth = baseWidth + centerBaseWidth * 0.6
+            return ExtensionLayoutMetrics.trailingWidth(for: payload, baseWidth: baseWidth, maxWidth: maxWidth)
         }
     }
 
@@ -936,6 +957,17 @@ struct ContentView: View {
                     Image(systemName: "capslock.fill")
                         .font(.system(size: badgeSize * 0.5, weight: .semibold))
                         .foregroundStyle(capsLockTintMode.color)
+                case .extensionPayload(let payload):
+                    ExtensionCompositeIconView(
+                        leading: payload.descriptor.leadingIcon,
+                        badge: payload.descriptor.badgeIcon,
+                        accent: payload.descriptor.accentColor.swiftUIColor,
+                        size: badgeSize
+                    )
+                    .background(
+                        Circle()
+                            .fill(Color.black.opacity(0.85))
+                    )
                 }
             }
             .frame(width: badgeSize, height: badgeSize)
@@ -976,6 +1008,8 @@ struct ContentView: View {
             spectrumView(forceSpectrum: true)
         case .recording:
             spectrumView(forceSpectrum: true, trailingInset: 6)
+        case .extensionPayload(let payload):
+            ExtensionMusicWingView(payload: payload, notchHeight: notchHeight)
         case .none:
             spectrumView(forceSpectrum: false)
         }
@@ -1022,6 +1056,44 @@ struct ContentView: View {
         guard window > 0 else { return false }
         let remaining = reminder.event.start.timeIntervalSince(now)
         return remaining > 0 && remaining <= window
+    }
+
+    private func extensionSecondaryPayloadID(for secondary: MusicSecondaryLiveActivity?) -> String? {
+        guard case let .extensionPayload(payload) = secondary else { return nil }
+        return payload.id
+    }
+
+    private func resolvedExtensionMusicPayload() -> ExtensionLiveActivityPayload? {
+        guard enableExtensionLiveActivities,
+              vm.notchState == .closed,
+              !vm.hideOnClosed,
+              !lockScreenManager.isLocked,
+              coordinator.musicLiveActivityEnabled else {
+            return nil
+        }
+        return extensionLiveActivityManager.sortedActivities(for: true).first
+    }
+
+    private func resolvedExtensionStandalonePayload(excluding musicPayloadID: String?) -> ExtensionLiveActivityPayload? {
+        guard enableExtensionLiveActivities,
+              vm.notchState == .closed,
+              !vm.hideOnClosed,
+              !lockScreenManager.isLocked,
+              vm.effectiveClosedNotchHeight > 0,
+              !coordinator.expandingView.show else {
+            return nil
+        }
+
+        return extensionLiveActivityManager
+            .sortedActivities()
+            .first(where: { $0.id != musicPayloadID })
+    }
+
+    private func extensionStandaloneNotchWidth(for height: CGFloat, isHovering: Bool) -> CGFloat {
+        let effectiveCenter = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
+        let wing = max(height - (isHovering ? 0 : 12), 0)
+        let total = effectiveCenter + (wing * 2)
+        return max(total, effectiveCenter)
     }
     
     @ViewBuilder
@@ -1518,6 +1590,7 @@ private enum MusicSecondaryLiveActivity: Equatable {
     case recording
     case focus(FocusModeType)
     case capsLock(showLabel: Bool)
+    case extensionPayload(ExtensionLiveActivityPayload)
 
     var id: String {
         switch self {
@@ -1531,6 +1604,8 @@ private enum MusicSecondaryLiveActivity: Equatable {
             return "focus-\(mode.rawValue)"
         case .capsLock(let showLabel):
             return showLabel ? "caps-lock-label" : "caps-lock-icon"
+        case .extensionPayload(let payload):
+            return "extension-\(payload.id)"
         }
     }
 }
