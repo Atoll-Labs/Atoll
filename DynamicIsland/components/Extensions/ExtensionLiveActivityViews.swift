@@ -266,12 +266,7 @@ struct ExtensionInlineSneakPeekView: View {
     }
 
     private var trailingWidth: CGFloat {
-        guard let payload else { return max(leadingWidth, 120) }
-        return ExtensionLayoutMetrics.trailingWidth(
-            for: payload,
-            baseWidth: leadingWidth,
-            maxWidth: leadingWidth + centerWidth * 0.6
-        )
+        max(leadingWidth * 0.9, 120)
     }
 
     private var marqueeFrameWidth: CGFloat {
@@ -343,33 +338,7 @@ struct ExtensionInlineSneakPeekView: View {
 
     @ViewBuilder
     private var trailingWing: some View {
-        if let payload {
-            let descriptor = payload.descriptor
-            switch resolvedExtensionTrailingRenderable(for: descriptor) {
-            case let .content(content):
-                if case .none = content {
-                    spectrumPlaceholder
-                } else {
-                    VStack(alignment: .trailing, spacing: 6) {
-                        ExtensionEdgeContentView(
-                            content: content,
-                            accent: resolvedAccent,
-                            availableWidth: trailingWidth,
-                            alignment: .trailing
-                        )
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.trailing, 8)
-                    .padding(.vertical, 6)
-                }
-            case .indicator:
-                spectrumPlaceholder
-            }
-        } else {
-            spectrumPlaceholder
-        }
+        spectrumPlaceholder
     }
 
     @ViewBuilder

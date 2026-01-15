@@ -1290,9 +1290,7 @@ struct ContentView: View {
     }
 
     private func shouldSuppressExtensionCenter(for payload: ExtensionLiveActivityPayload) -> Bool {
-        guard vm.notchState == .closed else { return false }
-        let config = payload.descriptor.sneakPeekConfig ?? .default
-        return config.enabled
+        vm.notchState == .closed
     }
 
     @MainActor
