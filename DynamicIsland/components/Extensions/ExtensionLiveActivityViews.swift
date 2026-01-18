@@ -9,7 +9,6 @@ struct ExtensionStandaloneLayout {
     let leadingWidth: CGFloat
     let centerWidth: CGFloat
     let trailingWidth: CGFloat
-    let suppressingCenterText: Bool
 }
 
 struct ExtensionLiveActivityStandaloneView: View {
@@ -23,17 +22,6 @@ struct ExtensionLiveActivityStandaloneView: View {
     private var resolvedLeadingContent: AtollTrailingContent {
         resolvedExtensionLeadingContent(for: descriptor)
     }
-    private var resolvedCenterStyle: ExtensionCenterContentView.Style {
-        switch descriptor.centerTextStyle {
-        case .inline:
-            return .inline
-        case .standard:
-            return .stacked
-        case .inheritUser:
-            return Defaults[.sneakPeekStyles] == .inline ? .inline : .stacked
-        }
-    }
-
     var body: some View {
         HStack(spacing: 0) {
             ExtensionLeadingContentView(
@@ -49,20 +37,7 @@ struct ExtensionLiveActivityStandaloneView: View {
             Rectangle()
                 .fill(Color.black)
                 .frame(width: layout.centerWidth, height: contentHeight)
-                .overlay(
-                    Group {
-                        if layout.suppressingCenterText {
-                            EmptyView()
-                        } else {
-                            ExtensionCenterContentView(
-                                descriptor: descriptor,
-                                accent: accentColor,
-                                width: layout.centerWidth,
-                                style: resolvedCenterStyle
-                            )
-                        }
-                    }
-                )
+                .overlay(EmptyView())
 
             ExtensionMusicWingView(
                 payload: payload,
@@ -179,57 +154,6 @@ struct ExtensionLeadingContentView: View {
             }
         }
         .frame(width: frameWidth, height: frameHeight)
-    }
-}
-
-struct ExtensionCenterContentView: View {
-    enum Style {
-        case stacked
-        case inline
-    }
-
-    let descriptor: AtollLiveActivityDescriptor
-    let accent: Color
-    let width: CGFloat
-    let style: Style
-
-    var body: some View {
-        switch style {
-        case .stacked:
-            VStack(alignment: .leading, spacing: 2) {
-                Text(descriptor.title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                if let subtitle = descriptor.subtitle, !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.7))
-                        .lineLimit(1)
-                }
-            }
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        case .inline:
-            HStack(alignment: .center, spacing: 8) {
-                MarqueeText(
-                    .constant(descriptor.title),
-                    font: .system(size: 13, weight: .semibold),
-                    nsFont: .body,
-                    textColor: .white,
-                    minDuration: 0.4,
-                    frameWidth: max(40, width * 0.55)
-                )
-                Spacer(minLength: 4)
-                if let subtitle = descriptor.subtitle, !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.75))
-                        .lineLimit(1)
-                }
-            }
-            .padding(.horizontal, 12)
-        }
     }
 }
 
@@ -382,120 +306,140 @@ struct ExtensionNotchSectionView: View {
 
 struct ExtensionInlineSneakPeekView: View {
     let payload: ExtensionLiveActivityPayload?
-    let title: String
-    let subtitle: String?
     let accentColor: Color
     let notchHeight: CGFloat
     let closedNotchWidth: CGFloat
     let isHovering: Bool
-    let gestureProgress: CGFloat
+
+    private let wingPadding: CGFloat = 16
 
     private var descriptor: AtollLiveActivityDescriptor? { payload?.descriptor }
     private var resolvedAccent: Color { descriptor?.accentColor.swiftUIColor ?? accentColor }
-    private var contentHeight: CGFloat {
-        max(0, notchHeight - (isHovering ? 0 : 12))
+    private var trailingRenderable: ExtensionTrailingRenderable? {
+        descriptor.map { resolvedExtensionTrailingRenderable(for: $0) }
     }
 
-    private var leadingWidth: CGFloat {
-        let base = max(contentHeight, 44)
-        return max(base * 0.85, base + gestureProgress / 2)
+    private var contentHeight: CGFloat {
+        max(0, notchHeight - (isHovering ? 0 : 12))
     }
 
     private var centerWidth: CGFloat {
         max(closedNotchWidth + (isHovering ? 8 : 0), 120)
     }
 
-    private var trailingWidth: CGFloat {
-        max(leadingWidth * 0.9, 120)
+    private var iconDiameter: CGFloat {
+        max(contentHeight - 8, 28)
     }
 
-    private var marqueeFrameWidth: CGFloat {
-        max(48, centerWidth - 24)
+    private var leftWingWidth: CGFloat {
+        wingPadding + iconDiameter
     }
 
-    private var resolvedTitle: String {
-        let descriptorTitle = descriptor?.title ?? "Extension"
-        let preferred = title.isEmpty ? descriptorTitle : title
-        return preferred.isEmpty ? "Extension" : preferred
+    private var baseTrailingWidth: CGFloat {
+        max(iconDiameter, 56)
     }
 
-    private var resolvedSubtitle: String {
-        if let subtitle, !subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        if let descriptorSubtitle = descriptor?.subtitle, !descriptorSubtitle.isEmpty {
-            return descriptorSubtitle
-        }
-        return ""
+    private var trailingContentWidth: CGFloat {
+        guard let payload else { return baseTrailingWidth }
+        return ExtensionLayoutMetrics.trailingWidth(
+            for: payload,
+            baseWidth: baseTrailingWidth,
+            maxWidth: baseTrailingWidth + centerWidth * 0.6
+        )
+    }
+
+    private var rightWingWidth: CGFloat {
+        wingPadding + trailingContentWidth
+    }
+
+    private var trailingContentAvailableWidth: CGFloat {
+        max(0, trailingContentWidth - wingPadding)
     }
 
     var body: some View {
         HStack(spacing: 0) {
             leadingWing
-                .frame(width: leadingWidth, height: contentHeight)
-
-            Rectangle()
-                .fill(Color.black)
-                .frame(width: centerWidth, height: contentHeight)
-                .overlay(alignment: .bottomLeading) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        MarqueeText(
-                            .constant(resolvedTitle),
-                            font: .system(size: 12, weight: .semibold),
-                            nsFont: .subheadline,
-                            textColor: .white,
-                            minDuration: 0.4,
-                            frameWidth: marqueeFrameWidth
-                        )
-                        if !resolvedSubtitle.isEmpty {
-                            Text(resolvedSubtitle)
-                                .font(.system(size: 11, weight: .regular))
-                                .foregroundStyle(Color.white.opacity(0.75))
-                                .lineLimit(1)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 6)
-                }
-
+            centerSection
             trailingWing
-                .frame(width: trailingWidth, height: contentHeight)
         }
         .frame(height: notchHeight + (isHovering ? 8 : 0), alignment: .center)
     }
 
-    @ViewBuilder
     private var leadingWing: some View {
-        if let descriptor {
-            ExtensionLeadingContentView(
-                content: resolvedExtensionLeadingContent(for: descriptor),
-                badge: descriptor.badgeIcon,
-                accent: resolvedAccent,
-                frameWidth: leadingWidth,
-                frameHeight: contentHeight,
-                defaultIcon: descriptor.leadingIcon
-            )
-        } else {
-            RoundedRectangle(cornerRadius: contentHeight * 0.25, style: .continuous)
-                .fill(resolvedAccent.gradient)
-        }
+        Color.clear
+            .frame(width: leftWingWidth, height: contentHeight)
+            .background(alignment: .leading) {
+                Group {
+                    if let descriptor {
+                        ExtensionLeadingContentView(
+                            content: resolvedExtensionLeadingContent(for: descriptor),
+                            badge: descriptor.badgeIcon,
+                            accent: resolvedAccent,
+                            frameWidth: iconDiameter,
+                            frameHeight: iconDiameter,
+                            defaultIcon: descriptor.leadingIcon
+                        )
+                    } else {
+                        RoundedRectangle(cornerRadius: iconDiameter * 0.25, style: .continuous)
+                            .fill(resolvedAccent.gradient)
+                            .frame(width: iconDiameter, height: iconDiameter)
+                    }
+                }
+                .frame(width: iconDiameter, height: iconDiameter)
+                .frame(maxHeight: .infinity, alignment: .center)
+                .padding(.leading, wingPadding / 2)
+            }
+    }
+
+    private var centerSection: some View {
+        Rectangle()
+            .fill(Color.black)
+            .frame(width: centerWidth, height: contentHeight)
     }
 
     @ViewBuilder
     private var trailingWing: some View {
-        VStack {
-            Rectangle()
-                .fill(resolvedAccent.gradient)
-                .mask {
-                    AudioSpectrumView(isPlaying: .constant(true))
-                        .frame(width: 18, height: 12)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        Color.clear
+            .frame(width: rightWingWidth, height: contentHeight)
+            .background(alignment: .trailing) {
+                if let descriptor, let trailingRenderable {
+                    VStack(alignment: .trailing, spacing: 6) {
+                        switch trailingRenderable {
+                        case let .content(content):
+                            if case .none = content {
+                                Spacer(minLength: 0)
+                            } else {
+                                ExtensionEdgeContentView(
+                                    content: content,
+                                    accent: resolvedAccent,
+                                    availableWidth: trailingContentAvailableWidth,
+                                    alignment: .trailing
+                                )
+                                .frame(maxWidth: trailingContentAvailableWidth, alignment: .trailing)
+                            }
+                        case let .indicator(indicator):
+                            ExtensionProgressIndicatorView(
+                                indicator: indicator,
+                                progress: descriptor.progress,
+                                accent: resolvedAccent,
+                                estimatedDuration: descriptor.estimatedDuration,
+                                maxVisualHeight: contentHeight
+                            )
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.trailing, wingPadding / 2)
+                    .padding(.vertical, 6)
+                } else {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(resolvedAccent.opacity(0.25))
+                        .frame(width: max(32, trailingContentAvailableWidth * 0.6), height: max(16, contentHeight * 0.4))
+                        .padding(.trailing, wingPadding / 2)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                        .padding(.vertical, 6)
                 }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .padding(.trailing, 8)
-        .padding(.vertical, 6)
+            }
     }
 }
 

@@ -13,6 +13,7 @@ import Foundation
 import KeyboardShortcuts
 import SwiftUI
 import SwiftUIIntrospect
+import AtollExtensionKit
 #if canImport(AppKit)
 import AppKit
 #elseif canImport(UIKit)
@@ -563,13 +564,10 @@ struct ContentView: View {
                           let inlinePayload = extensionLiveActivityManager.payload(bundleIdentifier: bundleID, activityID: activityID)
                           ExtensionInlineSneakPeekView(
                               payload: inlinePayload,
-                              title: coordinator.sneakPeek.title,
-                              subtitle: coordinator.sneakPeek.subtitle,
                               accentColor: coordinator.sneakPeek.accentColor ?? .gray,
                               notchHeight: vm.effectiveClosedNotchHeight,
                               closedNotchWidth: vm.closedNotchSize.width,
-                              isHovering: isHovering,
-                              gestureProgress: gestureProgress
+                              isHovering: isHovering
                           )
                           .transition(AnyTransition.move(edge: .trailing).combined(with: .opacity))
                       } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .timer) && (coordinator.sneakPeek.type != .reminder) && (coordinator.sneakPeek.type != .volume || vm.notchState == .closed) {
@@ -600,12 +598,10 @@ struct ContentView: View {
                     } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .privacy) && vm.notchState == .closed && privacyManager.hasAnyIndicator && (Defaults[.enableCameraDetection] || Defaults[.enableMicrophoneDetection]) && !vm.hideOnClosed {
                         PrivacyLiveActivity()
                       } else if let extensionPayload = extensionStandalonePayload {
-                          let suppressingCenterText = shouldSuppressExtensionCenter(for: extensionPayload)
                           let layout = extensionStandaloneLayout(
                               for: extensionPayload,
                               notchHeight: vm.effectiveClosedNotchHeight,
-                              isHovering: isHovering,
-                              suppressingCenterText: suppressingCenterText
+                              isHovering: isHovering
                           )
                           ExtensionLiveActivityStandaloneView(
                               payload: extensionPayload,
@@ -676,25 +672,31 @@ struct ContentView: View {
                               }
                           }
                           // Extension live activity sneak peek
-                          else if case .extensionLiveActivity = coordinator.sneakPeek.type {
+                          else if case let .extensionLiveActivity(bundleID, activityID) = coordinator.sneakPeek.type {
                               if !vm.hideOnClosed && activeSneakPeekStyle == .standard {
-                                  HStack(alignment: .center, spacing: 6) {
-                                      if !coordinator.sneakPeek.icon.isEmpty {
-                                          Image(systemName: coordinator.sneakPeek.icon)
-                                      }
-                                      GeometryReader { geo in
-                                          let combinedText = coordinator.sneakPeek.subtitle.isEmpty ?
-                                              coordinator.sneakPeek.title :
-                                              "\(coordinator.sneakPeek.title) - \(coordinator.sneakPeek.subtitle)"
+                                  let payload = extensionLiveActivityManager.payload(bundleIdentifier: bundleID, activityID: activityID)
+                                  let descriptor = payload?.descriptor
+                                  let accent = (descriptor?.accentColor.swiftUIColor ?? coordinator.sneakPeek.accentColor ?? .gray)
+                                      .ensureMinimumBrightness(factor: 0.7)
+                                  GeometryReader { geo in
+                                      HStack(spacing: 6) {
+                                          RoundedRectangle(cornerRadius: 2)
+                                              .fill(accent)
+                                              .frame(width: 8, height: 12)
                                           MarqueeText(
-                                              .constant(combinedText),
-                                              textColor: coordinator.sneakPeek.accentColor ?? .gray,
+                                              .constant(
+                                                  extensionSneakPeekText(
+                                                      preferredTitle: coordinator.sneakPeek.title,
+                                                      preferredSubtitle: coordinator.sneakPeek.subtitle,
+                                                      descriptor: descriptor
+                                                  )
+                                              ),
+                                              textColor: accent,
                                               minDuration: 1,
-                                              frameWidth: geo.size.width
+                                              frameWidth: max(0, geo.size.width - 14)
                                           )
                                       }
                                   }
-                                  .foregroundStyle(coordinator.sneakPeek.accentColor ?? .gray)
                                   .padding(.bottom, 10)
                               }
                           }
@@ -774,6 +776,19 @@ struct ContentView: View {
         } else {
             return "\(title) • in \(minutes) min • \(timeString)"
         }
+    }
+
+    private func extensionSneakPeekText(preferredTitle: String, preferredSubtitle: String?, descriptor: AtollLiveActivityDescriptor?) -> String {
+        let trimmedPreferredTitle = preferredTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let descriptorTitle = descriptor?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Extension"
+        let title = trimmedPreferredTitle.isEmpty ? descriptorTitle : trimmedPreferredTitle
+
+        let trimmedPreferredSubtitle = preferredSubtitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let descriptorSubtitle = descriptor?.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let subtitle = !trimmedPreferredSubtitle.isEmpty ? trimmedPreferredSubtitle : descriptorSubtitle
+
+        guard !subtitle.isEmpty else { return title }
+        return "\(title) • \(subtitle)"
     }
 
     private let reminderTimeFormatter: DateFormatter = {
@@ -1286,7 +1301,7 @@ struct ContentView: View {
         return payload
     }
 
-    private func extensionStandaloneLayout(for payload: ExtensionLiveActivityPayload, notchHeight: CGFloat, isHovering: Bool, suppressingCenterText: Bool) -> ExtensionStandaloneLayout {
+    private func extensionStandaloneLayout(for payload: ExtensionLiveActivityPayload, notchHeight: CGFloat, isHovering: Bool) -> ExtensionStandaloneLayout {
         let outerHeight = notchHeight
         let contentHeight = max(0, notchHeight - (isHovering ? 0 : 12))
         let leadingWidth = max(contentHeight, 44)
@@ -1303,13 +1318,8 @@ struct ContentView: View {
             contentHeight: contentHeight,
             leadingWidth: leadingWidth,
             centerWidth: centerWidth,
-            trailingWidth: trailingWidth,
-            suppressingCenterText: suppressingCenterText
+            trailingWidth: trailingWidth
         )
-    }
-
-    private func shouldSuppressExtensionCenter(for payload: ExtensionLiveActivityPayload) -> Bool {
-        vm.notchState == .closed
     }
 
     @MainActor

@@ -352,8 +352,8 @@ struct ExtensionProgressIndicatorView: View {
 
     private func resolvedRingDiameter(requested: CGFloat) -> CGFloat {
         guard let maxVisualHeight else { return requested }
-        let clamped = min(requested, max(maxVisualHeight - 6, 18))
-        return max(18, clamped)
+        let target = max(min(maxVisualHeight - 12, 24), 16)
+        return min(requested, target)
     }
 }
 
