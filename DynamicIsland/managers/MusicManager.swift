@@ -708,14 +708,27 @@ class MusicManager: ObservableObject {
                 }
             } else {
                 // Fallback: try to decode as UTF8 and handle as LRC or plain text
-                if let lrcString = String(data: data, encoding: .utf8), !lrcString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    // If it contains a syncedLyrics key in an object, try that
-                    if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-                       let synced = json["syncedLyrics"] as? String {
-                        return parseLRC(synced)
+                if let lrcString = String(data: data, encoding: .utf8) {
+                    let trimmed = lrcString.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    if trimmed.isEmpty  {
+                        return []
                     }
+
+                    // If it contains a syncedLyrics key in an object, try that
+                    if let json = try? JSONSerialization.jsonObject(with: data, options: []) {
+                        if let dict = json as? [String: Any],
+                            let synced = dict["syncedLyrics"] as? String
+                        {
+                            return parseLRC(synced)
+                        }
+                        if let array = json as? [Any], array.isEmpty {
+                            return []
+                        }
+                    }
+
                     // Otherwise treat as plain lyrics blob
-                    return [LyricLine(timestamp: 0, text: lrcString.trimmingCharacters(in: .whitespacesAndNewlines))]
+                    return [LyricLine(timestamp: 0, text: trimmed)]
                 }
                 return []
             }
