@@ -224,6 +224,10 @@ struct MusicControlsView: View {
         .frame(maxWidth: .infinity, alignment: .center)
     }
 
+    private var brandAccentColor: Color {
+        musicManager.brandAccentColor
+    }
+
     private var repeatIcon: String {
         switch musicManager.repeatMode {
         case .off:
@@ -240,7 +244,7 @@ struct MusicControlsView: View {
         case .off:
             return .white
         case .all, .one:
-            return .red
+            return brandAccentColor
         }
     }
 
@@ -305,7 +309,7 @@ struct MusicControlsView: View {
         case .shuffle:
             HoverButton(
                 icon: "shuffle",
-                iconColor: musicManager.isShuffled ? .red : .white,
+                iconColor: musicManager.isShuffled ? brandAccentColor : .white,
                 scale: .medium
             ) {
                 MusicManager.shared.toggleShuffle()
@@ -323,7 +327,7 @@ struct MusicControlsView: View {
         case .lyrics:
             HoverButton(
                 icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble",
-                iconColor: enableLyrics ? Color(nsColor: MusicManager.shared.avgColor) : .white,
+                iconColor: enableLyrics ? brandAccentColor : .white,
                 scale: .medium
             ) {
                 enableLyrics.toggle()
