@@ -845,6 +845,45 @@ class MusicManager: ObservableObject {
     }
 }
 
+// MARK: - Media Branding
+
+extension MusicManager {
+    var brandAccentColor: Color {
+        Self.brandAccentColor(for: Defaults[.mediaController], bundleIdentifier: bundleIdentifier)
+    }
+
+    private static func brandAccentColor(for controller: MediaControllerType, bundleIdentifier: String?) -> Color {
+        switch controller {
+        case .appleMusic:
+            return appleMusicPink
+        case .spotify:
+            return spotifyGreen
+        case .nowPlaying:
+            if let bundleIdentifier,
+               let bundleColor = brandAccentColor(forBundleIdentifier: bundleIdentifier) {
+                return bundleColor
+            }
+            fallthrough
+        case .youtubeMusic:
+            return .accentColor
+        }
+    }
+
+    private static func brandAccentColor(forBundleIdentifier bundleIdentifier: String) -> Color? {
+        switch bundleIdentifier {
+        case "com.apple.Music":
+            return appleMusicPink
+        case "com.spotify.client":
+            return spotifyGreen
+        default:
+            return nil
+        }
+    }
+
+    private static let appleMusicPink = Color(red: 0.999, green: 0.171, blue: 0.331)
+    private static let spotifyGreen = Color(red: 0.0, green: 0.857, blue: 0.302)
+}
+
 // MARK: - Album Art Flip Helper
 
 private struct AlbumArtFlipModifier: ViewModifier {

@@ -390,6 +390,10 @@ struct LockScreenMusicPanel: View {
             return .accentColor
         }
     }
+
+    private var brandAccentColor: Color {
+        musicManager.brandAccentColor
+    }
     
     // MARK: - Playback Controls
     
@@ -496,7 +500,7 @@ struct LockScreenMusicPanel: View {
                 icon: "shuffle",
                 size: 18,
                 isActive: musicManager.isShuffled,
-                activeColor: .red
+                activeColor: brandAccentColor
             ) {
                 musicManager.toggleShuffle()
             }
@@ -505,7 +509,7 @@ struct LockScreenMusicPanel: View {
                 icon: repeatIcon,
                 size: 18,
                 isActive: musicManager.repeatMode != .off,
-                activeColor: .red,
+                activeColor: brandAccentColor,
                 symbolEffect: .replace
             ) {
                 musicManager.toggleRepeat()
@@ -517,7 +521,7 @@ struct LockScreenMusicPanel: View {
                 icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble",
                 size: 18,
                 isActive: enableLyrics,
-                activeColor: .accentColor,
+                activeColor: brandAccentColor,
                 symbolEffect: .replace
             ) {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
@@ -547,14 +551,15 @@ struct LockScreenMusicPanel: View {
         icon: String,
         size: CGFloat = 18,
         isActive: Bool = false,
-        activeColor: Color = .red,
+        activeColor: Color? = nil,
         interaction: PanelControlButton.Interaction = .none,
         symbolEffect: PanelControlButton.SymbolEffectStyle = .replace,
         action: @escaping () -> Void
     ) -> some View {
+        let resolvedActiveColor = activeColor ?? brandAccentColor
         let frameSize: CGFloat = isExpanded ? 56 : 32
         let iconSize: CGFloat = isExpanded ? max(size, 24) : size
-        let iconColor = isActive ? activeColor : .white.opacity(0.8)
+        let iconColor = isActive ? resolvedActiveColor : .white.opacity(0.8)
         let backgroundOpacity: Double = isActive ? 0.22 : 0.0
 
         return PanelControlButton(

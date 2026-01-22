@@ -169,6 +169,10 @@ struct MinimalisticMusicPlayerView: View {
         coordinator.timerLiveActivityEnabled && timerManager.isExternalTimerActive
     }
 
+    private var brandAccentColor: Color {
+        musicManager.brandAccentColor
+    }
+
     private var timerCountdownColor: Color {
         let baseColor: Color
         if let presetId = timerManager.activePresetId,
@@ -683,19 +687,20 @@ private struct MinimalisticReminderDetailsView: View {
         icon: String,
         size: CGFloat = 18,
         isActive: Bool = false,
-        activeColor: Color = .red,
+        activeColor: Color? = nil,
         pressEffect: MinimalisticSquircircleButton.PressEffect = .none,
         symbolEffect: MinimalisticSquircircleButton.SymbolEffectStyle = .none,
         trigger: SkipTrigger? = nil,
         action: @escaping () -> Void
     ) -> some View {
-        MinimalisticSquircircleButton(
+        let resolvedActiveColor = activeColor ?? brandAccentColor
+        return MinimalisticSquircircleButton(
             icon: icon,
             fontSize: size,
             fontWeight: .medium,
             frameSize: CGSize(width: 40, height: 40),
             cornerRadius: 16,
-            foregroundColor: isActive ? activeColor : .white.opacity(0.85),
+            foregroundColor: isActive ? resolvedActiveColor : .white.opacity(0.85),
             pressEffect: pressEffect,
             symbolEffectStyle: symbolEffect,
             externalTriggerToken: trigger?.token,
@@ -775,7 +780,7 @@ private struct MinimalisticReminderDetailsView: View {
             controlButton(
                 icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble",
                 isActive: enableLyrics,
-                activeColor: Color(nsColor: musicManager.avgColor),
+                activeColor: brandAccentColor,
                 symbolEffect: .replace
             ) {
                 enableLyrics.toggle()
