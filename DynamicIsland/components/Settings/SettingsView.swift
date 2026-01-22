@@ -3648,14 +3648,18 @@ private struct LockScreenPositioningControls: View {
     @Default(.lockScreenWeatherVerticalOffset) private var weatherOffset
     @Default(.lockScreenMusicVerticalOffset) private var musicOffset
     @Default(.lockScreenTimerVerticalOffset) private var timerOffset
+    @Default(.lockScreenMusicPanelWidth) private var musicWidth
+    @Default(.lockScreenTimerWidgetWidth) private var timerWidth
     private let offsetRange: ClosedRange<Double> = -160...160
+    private let musicWidthRange: ClosedRange<Double> = 320...Double(LockScreenMusicPanel.defaultCollapsedWidth)
+    private let timerWidthRange: ClosedRange<Double> = 320...LockScreenTimerWidget.defaultWidth
 
     var body: some View {
         Section {
             let weatherBinding = Binding<Double>(
                 get: { weatherOffset },
                 set: { newValue in
-                    let clampedValue = clamp(newValue)
+                    let clampedValue = clampOffset(newValue)
                     if weatherOffset != clampedValue {
                         weatherOffset = clampedValue
                     }
@@ -3666,7 +3670,7 @@ private struct LockScreenPositioningControls: View {
             let timerBinding = Binding<Double>(
                 get: { timerOffset },
                 set: { newValue in
-                    let clampedValue = clamp(newValue)
+                    let clampedValue = clampOffset(newValue)
                     if timerOffset != clampedValue {
                         timerOffset = clampedValue
                     }
@@ -3677,7 +3681,7 @@ private struct LockScreenPositioningControls: View {
             let musicBinding = Binding<Double>(
                 get: { musicOffset },
                 set: { newValue in
-                    let clampedValue = clamp(newValue)
+                    let clampedValue = clampOffset(newValue)
                     if musicOffset != clampedValue {
                         musicOffset = clampedValue
                     }
@@ -3685,7 +3689,35 @@ private struct LockScreenPositioningControls: View {
                 }
             )
 
-            LockScreenPositioningPreview(weatherOffset: weatherBinding, timerOffset: timerBinding, musicOffset: musicBinding)
+            let musicWidthBinding = Binding<Double>(
+                get: { musicWidth },
+                set: { newValue in
+                    let clampedValue = clamp(newValue, within: musicWidthRange)
+                    if musicWidth != clampedValue {
+                        musicWidth = clampedValue
+                        propagateMusicWidthChange(animated: false)
+                    }
+                }
+            )
+
+            let timerWidthBinding = Binding<Double>(
+                get: { timerWidth },
+                set: { newValue in
+                    let clampedValue = clamp(newValue, within: timerWidthRange)
+                    if timerWidth != clampedValue {
+                        timerWidth = clampedValue
+                        propagateTimerWidthChange(animated: false)
+                    }
+                }
+            )
+
+            LockScreenPositioningPreview(
+                weatherOffset: weatherBinding,
+                timerOffset: timerBinding,
+                musicOffset: musicBinding,
+                musicWidth: musicWidthBinding,
+                timerWidth: timerWidthBinding
+            )
                 .frame(height: 260)
                 .padding(.vertical, 8)
 
@@ -3719,16 +3751,43 @@ private struct LockScreenPositioningControls: View {
 
                 Spacer()
             }
+
+            Divider()
+                .padding(.vertical, 8)
+
+            VStack(alignment: .leading, spacing: 16) {
+                widthSlider(
+                    title: "Media Panel Width",
+                    value: musicWidthBinding,
+                    range: musicWidthRange,
+                    resetTitle: "Reset Media Width",
+                    resetAction: resetMusicWidth,
+                    helpText: "Shrinks the lock screen media panel while keeping the expanded view full width."
+                )
+
+                widthSlider(
+                    title: "Timer Widget Width",
+                    value: timerWidthBinding,
+                    range: timerWidthRange,
+                    resetTitle: "Reset Timer Width",
+                    resetAction: resetTimerWidth,
+                    helpText: "Adjusts the lock screen timer widget width without affecting button sizing."
+                )
+            }
         } header: {
             Text("Lock Screen Positioning")
         } footer: {
-            Text("Drag the previews to adjust vertical placement. Positive values lift the panel; negative values lower it. Changes apply instantly while the widgets are visible.")
+            Text("Drag the previews to adjust vertical placement. Positive values lift the panel; negative values lower it. Use the width sliders below to narrow the media and timer widgets without exceeding their default size. Changes apply instantly while the widgets are visible.")
                 .textCase(nil)
         }
     }
 
-    private func clamp(_ value: Double) -> Double {
+    private func clampOffset(_ value: Double) -> Double {
         min(max(value, offsetRange.lowerBound), offsetRange.upperBound)
+    }
+
+    private func clamp(_ value: Double, within range: ClosedRange<Double>) -> Double {
+        min(max(value, range.lowerBound), range.upperBound)
     }
 
     private func resetWeatherOffset() {
@@ -3744,6 +3803,16 @@ private struct LockScreenPositioningControls: View {
     private func resetMusicOffset() {
         musicOffset = 0
         propagateMusicOffsetChange(animated: true)
+    }
+
+    private func resetMusicWidth() {
+        musicWidth = Double(LockScreenMusicPanel.defaultCollapsedWidth)
+        propagateMusicWidthChange(animated: true)
+    }
+
+    private func resetTimerWidth() {
+        timerWidth = LockScreenTimerWidget.defaultWidth
+        propagateTimerWidthChange(animated: true)
     }
 
     private func propagateWeatherOffsetChange(animated: Bool) {
@@ -3764,6 +3833,18 @@ private struct LockScreenPositioningControls: View {
         }
     }
 
+    private func propagateMusicWidthChange(animated: Bool) {
+        Task { @MainActor in
+            LockScreenPanelManager.shared.applyOffsetAdjustment(animated: animated)
+        }
+    }
+
+    private func propagateTimerWidthChange(animated: Bool) {
+        Task { @MainActor in
+            LockScreenTimerWidgetPanelManager.shared.refreshPosition(animated: animated)
+        }
+    }
+
     @ViewBuilder
     private func offsetColumn(title: String, value: Double, resetTitle: String, resetAction: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -3781,8 +3862,48 @@ private struct LockScreenPositioningControls: View {
         }
     }
 
+    @ViewBuilder
+    private func widthSlider(
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        resetTitle: String,
+        resetAction: @escaping () -> Void,
+        helpText: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(formattedWidth(value.wrappedValue))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Slider(value: value, in: range)
+
+            HStack(alignment: .top) {
+                Button(resetTitle) {
+                    resetAction()
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Text(helpText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+    }
+
     private func formattedPoints(_ value: Double) -> String {
         String(format: "%+.0f", value)
+    }
+
+    private func formattedWidth(_ value: Double) -> String {
+        String(format: "%.0f pt", value)
     }
 }
 
@@ -3790,6 +3911,8 @@ private struct LockScreenPositioningPreview: View {
     @Binding var weatherOffset: Double
     @Binding var timerOffset: Double
     @Binding var musicOffset: Double
+    @Binding var musicWidth: Double
+    @Binding var timerWidth: Double
 
     @State private var weatherStartOffset: Double = 0
     @State private var timerStartOffset: Double = 0
@@ -3815,8 +3938,17 @@ private struct LockScreenPositioningPreview: View {
             let timerBaseY = screenRect.minY + (screenRect.height * 0.5)
             let musicBaseY = screenRect.minY + (screenRect.height * 0.78)
             let weatherSize = CGSize(width: screenRect.width * 0.42, height: screenRect.height * 0.22)
-            let timerSize = CGSize(width: screenRect.width * 0.5, height: screenRect.height * 0.2)
-            let musicSize = CGSize(width: screenRect.width * 0.56, height: screenRect.height * 0.34)
+            let defaultMusicWidth = Double(LockScreenMusicPanel.defaultCollapsedWidth)
+            let musicWidthScale = CGFloat(musicWidth / defaultMusicWidth)
+            let timerWidthScale = CGFloat(timerWidth / LockScreenTimerWidget.defaultWidth)
+            let timerSize = CGSize(
+                width: (screenRect.width * 0.5) * timerWidthScale,
+                height: screenRect.height * 0.2
+            )
+            let musicSize = CGSize(
+                width: (screenRect.width * 0.56) * musicWidthScale,
+                height: screenRect.height * 0.34
+            )
 
             ZStack {
                 RoundedRectangle(cornerRadius: screenCornerRadius, style: .continuous)
@@ -3844,6 +3976,9 @@ private struct LockScreenPositioningPreview: View {
         }
         .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.82), value: weatherOffset)
         .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.82), value: musicOffset)
+        .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.82), value: timerOffset)
+        .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.82), value: musicWidth)
+        .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.82), value: timerWidth)
     }
 
     private func weatherPanel(size: CGSize) -> some View {

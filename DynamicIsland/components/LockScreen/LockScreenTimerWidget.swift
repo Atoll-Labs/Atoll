@@ -2,7 +2,11 @@ import SwiftUI
 import Defaults
 
 struct LockScreenTimerWidget: View {
-    static let preferredSize = CGSize(width: 420, height: 96)
+    static let defaultWidth: Double = 420
+    static let preferredHeight: CGFloat = 96
+    static var preferredSize: CGSize {
+        CGSize(width: CGFloat(Defaults[.lockScreenTimerWidgetWidth]), height: preferredHeight)
+    }
     static let cornerRadius: CGFloat = 26
 
     @ObservedObject private var animator: LockScreenTimerWidgetAnimator
@@ -12,6 +16,7 @@ struct LockScreenTimerWidget: View {
     @Default(.lockScreenTimerLiquidGlassVariant) private var timerGlassVariant
     @Default(.lockScreenTimerWidgetUsesBlur) private var timerGlassModeIsGlass
     @Default(.timerPresets) private var timerPresets
+    @Default(.lockScreenTimerWidgetWidth) private var widgetWidth
 
     @MainActor
     init(animator: LockScreenTimerWidgetAnimator? = nil) {
@@ -146,6 +151,10 @@ struct LockScreenTimerWidget: View {
             .fill(Color.black.opacity(0.65))
     }
 
+    private var widgetSize: CGSize {
+        CGSize(width: CGFloat(widgetWidth), height: Self.preferredHeight)
+    }
+
     private var pauseIcon: String {
         timerManager.isPaused ? "play.fill" : "pause.fill"
     }
@@ -175,7 +184,7 @@ struct LockScreenTimerWidget: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 18)
-        .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
+        .frame(width: widgetSize.width, height: widgetSize.height)
         .background(widgetBackground)
         .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
         .overlay {

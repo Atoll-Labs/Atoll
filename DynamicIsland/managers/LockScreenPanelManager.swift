@@ -10,6 +10,7 @@ import AppKit
 import SkyLightWindow
 import Defaults
 import QuartzCore
+import Combine
 
 @MainActor
 final class LockScreenPanelAnimator: ObservableObject {
@@ -32,10 +33,12 @@ class LockScreenPanelManager {
     private var hideTask: Task<Void, Never>?
     private var screenChangeObserver: NSObjectProtocol?
     private var workspaceObservers: [NSObjectProtocol] = []
+    private var cancellables = Set<AnyCancellable>()
 
     private init() {
         print("[\(timestamp())] LockScreenPanelManager: initialized")
         registerScreenChangeObservers()
+        observeDefaultChanges()
     }
 
     private func timestamp() -> String {
@@ -118,8 +121,9 @@ class LockScreenPanelManager {
         panelAnimator.isPresented = false
         LockScreenTimerWidgetManager.shared.notifyMusicPanelFrameChanged(animated: false)
 
-        let hosting = NSHostingView(rootView: LockScreenMusicPanel(animator: panelAnimator))
-        hosting.frame = NSRect(origin: .zero, size: targetFrame.size)
+    let hosting = NSHostingView(rootView: LockScreenMusicPanel(animator: panelAnimator))
+    hosting.frame = NSRect(origin: .zero, size: targetFrame.size)
+    hosting.autoresizingMask = [.width, .height]
         window.contentView = hosting
 
         // Ensure the underlying window content is clipped to rounded corners
@@ -233,6 +237,15 @@ class LockScreenPanelManager {
         LockScreenTimerWidgetManager.shared.notifyMusicPanelFrameChanged(animated: false)
 
         print("[\(timestamp())] LockScreenPanelManager: realigned window due to \(reason)")
+    }
+
+    private func observeDefaultChanges() {
+        Defaults.publisher(.lockScreenMusicPanelWidth)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.applyOffsetAdjustment(animated: true)
+            }
+            .store(in: &cancellables)
     }
 
     private func collapsedFrame(for screenFrame: NSRect) -> NSRect {

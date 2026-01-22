@@ -75,6 +75,13 @@ final class LockScreenTimerWidgetManager {
                 self.refreshPositionForOffsets(animated: true)
             }
             .store(in: &cancellables)
+
+        Defaults.publisher(.lockScreenTimerWidgetWidth, options: [])
+            .receive(on: RunLoop.main)
+            .sink { _ in
+                LockScreenTimerWidgetPanelManager.shared.refreshPosition(animated: true)
+            }
+            .store(in: &cancellables)
     }
 
     private func updateVisibility() {
@@ -114,6 +121,7 @@ final class LockScreenTimerWidgetPanelManager {
         let window = ensureWindow()
         let frame = targetFrame(on: screen)
         window.setFrame(frame, display: true)
+        updateHostingViewSize(for: window, size: frame.size)
         latestFrame = frame
         window.alphaValue = 1
         window.orderFrontRegardless()
@@ -161,6 +169,7 @@ final class LockScreenTimerWidgetPanelManager {
         } else {
             window.setFrame(frame, display: true)
         }
+        updateHostingViewSize(for: window, size: frame.size)
         latestFrame = frame
         LockScreenReminderWidgetPanelManager.shared.refreshPosition(animated: animated)
     }
@@ -212,10 +221,15 @@ final class LockScreenTimerWidgetPanelManager {
         let view = LockScreenTimerWidget(animator: animator)
         let hosting = NSHostingView(rootView: view)
         hosting.frame = NSRect(origin: .zero, size: LockScreenTimerWidget.preferredSize)
+        hosting.autoresizingMask = [.width, .height]
         hosting.wantsLayer = true
         hosting.layer?.masksToBounds = true
         hosting.layer?.cornerRadius = LockScreenTimerWidget.cornerRadius
         return hosting
+    }
+
+    private func updateHostingViewSize(for window: NSWindow, size: CGSize) {
+        window.contentView?.frame = NSRect(origin: .zero, size: NSSize(width: size.width, height: size.height))
     }
 
     private func targetFrame(on screen: NSScreen) -> NSRect {

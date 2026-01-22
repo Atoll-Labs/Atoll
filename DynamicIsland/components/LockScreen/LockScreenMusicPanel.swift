@@ -16,7 +16,11 @@ struct LockScreenMusicPanel: View {
         let usesLiquidGlass: Bool
     }
 
-    static let collapsedSize = CGSize(width: 420, height: 180)
+    static let collapsedHeight: CGFloat = 180
+    static let defaultCollapsedWidth: CGFloat = 420
+    static var collapsedSize: CGSize {
+        CGSize(width: CGFloat(Defaults[.lockScreenMusicPanelWidth]), height: collapsedHeight)
+    }
     static let expandedSize = CGSize(width: 720, height: 340)
 
     @ObservedObject var musicManager = MusicManager.shared
@@ -45,6 +49,7 @@ struct LockScreenMusicPanel: View {
     @Default(.musicSkipBehavior) private var musicSkipBehavior
     @Default(.enableLyrics) private var enableLyrics
     @Default(.lockScreenMusicAlbumParallaxEnabled) private var lockScreenParallaxEnabled
+    @Default(.lockScreenMusicPanelWidth) private var collapsedPanelWidth
 
     init(animator: LockScreenPanelAnimator) {
         _animator = ObservedObject(wrappedValue: animator)
@@ -66,8 +71,12 @@ struct LockScreenMusicPanel: View {
     }
 
     private var currentSize: CGSize {
-        let base = isExpanded ? Self.expandedSize : Self.collapsedSize
+        let base = isExpanded ? Self.expandedSize : collapsedPanelSize
         return CGSize(width: base.width, height: base.height + totalExtraHeight)
+    }
+
+    private var collapsedPanelSize: CGSize {
+        CGSize(width: CGFloat(collapsedPanelWidth), height: Self.collapsedHeight)
     }
 
     private var panelCornerRadius: CGFloat {
@@ -95,7 +104,7 @@ struct LockScreenMusicPanel: View {
             panelContent
         } else {
             Color.clear
-                .frame(width: Self.collapsedSize.width, height: Self.collapsedSize.height)
+                .frame(width: collapsedPanelSize.width, height: collapsedPanelSize.height)
         }
     }
     
