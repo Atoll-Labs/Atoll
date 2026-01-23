@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 
 struct LockScreenDisplayContext {
     let screen: NSScreen
@@ -30,7 +31,7 @@ final class LockScreenDisplayContextProvider {
 
     @discardableResult
     func refresh(reason: String) -> LockScreenDisplayContext? {
-        guard let screen = NSScreen.main ?? NSScreen.screens.first else {
+        guard let screen = preferredLockScreen() else {
             context = nil
             return nil
         }
@@ -50,6 +51,29 @@ final class LockScreenDisplayContextProvider {
             return context
         }
         return refresh(reason: "snapshot-miss")
+    }
+
+    private func preferredLockScreen() -> NSScreen? {
+        if let builtin = NSScreen.screens.first(where: { screen in
+            guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+                return false
+            }
+            return CGDisplayIsBuiltin(CGDirectDisplayID(number.uint32Value)) != 0
+        }) {
+            return builtin
+        }
+
+        let mainDisplayID = CGMainDisplayID()
+        if let mainScreen = NSScreen.screens.first(where: { screen in
+            guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+                return false
+            }
+            return CGDirectDisplayID(number.uint32Value) == mainDisplayID
+        }) {
+            return mainScreen
+        }
+
+        return NSScreen.main ?? NSScreen.screens.first
     }
 
     private func registerObservers() {
