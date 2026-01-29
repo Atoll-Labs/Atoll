@@ -1,10 +1,24 @@
-//
-//  NotchHomeView.swift
-//  DynamicIsland
-//
-//  Created by Hugo Persson on 2024-08-18.
-//  Modified by Harsh Vardhan Goswami & Richard Kunkli & Mustafa Ramadan
-//
+/*
+ * Atoll (DynamicIsland)
+ * Copyright (C) 2024-2026 Atoll Contributors
+ *
+ * Originally from boring.notch project
+ * Modified and adapted for Atoll (DynamicIsland)
+ * See NOTICE for details.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
 import Combine
 import Defaults
@@ -383,6 +397,7 @@ struct NotchHomeView: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject private var extensionNotchExperienceManager = ExtensionNotchExperienceManager.shared
+    @Default(.showStandardMediaControls) private var showStandardMediaControls
     let albumArtNamespace: Namespace.ID
     
     var body: some View {
@@ -407,8 +422,10 @@ struct NotchHomeView: View {
                 }
             } else {
                 // Normal mode: Show full music player with optional calendar and webcam
-                MusicPlayerView(albumArtNamespace: albumArtNamespace)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if showStandardMediaControls {
+                    MusicPlayerView(albumArtNamespace: albumArtNamespace)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 
                 if Defaults[.showCalendar] {
                     CalendarView()

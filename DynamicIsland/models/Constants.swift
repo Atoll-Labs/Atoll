@@ -1,9 +1,24 @@
-//
-//  Constants.swift
-//  DynamicIsland
-//
-//  Created by Richard Kunkli on 2024. 10. 17..
-//  Modified by Hariharan Mudaliar
+/*
+ * Atoll (DynamicIsland)
+ * Copyright (C) 2024-2026 Atoll Contributors
+ *
+ * Originally from boring.notch project
+ * Modified and adapted for Atoll (DynamicIsland)
+ * See NOTICE for details.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
 import SwiftUI
 import Defaults
@@ -25,6 +40,32 @@ struct CustomVisualizer: Codable, Hashable, Equatable, Defaults.Serializable {
     var name: String
     var url: URL
     var speed: CGFloat = 1.0
+}
+
+struct CustomAppIcon: Codable, Hashable, Equatable, Defaults.Serializable, Identifiable {
+    let id: UUID
+    var name: String
+    var fileName: String
+    var addedAt: Date
+
+    init(id: UUID = UUID(), name: String, fileName: String, addedAt: Date = .now) {
+        self.id = id
+        self.name = name
+        self.fileName = fileName
+        self.addedAt = addedAt
+    }
+
+    static let iconDirectory: URL = {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = base.appendingPathComponent("DynamicIsland", isDirectory: true)
+            .appendingPathComponent("AppIcons", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+
+    var fileURL: URL {
+        Self.iconDirectory.appendingPathComponent(fileName)
+    }
 }
 
 // MARK: - Custom Idle Animation Models
@@ -656,6 +697,8 @@ extension Defaults.Keys {
     static let useMusicVisualizer = Key<Bool>("useMusicVisualizer", default: true)
     static let customVisualizers = Key<[CustomVisualizer]>("customVisualizers", default: [])
     static let selectedVisualizer = Key<CustomVisualizer?>("selectedVisualizer", default: nil)
+    static let customAppIcons = Key<[CustomAppIcon]>("customAppIcons", default: [])
+    static let selectedAppIconID = Key<String?>("selectedAppIconID", default: nil)
     
         // MARK: Gestures
     static let enableGestures = Key<Bool>("enableGestures", default: true)
@@ -683,6 +726,10 @@ extension Defaults.Keys {
     static let didMigrateMusicControlSlots = Key<Bool>("didMigrateMusicControlSlots", default: false)
     static let musicSkipBehavior = Key<MusicSkipBehavior>("musicSkipBehavior", default: .track)
     static let musicControlWindowEnabled = Key<Bool>("musicControlWindowEnabled", default: false)
+    static let showStandardMediaControls = Key<Bool>("showStandardMediaControls", default: true)
+    static let cachedMusicLiveActivityPreference = Key<Bool?>("cachedMusicLiveActivityPreference", default: nil)
+    static let cachedLockScreenMediaWidgetPreference = Key<Bool?>("cachedLockScreenMediaWidgetPreference", default: nil)
+    static let cachedMusicControlWindowPreference = Key<Bool?>("cachedMusicControlWindowPreference", default: nil)
     // Enable lock screen media widget (shows the standalone panel when screen is locked)
     static let enableLockScreenMediaWidget = Key<Bool>("enableLockScreenMediaWidget", default: true)
     static let enableLockScreenWeatherWidget = Key<Bool>("enableLockScreenWeatherWidget", default: true)

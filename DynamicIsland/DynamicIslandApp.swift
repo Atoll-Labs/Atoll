@@ -1,9 +1,20 @@
-//
-//  DynamicIslandApp.swift
-//  DynamicIslandApp
-//
-//  Modified by Hariharan Mudaliar  on 20/09/25.
-//
+/*
+ * Atoll (DynamicIsland)
+ * Copyright (C) 2024-2026 Atoll Contributors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
 import AVFoundation
 import Combine
@@ -90,6 +101,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let idleAnimationManager = IdleAnimationManager.shared  // NEW: Custom idle animations
     let downloadManager = DownloadManager.shared  // NEW: Chromium downloads detection
     let lockScreenPanelManager = LockScreenPanelManager.shared  // NEW: Lock screen music panel
+    let mediaControlsStateCoordinator = MediaControlsStateCoordinator.shared
     let systemTimerBridge = SystemTimerBridge.shared
     let extensionXPCServiceHost = ExtensionXPCServiceHost.shared
     var closeNotchWorkItem: DispatchWorkItem?
@@ -208,6 +220,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
+
+        window.animationBehavior = .none
         
         window.contentView = NSHostingView(
             rootView: ContentView()
@@ -251,6 +265,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let requiredSize = calculateRequiredNotchSize()
         let animateResize = shouldAnimateResize(for: requiredSize)
         resizeWindows(to: requiredSize, animated: animateResize, force: false)
+    }
+
+    private func updateWindowSizeForTabSwitch() {
+        let requiredSize = calculateRequiredNotchSize()
+        resizeWindows(to: requiredSize, animated: false, force: true)
     }
     
     private func calculateRequiredNotchSize() -> CGSize {
@@ -320,16 +339,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let newY = screenFrame.origin.y + screenFrame.height - size.height
         let targetFrame = NSRect(x: newX, y: newY, width: size.width, height: size.height)
 
-        if animated {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.25
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                context.allowsImplicitAnimation = true
-                window.animator().setFrame(targetFrame, display: true)
-            }
-        } else {
-            window.setFrame(targetFrame, display: true)
-        }
+        window.setFrame(targetFrame, display: true)
     }
 
     private func shouldAnimateResize(for newSize: CGSize) -> Bool {
@@ -352,6 +362,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Initialize idle animations (load bundled + built-in face)
         idleAnimationManager.initializeDefaultAnimations()
+
+        applySelectedAppIcon()
         
         // Setup SystemHUD Manager
         SystemHUDManager.shared.setup(coordinator: coordinator)
@@ -369,9 +381,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Setup Privacy Indicator Manager (camera and microphone monitoring)
         PrivacyIndicatorManager.shared.startMonitoring()
         
-        // Observe tab changes - use immediate updates to prevent clipping
-        coordinator.$currentView.sink { [weak self] newView in
-            self?.updateWindowSizeIfNeeded()
+        // Observe tab changes - use immediate resize to keep the notch pinned
+        coordinator.$currentView.sink { [weak self] _ in
+            self?.updateWindowSizeForTabSwitch()
         }.store(in: &cancellables)
 
         coordinator.$notesLayoutState
@@ -887,5 +899,100 @@ extension CGRect: @retroactive Hashable {
 
     public static func == (lhs: CGRect, rhs: CGRect) -> Bool {
         return lhs.origin == rhs.origin && lhs.size == rhs.size
+    }
+}
+
+@MainActor
+final class MediaControlsStateCoordinator {
+    static let shared = MediaControlsStateCoordinator()
+
+    private var cancellables = Set<AnyCancellable>()
+
+    private init() {
+        let masterPublisher = Defaults.publisher(.showStandardMediaControls)
+        let minimalisticPublisher = Defaults.publisher(.enableMinimalisticUI)
+
+        Publishers.CombineLatest(masterPublisher, minimalisticPublisher)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] masterChange, minimalisticChange in
+                self?.handleStateChange(
+                    showStandard: masterChange.newValue,
+                    minimalistic: minimalisticChange.newValue
+                )
+            }
+            .store(in: &cancellables)
+    }
+
+    private func handleStateChange(showStandard: Bool, minimalistic: Bool) {
+        if !showStandard && !minimalistic {
+            cacheAndDisableMusicLiveActivity()
+        } else {
+            restoreMusicLiveActivity(clearCache: showStandard)
+        }
+
+        if showStandard {
+            restoreLockScreenPanelIfNeeded()
+            restoreMusicControlWindowIfNeeded()
+        } else {
+            cacheAndDisableLockScreenPanel()
+            cacheAndDisableMusicControlWindow()
+        }
+    }
+
+    private func cacheAndDisableMusicLiveActivity() {
+        if Defaults[.cachedMusicLiveActivityPreference] == nil {
+            Defaults[.cachedMusicLiveActivityPreference] = DynamicIslandViewCoordinator.shared.musicLiveActivityEnabled
+        }
+
+        if DynamicIslandViewCoordinator.shared.musicLiveActivityEnabled {
+            DynamicIslandViewCoordinator.shared.musicLiveActivityEnabled = false
+        }
+    }
+
+    private func restoreMusicLiveActivity(clearCache: Bool) {
+        guard let cached = Defaults[.cachedMusicLiveActivityPreference] else { return }
+
+        if DynamicIslandViewCoordinator.shared.musicLiveActivityEnabled != cached {
+            DynamicIslandViewCoordinator.shared.musicLiveActivityEnabled = cached
+        }
+
+        if clearCache {
+            Defaults[.cachedMusicLiveActivityPreference] = nil
+        }
+    }
+
+    private func cacheAndDisableLockScreenPanel() {
+        if Defaults[.cachedLockScreenMediaWidgetPreference] == nil {
+            Defaults[.cachedLockScreenMediaWidgetPreference] = Defaults[.enableLockScreenMediaWidget]
+        }
+
+        if Defaults[.enableLockScreenMediaWidget] {
+            Defaults[.enableLockScreenMediaWidget] = false
+            LockScreenPanelManager.shared.hidePanel()
+        }
+    }
+
+    private func restoreLockScreenPanelIfNeeded() {
+        guard let cached = Defaults[.cachedLockScreenMediaWidgetPreference] else { return }
+        Defaults[.enableLockScreenMediaWidget] = cached
+        Defaults[.cachedLockScreenMediaWidgetPreference] = nil
+    }
+
+    private func cacheAndDisableMusicControlWindow() {
+        if Defaults[.cachedMusicControlWindowPreference] == nil {
+            Defaults[.cachedMusicControlWindowPreference] = Defaults[.musicControlWindowEnabled]
+        }
+
+        if Defaults[.musicControlWindowEnabled] {
+            Defaults[.musicControlWindowEnabled] = false
+        }
+
+        MusicControlWindowManager.shared.hide()
+    }
+
+    private func restoreMusicControlWindowIfNeeded() {
+        guard let cached = Defaults[.cachedMusicControlWindowPreference] else { return }
+        Defaults[.musicControlWindowEnabled] = cached
+        Defaults[.cachedMusicControlWindowPreference] = nil
     }
 }

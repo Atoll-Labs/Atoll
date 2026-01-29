@@ -1,3 +1,21 @@
+/*
+ * Atoll (DynamicIsland)
+ * Copyright (C) 2024-2026 Atoll Contributors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import SwiftUI
 import AppKit
 import AtollExtensionKit
@@ -199,6 +217,63 @@ struct ExtensionCompositeIconView: View {
             }
         }
         .frame(width: size, height: size)
+    }
+}
+
+struct ExtensionBadgeIconView: View {
+    let descriptor: AtollIconDescriptor
+    let accent: Color
+    let size: CGFloat
+
+    private var symbolSize: CGFloat { size * 0.5 }
+    private var imageSize: CGFloat { size * 0.62 }
+    private var imageCornerRadius: CGFloat { size * 0.18 }
+
+    var body: some View {
+        Group {
+            switch descriptor {
+            case let .symbol(name, _, weight):
+                Image(systemName: name)
+                    .font(.system(size: symbolSize, weight: weight.swiftUI))
+                    .foregroundStyle(accent)
+            case let .image(data, _, _):
+                if let image = NSImage(data: data) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: imageSize, height: imageSize)
+                        .clipShape(RoundedRectangle(cornerRadius: imageCornerRadius, style: .continuous))
+                } else {
+                    fallbackSymbol
+                }
+            case let .appIcon(bundleIdentifier, _, _):
+                if let icon = AppIconAsNSImage(for: bundleIdentifier) {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: imageSize, height: imageSize)
+                        .clipShape(RoundedRectangle(cornerRadius: imageCornerRadius, style: .continuous))
+                } else {
+                    fallbackSymbol
+                }
+            case let .lottie(animationData, _):
+                ExtensionLottieView(data: animationData, size: CGSize(width: imageSize, height: imageSize))
+            case .none:
+                fallbackSymbol
+            }
+        }
+        .frame(width: size, height: size)
+    }
+
+    private var fallbackSymbol: some View {
+        Image(systemName: "app.dashed")
+            .font(.system(size: symbolSize, weight: .medium))
+            .foregroundStyle(accent)
+            .frame(width: imageSize, height: imageSize)
+            .background(
+                RoundedRectangle(cornerRadius: imageCornerRadius, style: .continuous)
+                    .fill(accent.opacity(0.15))
+            )
     }
 }
 

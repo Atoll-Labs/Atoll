@@ -1,9 +1,25 @@
-//
-//  SettingsView.swift
-//  DynamicIsland
-//
-//  Created by Richard Kunkli on 07/08/2024.
-//
+/*
+ * Atoll (DynamicIsland)
+ * Copyright (C) 2024-2026 Atoll Contributors
+ *
+ * Originally from boring.notch project
+ * Modified and adapted for Atoll (DynamicIsland)
+ * See NOTICE for details.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import AppKit
 import AVFoundation
 import Combine
@@ -677,6 +693,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .appearance, title: "Enable Dynamic mirror", keywords: ["mirror", "reflection"], highlightID: SettingsTab.appearance.highlightID(for: "Enable Dynamic mirror")),
             SettingsSearchEntry(tab: .appearance, title: "Mirror shape", keywords: ["mirror shape", "circle", "rectangle"], highlightID: SettingsTab.appearance.highlightID(for: "Mirror shape")),
             SettingsSearchEntry(tab: .appearance, title: "Show cool face animation while inactivity", keywords: ["face animation", "idle"], highlightID: SettingsTab.appearance.highlightID(for: "Show cool face animation while inactivity")),
+            SettingsSearchEntry(tab: .appearance, title: "App icon", keywords: ["app icon", "custom icon"], highlightID: SettingsTab.appearance.highlightID(for: "App icon")),
 
             // Lock Screen
             SettingsSearchEntry(tab: .lockScreen, title: "Enable lock screen live activity", keywords: ["lock screen", "live activity"], highlightID: SettingsTab.lockScreen.highlightID(for: "Enable lock screen live activity")),
@@ -1964,9 +1981,14 @@ struct Media: View {
     @Default(.lockScreenGlassStyle) private var lockScreenGlassStyle
     @Default(.lockScreenGlassCustomizationMode) private var lockScreenGlassCustomizationMode
     @Default(.lockScreenMusicAlbumParallaxEnabled) private var lockScreenMusicAlbumParallaxEnabled
+    @Default(.showStandardMediaControls) private var showStandardMediaControls
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.media.highlightID(for: title)
+    }
+
+    private var standardControlsSuppressed: Bool {
+        !showStandardMediaControls && !enableMinimalisticUI
     }
 
     var body: some View {
@@ -2001,6 +2023,23 @@ struct Media: View {
                         .foregroundStyle(.secondary)
                         .font(.caption)
                 }
+            }
+            Section {
+                Defaults.Toggle("Show media controls in Dynamic Island", key: .showStandardMediaControls)
+                    .disabled(enableMinimalisticUI)
+                    .settingsHighlight(id: highlightID("Show media controls in Dynamic Island"))
+
+                if enableMinimalisticUI {
+                    Text("Disable Minimalistic UI to configure the standard notch media controls.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if standardControlsSuppressed {
+                    Text("Standard notch media controls are hidden. Re-enable the toggle above to restore them.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Dynamic Island Visibility")
             }
             Section {
                 Defaults.Toggle(key: .showShuffleAndRepeat) {
@@ -2053,11 +2092,13 @@ struct Media: View {
                     "Enable music live activity",
                     isOn: $coordinator.musicLiveActivityEnabled.animation()
                 )
+                .disabled(standardControlsSuppressed)
+                .help(standardControlsSuppressed ? "Standard notch media controls are hidden while this toggle is off." : "")
                 Defaults.Toggle(
                     "Show floating media controls",
                     key: .musicControlWindowEnabled
                 )
-                .disabled(!coordinator.musicLiveActivityEnabled)
+                .disabled(!coordinator.musicLiveActivityEnabled || standardControlsSuppressed)
                 .help("Displays play/pause and skip buttons beside the notch while music is active. Disabled by default.")
                 Toggle("Enable sneak peek", isOn: $enableSneakPeek)
                 Toggle("Show sneak peek on playback changes", isOn: $showSneakPeekOnTrackChange)
@@ -2124,6 +2165,8 @@ struct Media: View {
             } footer: {
                 Text("These controls mirror the Lock Screen tab so you can tune the media overlay while focusing on playback settings.")
             }
+            .disabled(!showStandardMediaControls)
+            .opacity(showStandardMediaControls ? 1 : 0.5)
 
             Picker(selection: $hideNotchOption, label:
                 HStack {
@@ -2801,6 +2844,8 @@ struct Appearance: View {
     @Default(.useMusicVisualizer) var useMusicVisualizer
     @Default(.customVisualizers) var customVisualizers
     @Default(.selectedVisualizer) var selectedVisualizer
+    @Default(.customAppIcons) private var customAppIcons
+    @Default(.selectedAppIconID) private var selectedAppIconID
     @Default(.openNotchWidth) var openNotchWidth
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
     @Default(.lockScreenGlassCustomizationMode) private var lockScreenGlassCustomizationMode
@@ -2812,9 +2857,11 @@ struct Appearance: View {
     @Default(.lockScreenTimerWidgetUsesBlur) private var timerGlassModeIsGlass
     @Default(.enableLockScreenMediaWidget) private var enableLockScreenMediaWidget
     @Default(.enableLockScreenTimerWidget) private var enableLockScreenTimerWidget
-    let icons: [String] = ["logo2"]
-    @State private var selectedIcon: String = "logo2"
     @State private var selectedListVisualizer: CustomVisualizer? = nil
+
+    @State private var isIconImporterPresented = false
+    @State private var isIconDropTarget = false
+    @State private var iconImportError: String?
 
     @State private var isPresented: Bool = false
     @State private var name: String = ""
@@ -3159,53 +3206,203 @@ struct Appearance: View {
             IdleAnimationsSettingsSection()
 
             Section {
-                HStack {
-                    ForEach(icons, id: \.self) { icon in
-                        Spacer()
-                        VStack {
-                            Image(icon)
-                                .resizable()
-                                .frame(width: 80, height: 80)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 20, style: .circular)
-                                        .strokeBorder(
-                                            icon == selectedIcon ? Color.accentColor : .clear,
-                                            lineWidth: 2.5
-                                        )
-                                )
+                VStack(alignment: .leading, spacing: 12) {
+                    let columns = [GridItem(.adaptive(minimum: 90), spacing: 12)]
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        appIconCard(
+                            title: "Default",
+                            image: defaultAppIconImage(),
+                            isSelected: selectedAppIconID == nil
+                        ) {
+                            selectedAppIconID = nil
+                            applySelectedAppIcon()
+                        }
 
-                            Text("Default")
-                                .fontWeight(.medium)
-                                .font(.caption)
-                                .foregroundStyle(icon == selectedIcon ? .white : .secondary)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 3)
-                                .background(
-                                    Capsule()
-                                        .fill(icon == selectedIcon ? Color.accentColor : .clear)
-                                )
-                        }
-                        .onTapGesture {
-                            withAnimation {
-                                selectedIcon = icon
+                        ForEach(customAppIcons) { icon in
+                            appIconCard(
+                                title: icon.name,
+                                image: customIconImage(for: icon),
+                                isSelected: selectedAppIconID == icon.id.uuidString
+                            ) {
+                                selectedAppIconID = icon.id.uuidString
+                                applySelectedAppIcon()
                             }
-                            NSApp.applicationIconImage = NSImage(named: icon)
+                            .contextMenu {
+                                Button("Remove") {
+                                    removeCustomIcon(icon)
+                                }
+                            }
                         }
-                        Spacer()
+                    }
+                    .padding(8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.secondary.opacity(isIconDropTarget ? 0.18 : 0.1))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Color.accentColor.opacity(isIconDropTarget ? 0.8 : 0), lineWidth: 2)
+                    )
+                    .onDrop(of: [UTType.fileURL], isTargeted: $isIconDropTarget) { providers in
+                        handleIconDrop(providers)
+                    }
+
+                    HStack(spacing: 8) {
+                        Button("Add icon") {
+                            iconImportError = nil
+                            isIconImporterPresented = true
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button("Remove selected") {
+                            if let id = selectedAppIconID,
+                               let icon = customAppIcons.first(where: { $0.id.uuidString == id }) {
+                                removeCustomIcon(icon)
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(selectedAppIconID == nil)
+                    }
+
+                    if let iconImportError {
+                        Text(iconImportError)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Drop a PNG, JPEG, TIFF, or ICNS file to add it to your icon library.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .disabled(true)
+                .settingsHighlight(id: highlightID("App icon"))
             } header: {
                 HStack {
                     Text("App icon")
-                    customBadge(text: "Coming soon")
                 }
             }
         }
         .onAppear(perform: enforceLockScreenGlassConsistency)
         .onChange(of: lockScreenGlassStyle) { _, _ in enforceLockScreenGlassConsistency() }
         .onChange(of: lockScreenGlassCustomizationMode) { _, _ in enforceLockScreenGlassConsistency() }
+        .fileImporter(
+            isPresented: $isIconImporterPresented,
+            allowedContentTypes: [.png, .jpeg, .tiff, .icns, .image]
+        ) { result in
+            switch result {
+            case .success(let url):
+                importCustomIcon(from: url)
+            case .failure:
+                iconImportError = "Icon import was canceled or failed."
+            }
+        }
         .navigationTitle("Appearance")
+    }
+
+    private func defaultAppIconImage() -> NSImage? {
+        let fallbackName = Bundle.main.iconFileName ?? "AppIcon"
+        return NSImage(named: fallbackName)
+    }
+
+    private func customIconImage(for icon: CustomAppIcon) -> NSImage? {
+        NSImage(contentsOf: icon.fileURL)
+    }
+
+    private func appIconCard(title: String, image: NSImage?, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Group {
+                    if let image {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    } else {
+                        Image(systemName: "app.dashed")
+                            .font(.system(size: 28, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 64, height: 64)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.black.opacity(0.08))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(isSelected ? Color.accentColor : .clear, lineWidth: 2)
+                )
+
+                Text(title)
+                    .font(.caption)
+                    .lineLimit(1)
+                    .foregroundStyle(isSelected ? .white : .secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule().fill(isSelected ? Color.accentColor : .clear)
+                    )
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func handleIconDrop(_ providers: [NSItemProvider]) -> Bool {
+        let matching = providers.first { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
+        guard let provider = matching else { return false }
+        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+            let url: URL?
+            if let directURL = item as? URL {
+                url = directURL
+            } else if let data = item as? Data {
+                url = URL(dataRepresentation: data, relativeTo: nil)
+            } else {
+                url = nil
+            }
+            guard let url else { return }
+            Task { @MainActor in importCustomIcon(from: url) }
+        }
+        return true
+    }
+
+    private func importCustomIcon(from url: URL) {
+        guard let image = NSImage(contentsOf: url) else {
+            iconImportError = "That file could not be loaded as an image."
+            return
+        }
+        let name = url.deletingPathExtension().lastPathComponent
+        let ext = url.pathExtension.isEmpty ? "png" : url.pathExtension
+        let id = UUID()
+        let fileName = "custom-icon-\(id.uuidString).\(ext)"
+        let destination = CustomAppIcon.iconDirectory.appendingPathComponent(fileName)
+
+        do {
+            let data = try Data(contentsOf: url)
+            try data.write(to: destination, options: [.atomic])
+        } catch {
+            iconImportError = "Unable to save the icon file."
+            return
+        }
+
+        let newIcon = CustomAppIcon(id: id, name: name.isEmpty ? "Custom Icon" : name, fileName: fileName)
+        if !customAppIcons.contains(newIcon) {
+            customAppIcons.append(newIcon)
+        }
+        selectedAppIconID = newIcon.id.uuidString
+        NSApp.applicationIconImage = image
+        iconImportError = nil
+    }
+
+    private func removeCustomIcon(_ icon: CustomAppIcon) {
+        if let index = customAppIcons.firstIndex(of: icon) {
+            customAppIcons.remove(at: index)
+        }
+        if FileManager.default.fileExists(atPath: icon.fileURL.path) {
+            try? FileManager.default.removeItem(at: icon.fileURL)
+        }
+        if selectedAppIconID == icon.id.uuidString {
+            selectedAppIconID = nil
+            applySelectedAppIcon()
+        }
     }
 
     func checkVideoInput() -> Bool {
@@ -3301,6 +3498,7 @@ struct LockScreenSettings: View {
     @Default(.lockScreenWeatherShowsAQI) private var lockScreenWeatherShowsAQI
     @Default(.lockScreenWeatherShowsSunrise) private var lockScreenWeatherShowsSunrise
     @Default(.lockScreenWeatherAQIScale) private var lockScreenWeatherAQIScale
+    @Default(.showStandardMediaControls) private var showStandardMediaControls
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.lockScreen.highlightID(for: title)
@@ -3422,11 +3620,20 @@ struct LockScreenSettings: View {
                         .opacity(enableLockScreenMediaWidget ? 1 : 0.5)
                         .settingsHighlight(id: highlightID("Enable media panel blur"))
                 }
+
+                if !showStandardMediaControls {
+                    Text("Enable Dynamic Island media controls to manage the lock screen panel.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             } header: {
                 Text("Media Panel")
             } footer: {
                 Text("Enable and style the media controls that appear above the system clock when the screen is locked.")
             }
+            .disabled(!showStandardMediaControls)
+            .opacity(showStandardMediaControls ? 1 : 0.5)
 
             Section {
                 Defaults.Toggle("Show lock screen timer", key: .enableLockScreenTimerWidget)

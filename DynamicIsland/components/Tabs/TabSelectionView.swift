@@ -1,9 +1,25 @@
-//
-//  TabSelectionView.swift
-//  DynamicIsland
-//
-//  Created by Hugo Persson on 2024-08-25.
-//  Modified by Hariharan Mudaliar
+/*
+ * Atoll (DynamicIsland)
+ * Copyright (C) 2024-2026 Atoll Contributors
+ *
+ * Originally from boring.notch project
+ * Modified and adapted for Atoll (DynamicIsland)
+ * See NOTICE for details.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import AtollExtensionKit
 import SwiftUI
 import Defaults
@@ -36,12 +52,18 @@ struct TabSelectionView: View {
     @Default(.enableThirdPartyExtensions) private var enableThirdPartyExtensions
     @Default(.enableExtensionNotchExperiences) private var enableExtensionNotchExperiences
     @Default(.enableExtensionNotchTabs) private var enableExtensionNotchTabs
+    @Default(.showCalendar) private var showCalendar
+    @Default(.showMirror) private var showMirror
+    @Default(.showStandardMediaControls) private var showStandardMediaControls
+    @Default(.enableMinimalisticUI) private var enableMinimalisticUI
     @Namespace var animation
     
     private var tabs: [TabModel] {
         var tabsArray: [TabModel] = []
-        
-        tabsArray.append(TabModel(label: "Home", icon: "house.fill", view: .home))
+
+        if homeTabVisible {
+            tabsArray.append(TabModel(label: "Home", icon: "house.fill", view: .home))
+        }
 
         if Defaults[.dynamicShelf] {
             tabsArray.append(TabModel(label: "Shelf", icon: "tray.fill", view: .shelf))
@@ -77,7 +99,9 @@ struct TabSelectionView: View {
                 )
             }
         }
-        
+        DispatchQueue.main.async {
+            ensureValidSelection(with: tabsArray)
+        }
         return tabsArray
     }
     var body: some View {
@@ -121,12 +145,33 @@ struct TabSelectionView: View {
         extensionNotchExperienceManager.activeExperiences.filter { $0.descriptor.tab != nil }
     }
 
+    private var homeTabVisible: Bool {
+        if enableMinimalisticUI {
+            return true
+        }
+        return showStandardMediaControls || showCalendar || showMirror
+    }
+
     private func isSelected(_ tab: TabModel) -> Bool {
         if tab.view == .extensionExperience {
             return coordinator.currentView == .extensionExperience
                 && coordinator.selectedExtensionExperienceID == tab.experienceID
         }
         return coordinator.currentView == tab.view
+    }
+
+    private func ensureValidSelection(with tabs: [TabModel]) {
+        guard !tabs.isEmpty else { return }
+        if tabs.contains(where: { isSelected($0) }) {
+            return
+        }
+        guard let first = tabs.first else { return }
+        if first.view == .extensionExperience {
+            coordinator.selectedExtensionExperienceID = first.experienceID
+        } else {
+            coordinator.selectedExtensionExperienceID = nil
+        }
+        coordinator.currentView = first.view
     }
 }
 

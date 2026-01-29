@@ -1,9 +1,20 @@
-//
-//  DynamicIslandViewCoordinator.swift
-//  DynamicIsland
-//
-//  Created by Alexander on 2024-11-20.
-//
+/*
+ * Atoll (DynamicIsland)
+ * Copyright (C) 2024-2026 Atoll Contributors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
 import Combine
 import Defaults
@@ -102,9 +113,6 @@ class DynamicIslandViewCoordinator: ObservableObject {
     }
     
     @Published var statsSecondRowExpansion: CGFloat = 1
-    private var statsSecondRowWorkItem: DispatchWorkItem?
-    private let statsSecondRowRevealDelay: TimeInterval = 0.5
-    private let statsSecondRowAnimationDuration: TimeInterval = 0.3
     @Published var notesLayoutState: NotesLayoutState = .list
     @Published var selectedExtensionExperienceID: String?
     
@@ -206,22 +214,8 @@ class DynamicIslandViewCoordinator: ObservableObject {
 
     private func handleStatsTabTransition(from oldValue: NotchViews, to newValue: NotchViews) {
         guard oldValue != newValue else { return }
-        statsSecondRowWorkItem?.cancel()
         if newValue == .stats && Defaults[.enableStatsFeature] {
-            statsSecondRowExpansion = 0
-            let workItem = DispatchWorkItem { [weak self] in
-                guard let self else { return }
-                withAnimation(.easeInOut(duration: self.statsSecondRowAnimationDuration)) {
-                    self.statsSecondRowExpansion = 1
-                }
-                self.statsSecondRowWorkItem = nil
-            }
-            statsSecondRowWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + statsSecondRowRevealDelay, execute: workItem)
-        } else {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                statsSecondRowExpansion = 0
-            }
+            statsSecondRowExpansion = 1
         }
     }
 

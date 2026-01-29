@@ -1,11 +1,24 @@
-//
-//  ContentView.swift
-//  DynamicIslandApp
-//
-//  Created by Harsh Vardhan Goswami  on 02/08/24
-//  Modified by Richard Kunkli on 24/08/2024.
-//  Modified by A Akhil on 13/01/2026.
-//
+/*
+ * Atoll (DynamicIsland)
+ * Copyright (C) 2024-2026 Atoll Contributors
+ *
+ * Originally from boring.notch project
+ * Modified and adapted for Atoll (DynamicIsland)
+ * See NOTICE for details.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
 import AVFoundation
 import Combine
@@ -66,6 +79,7 @@ struct ContentView: View {
     @Default(.enableScreenRecordingDetection) var enableScreenRecordingDetection
     @Default(.enableCapsLockIndicator) var enableCapsLockIndicator
     @Default(.enableExtensionLiveActivities) var enableExtensionLiveActivities
+    @Default(.showStandardMediaControls) var showStandardMediaControls
     
     // Dynamic sizing based on view type and graph count with smooth transitions
     var dynamicNotchSize: CGSize {
@@ -161,16 +175,21 @@ struct ContentView: View {
         enqueueMusicControlWindowSync(forceRefresh: forceRefresh, delay: delay)
     }
     private var dynamicNotchResizeAnimation: Animation? {
-        if enableMinimalisticUI && reminderManager.activeWindowReminders.isEmpty == false {
-            return nil
-        }
-        return .easeInOut(duration: 0.4)
+        nil
     }
     
     private let zeroHeightHoverPadding: CGFloat = 10
     private let statsAdditionalRowHeight: CGFloat = 110
     private let musicControlPauseGrace: TimeInterval = 5
     private let musicControlResumeDelay: TimeInterval = 0.24
+
+    private var standardMediaControlsActive: Bool {
+        showStandardMediaControls && !enableMinimalisticUI
+    }
+
+    private var closedMusicContentEnabled: Bool {
+        enableMinimalisticUI || showStandardMediaControls
+    }
     
     // Use minimalistic corner radius ONLY when opened, keep normal when closed
     private var activeCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) {
@@ -197,14 +216,27 @@ struct ContentView: View {
 
     var body: some View {
         let interactionsEnabled = !lockScreenManager.isLocked
+        let notchHorizontalPadding: CGFloat = {
+            guard vm.notchState == .open else {
+                return activeCornerRadiusInsets.closed.bottom
+            }
+            if Defaults[.cornerRadiusScaling] {
+                return activeCornerRadiusInsets.opened.top - 5
+            }
+            return activeCornerRadiusInsets.opened.bottom - 5
+        }()
+        let hoverAreaPadding: CGFloat = {
+            if vm.notchState == .open && Defaults[.extendHoverArea] {
+                return 0
+            }
+            return vm.effectiveClosedNotchHeight == 0 ? zeroHeightHoverPadding : 0
+        }()
+        let notchBottomPadding = currentShadowPadding + hoverAreaPadding
 
         ZStack(alignment: .top) {
             let mainLayout = NotchLayout()
                 .frame(alignment: .top)
-                .padding(.horizontal, vm.notchState == .open
-                         ? Defaults[.cornerRadiusScaling] ? (activeCornerRadiusInsets.opened.top - 5) : (activeCornerRadiusInsets.opened.bottom - 5)
-                         : activeCornerRadiusInsets.closed.bottom
-                )
+                .padding(.horizontal, notchHorizontalPadding)
                 .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
                 .background(.black)
                 .clipShape(currentNotchShape)
@@ -215,23 +247,15 @@ struct ContentView: View {
                         : .clear,
                     radius: Defaults[.cornerRadiusScaling] ? 10 : 5
                 )
-                .padding(.bottom,
-                    currentShadowPadding + (
-                        vm.notchState == .open && Defaults[.extendHoverArea]
-                            ? 0
-                            : (vm.effectiveClosedNotchHeight == 0 ? zeroHeightHoverPadding : 0)
-                    )
-                )
+                .padding(.bottom, notchBottomPadding)
 
             mainLayout
                 .conditionalModifier(!useModernCloseAnimation) { view in
                     let hoverAnimation = Animation.bouncy.speed(1.2)
                     let notchStateAnimation = Animation.spring.speed(1.2)
-                    let viewTransitionAnimation = Animation.easeInOut(duration: 0.4)
                     return view
                         .animation(hoverAnimation, value: isHovering)
                         .animation(notchStateAnimation, value: vm.notchState)
-                        .animation(viewTransitionAnimation, value: coordinator.currentView)
                         .animation(.smooth, value: gestureProgress)
                         .transition(.blurReplace.animation(.interactiveSpring(dampingFraction: 1.2)))
                 }
@@ -239,12 +263,10 @@ struct ContentView: View {
                     let hoverAnimation = Animation.bouncy.speed(1.2)
                     let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
                     let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
-                    let viewTransitionAnimation = Animation.easeInOut(duration: 0.4)
                     let notchAnimation = vm.notchState == .open ? openAnimation : closeAnimation
                     return view
                         .animation(hoverAnimation, value: isHovering)
                         .animation(notchAnimation, value: vm.notchState)
-                        .animation(viewTransitionAnimation, value: coordinator.currentView)
                         .animation(.smooth, value: gestureProgress)
                 }
                 .conditionalModifier(interactionsEnabled) { view in
@@ -373,13 +395,10 @@ struct ContentView: View {
         maxHeight: dynamicNotchSize.height + currentShadowPadding,
         alignment: .top
     )
-    .animation(dynamicNotchResizeAnimation, value: dynamicNotchSize)
-        .animation(.easeInOut(duration: 0.4), value: coordinator.currentView)
         .environmentObject(privacyManager)
         .onChange(of: dynamicNotchSize) { oldSize, newSize in
             guard oldSize != newSize else { return }
-            let delay: TimeInterval = dynamicNotchResizeAnimation == nil ? 0.25 : 1.0
-            runAfter(delay) {
+            runAfter(0.1) {
                 vm.shouldRecheckHover.toggle()
             }
         }
@@ -449,6 +468,12 @@ struct ContentView: View {
                 enqueueMusicControlWindowSync(forceRefresh: true, delay: 0.05)
             }
         }
+        .onChange(of: showStandardMediaControls) { _, _ in
+            handleStandardMediaControlsAvailabilityChange()
+        }
+        .onChange(of: enableMinimalisticUI) { _, _ in
+            handleStandardMediaControlsAvailabilityChange()
+        }
         .onChange(of: gestureProgress) { _, _ in
             if shouldShowMusicControlWindow() {
                 enqueueMusicControlWindowSync(forceRefresh: true, delay: 0.05)
@@ -506,6 +531,7 @@ struct ContentView: View {
                       let musicPairingEligible = vm.notchState == .closed
                           && hasActiveMusicSnapshot
                           && coordinator.musicLiveActivityEnabled
+                          && closedMusicContentEnabled
                           && !vm.hideOnClosed
                           && !lockScreenManager.isLocked
                       let musicSecondary = resolveMusicSecondaryLiveActivity(isMusicPairingEligible: musicPairingEligible)
@@ -722,14 +748,9 @@ struct ContentView: View {
                                 }
                           }
                       }
-                      .transition(.asymmetric(
-                          insertion: .scale(scale: 0.8).combined(with: .opacity).animation(.easeInOut(duration: 0.4)),
-                          removal: .scale(scale: 0.8).combined(with: .opacity).animation(.easeInOut(duration: 0.4))
-                      ))
                       .id(coordinator.currentView) // Force SwiftUI to treat each view as unique
                   }
               }
-              .animation(.easeInOut(duration: 0.4), value: coordinator.currentView)
               .zIndex(1)
               .allowsHitTesting(vm.notchState == .open)
               .blur(radius: abs(gestureProgress) > 0.3 ? min(abs(gestureProgress), 8) : 0)
@@ -1035,15 +1056,10 @@ struct ContentView: View {
                         .font(.system(size: badgeSize * 0.5, weight: .semibold))
                         .foregroundStyle(capsLockTintMode.color)
                 case .extensionPayload(let payload):
-                    ExtensionCompositeIconView(
-                        leading: payload.descriptor.leadingIcon,
-                        badge: payload.descriptor.badgeIcon,
+                    ExtensionBadgeIconView(
+                        descriptor: payload.descriptor.leadingIcon,
                         accent: payload.descriptor.accentColor.swiftUIColor,
                         size: badgeSize
-                    )
-                    .background(
-                        Circle()
-                            .fill(Color.black.opacity(0.85))
                     )
                 }
             }
@@ -1058,8 +1074,6 @@ struct ContentView: View {
     private func badgeDisplaySize(for secondary: MusicSecondaryLiveActivity?, baseSize: CGFloat) -> CGFloat {
         guard let secondary else { return baseSize }
         switch secondary {
-        case .extensionPayload:
-            return max(11, baseSize * 0.86)
         default:
             return baseSize
         }
@@ -1068,8 +1082,6 @@ struct ContentView: View {
     private func badgeOverlayOffset(for secondary: MusicSecondaryLiveActivity?, badgeSize: CGFloat) -> CGSize {
         guard let secondary else { return CGSize(width: badgeSize * 0.2, height: badgeSize * 0.25) }
         switch secondary {
-        case .extensionPayload:
-            return CGSize(width: badgeSize * 0.14, height: badgeSize * 0.12)
         default:
             return CGSize(width: badgeSize * 0.2, height: badgeSize * 0.25)
         }
@@ -1176,6 +1188,15 @@ struct ContentView: View {
             ExtensionRoutingDiagnostics.shared.logSuppression(
                 .music,
                 reason: "feature toggle disabled",
+                pendingCount: candidates.count
+            )
+            return nil
+        }
+
+        guard closedMusicContentEnabled else {
+            ExtensionRoutingDiagnostics.shared.logSuppression(
+                .music,
+                reason: "music content disabled",
                 pendingCount: candidates.count
             )
             return nil
@@ -1706,6 +1727,26 @@ struct ContentView: View {
         }
     }
 
+    private func handleStandardMediaControlsAvailabilityChange() {
+        guard musicControlWindowEnabled else {
+            hideMusicControlWindow()
+            return
+        }
+
+        if standardMediaControlsActive {
+            if musicManager.isPlaying || !musicManager.isPlayerIdle {
+                clearMusicControlVisibilityDeadline()
+            }
+            enqueueMusicControlWindowSync(forceRefresh: true)
+        } else {
+            cancelMusicControlWindowSync()
+            hideMusicControlWindow()
+            clearMusicControlVisibilityDeadline()
+            hasPendingMusicControlSync = false
+            pendingMusicControlForceRefresh = false
+        }
+    }
+
     private func extendMusicControlVisibilityAfterPause() {
         let deadline = Date().addingTimeInterval(musicControlPauseGrace)
         musicControlVisibilityDeadline = deadline
@@ -1817,6 +1858,7 @@ struct ContentView: View {
     private func shouldShowMusicControlWindow() -> Bool {
         guard musicControlWindowEnabled,
               coordinator.musicLiveActivityEnabled,
+              standardMediaControlsActive,
               vm.notchState == .closed,
               !vm.hideOnClosed,
               !lockScreenManager.isLocked,
