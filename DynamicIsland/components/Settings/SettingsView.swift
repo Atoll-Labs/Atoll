@@ -2441,11 +2441,10 @@ struct About: View {
                         NSWorkspace.shared.open(sponsorPage)
                     } label: {
                         VStack(spacing: 5) {
-                            Image("LinkedIn")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 18)
-                            Text("LinkedIn")
+                            Image(systemName: "cup.and.saucer.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.white)
+                            Text("Donate")
                                 .foregroundStyle(.white)
                         }
                         .contentShape(Rectangle())
@@ -2467,6 +2466,10 @@ struct About: View {
                     Spacer(minLength: 0)
                 }
                 .buttonStyle(PlainButtonStyle())
+                Text("Your support funds software development learning for students in 9th–12th grade.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
             VStack(spacing: 0) {
                 Divider()

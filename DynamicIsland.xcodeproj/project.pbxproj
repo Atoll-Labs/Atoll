@@ -427,7 +427,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = "1.3-beta";
+				MARKETING_VERSION = "1.3.0-beta";
 				PRODUCT_BUNDLE_IDENTIFIER = com.Ebullioscopic.Atoll.dev;
 				PRODUCT_NAME = Atoll;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -498,7 +498,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = "1.3-beta";
+				MARKETING_VERSION = "1.3.0-beta";
 				PRODUCT_BUNDLE_IDENTIFIER = com.Ebullioscopic.Atoll;
 				PRODUCT_NAME = Atoll;
 				PROVISIONING_PROFILE_SPECIFIER = "";
