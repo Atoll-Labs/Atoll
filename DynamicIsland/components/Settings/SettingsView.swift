@@ -1,25 +1,9 @@
-/*
- * Atoll (DynamicIsland)
- * Copyright (C) 2024-2026 Atoll Contributors
- *
- * Originally from boring.notch project
- * Modified and adapted for Atoll (DynamicIsland)
- * See NOTICE for details.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
-
+//
+//  SettingsView.swift
+//  DynamicIsland
+//
+//  Created by Richard Kunkli on 07/08/2024.
+//
 import AppKit
 import AVFoundation
 import Combine
@@ -303,6 +287,17 @@ struct SettingsView: View {
                                         Capsule()
                                             .fill(Color.blue)
                                     )
+                            } else if tab == .extensions {
+                                Spacer()
+                                Text("ALPHA")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.orange)
+                                    )
                             }
                         }
                         .padding(.vertical, 4)
@@ -414,7 +409,6 @@ struct SettingsView: View {
             .lockScreen,
             .media,
             .devices,
-            .extensions,
             .timer,
             .calendar,
             .hudAndOSD,
@@ -427,6 +421,7 @@ struct SettingsView: View {
             .downloads,
             .shelf,
             .shortcuts,
+            .extensions,
             .about
         ]
 
