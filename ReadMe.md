@@ -1,7 +1,7 @@
 <p align="center">
   <img src=".github/assets/atoll-logo.png" alt="Atoll logo" width="120">
 </p>
-
+<h1 align="center">Atoll</h1>
 <p align="center">
   <a href="https://github.com/Ebullioscopic/Atoll/stargazers">
     <img src="https://img.shields.io/github/stars/Ebullioscopic/Atoll?style=social" alt="GitHub stars"/>
@@ -32,10 +32,6 @@
 <p align="center">
   <a href="https://discord.gg/PaqFkRTDF8">Join our Discord community</a>
 </p>
-
-**Project rename:** DynamicIsland is now called **Atoll**. Visit the new repository at [github.com/Ebullioscopic/Atoll](https://github.com/Ebullioscopic/Atoll).
-
-# Atoll
 
 Atoll turns the MacBook notch into a focused command surface for media, system insight, and quick utilities. It stays out of the way until needed, then expands with responsive, native SwiftUI animations.
 
