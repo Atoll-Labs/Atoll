@@ -43,26 +43,26 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .general: return "General"
-        case .liveActivities: return "Live Activities"
-        case .appearance: return "Appearance"
-        case .lockScreen: return "Lock Screen"
-        case .media: return "Media"
-        case .devices: return "Devices"
-        case .extensions: return "Extensions"
-        case .timer: return "Timer"
-        case .calendar: return "Calendar"
-        case .hudAndOSD: return "Controls"
-        case .battery: return "Battery"
-        case .stats: return "Stats"
-        case .clipboard: return "Clipboard"
-        case .screenAssistant: return "Screen Assistant"
-        case .colorPicker: return "Color Picker"
-        case .downloads: return "Downloads"
-        case .shelf: return "Shelf"
-        case .shortcuts: return "Shortcuts"
-        case .notes: return "Notes"
-        case .about: return "About"
+        case .general: return String(localized: "General")
+        case .liveActivities: return String(localized: "Live Activities")
+        case .appearance: return String(localized: "Appearance")
+        case .lockScreen: return String(localized: "Lock Screen")
+        case .media: return String(localized: "Media")
+        case .devices: return String(localized: "Devices")
+        case .extensions: return String(localized: "Extensions")
+        case .timer: return String(localized: "Timer")
+        case .calendar: return String(localized: "Calendar")
+        case .hudAndOSD: return String(localized: "Controls")
+        case .battery: return String(localized: "Battery")
+        case .stats: return String(localized: "Stats")
+        case .clipboard: return String(localized: "Clipboard")
+        case .screenAssistant: return String(localized: "Screen Assistant")
+        case .colorPicker: return String(localized: "Color Picker")
+        case .downloads: return String(localized: "Downloads")
+        case .shelf: return String(localized: "Shelf")
+        case .shortcuts: return String(localized: "Shortcuts")
+        case .notes: return String(localized: "Notes")
+        case .about: return String(localized: "About")
         }
     }
 
