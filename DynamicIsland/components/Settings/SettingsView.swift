@@ -6442,7 +6442,7 @@ struct ColorPickerSettings: View {
     var body: some View {
         Form {
             Section {
-                Defaults.Toggle("Enable Color Picker", key: .enableColorPickerFeature)
+                    Defaults.Toggle(String(localized: "Enable Color Picker"), key: .enableColorPickerFeature)
                     .settingsHighlight(id: highlightID("Enable Color Picker"))
             } header: {
                 Text("Color Picker")
