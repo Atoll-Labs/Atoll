@@ -250,13 +250,13 @@ struct SettingsView: View {
     @State private var searchText: String = ""
     @StateObject private var highlightCoordinator = SettingsHighlightCoordinator()
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
-
+    
     let updaterController: SPUStandardUpdaterController?
-
+    
     init(updaterController: SPUStandardUpdaterController? = nil) {
         self.updaterController = updaterController
     }
-
+    
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 12) {
@@ -267,10 +267,10 @@ struct SettingsView: View {
                 )
                 .padding(.horizontal, 12)
                 .padding(.top, 12)
-
+                
                 Divider()
                     .padding(.horizontal, 12)
-
+                
                 List(filteredTabs, selection: selectionBinding) { tab in
                     NavigationLink(value: tab) {
                         HStack(spacing: 10) {
@@ -349,11 +349,11 @@ struct SettingsView: View {
             .ignoresSafeArea()
         }
     }
-
+    
     private var resolvedSelection: SettingsTab {
         availableTabs.contains(selectedTab) ? selectedTab : (availableTabs.first ?? .general)
     }
-
+    
     @ToolbarContentBuilder
     private var toolbarSpacingShim: some ToolbarContent {
         if #available(macOS 26.0, *) {
@@ -367,7 +367,7 @@ struct SettingsView: View {
             }
         }
     }
-
+    
     @ViewBuilder
     private var toolbarSpacerView: some View {
         Color.clear
@@ -375,11 +375,11 @@ struct SettingsView: View {
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
-
+    
     private var filteredTabs: [SettingsTab] {
         tabsMatchingSearch(searchText)
     }
-
+    
     private var selectionBinding: Binding<SettingsTab> {
         Binding(
             get: { resolvedSelection },
@@ -388,7 +388,7 @@ struct SettingsView: View {
             }
         )
     }
-
+    
     @ViewBuilder
     private func sidebarIcon(for tab: SettingsTab) -> some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -400,7 +400,7 @@ struct SettingsView: View {
                     .foregroundStyle(Color.white)
             }
     }
-
+    
     private var availableTabs: [SettingsTab] {
         let ordered: [SettingsTab] = [
             .general,
@@ -424,40 +424,40 @@ struct SettingsView: View {
             .extensions,
             .about
         ]
-
+        
         return ordered.filter { isTabVisible($0) }
     }
-
+    
     private func tabsMatchingSearch(_ query: String) -> [SettingsTab] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return availableTabs }
-
+        
         let entryMatches = searchEntries(matching: trimmed)
         let matchingTabs = Set(entryMatches.map(\.tab))
-
+        
         return availableTabs.filter { tab in
             tab.title.localizedCaseInsensitiveContains(trimmed) || matchingTabs.contains(tab)
         }
     }
-
+    
     private var searchSuggestions: [SettingsSearchEntry] {
         Array(searchEntries(matching: searchText).filter { $0.tab != .downloads }.prefix(8))
     }
-
+    
     private func handleSearchSuggestionSelection(_ suggestion: SettingsSearchEntry) {
         guard suggestion.tab != .downloads else { return }
         highlightCoordinator.focus(on: suggestion)
         selectedTab = suggestion.tab
     }
-
+    
     private struct SettingsSidebarSearchBar: View {
         @Binding var text: String
         let suggestions: [SettingsSearchEntry]
         let onSuggestionSelected: (SettingsSearchEntry) -> Void
-
+        
         @FocusState private var isFocused: Bool
         @State private var hoveredSuggestionID: SettingsSearchEntry.ID?
-
+        
         var body: some View {
             VStack(spacing: 6) {
                 searchField
@@ -467,21 +467,21 @@ struct SettingsView: View {
             }
             .animation(.easeInOut(duration: 0.15), value: showSuggestions)
         }
-
+        
         private var showSuggestions: Bool {
             isFocused && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !suggestions.isEmpty
         }
-
+        
         private var searchField: some View {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(Color.secondary)
-
+                
                 TextField("Search Settings", text: $text)
                     .textFieldStyle(.plain)
                     .focused($isFocused)
                     .onSubmit(triggerFirstSuggestion)
-
+                
                 if !text.isEmpty {
                     Button {
                         text = ""
@@ -505,7 +505,7 @@ struct SettingsView: View {
                     .stroke(Color.white.opacity(0.08))
             )
         }
-
+        
         private var suggestionList: some View {
             VStack(spacing: 0) {
                 ForEach(suggestions) { suggestion in
@@ -521,7 +521,7 @@ struct SettingsView: View {
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundStyle(Color.white)
                                 }
-
+                            
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(suggestion.title)
                                     .font(.system(size: 13, weight: .semibold))
@@ -530,7 +530,7 @@ struct SettingsView: View {
                                     .font(.system(size: 11))
                                     .foregroundStyle(Color.secondary)
                             }
-
+                            
                             Spacer(minLength: 0)
                         }
                         .padding(.horizontal, 10)
@@ -542,7 +542,7 @@ struct SettingsView: View {
                     .onHover { hovering in
                         hoveredSuggestionID = hovering ? suggestion.id : (hoveredSuggestionID == suggestion.id ? nil : hoveredSuggestionID)
                     }
-
+                    
                     if suggestion.id != suggestions.last?.id {
                         Divider()
                             .padding(.leading, 48)
@@ -560,27 +560,27 @@ struct SettingsView: View {
             .shadow(color: Color.black.opacity(0.2), radius: 8, y: 4)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
-
+        
         private func rowBackground(for suggestion: SettingsSearchEntry) -> some View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(hoveredSuggestionID == suggestion.id ? Color.white.opacity(0.08) : Color.clear)
         }
-
+        
         private func selectSuggestion(_ suggestion: SettingsSearchEntry) {
             onSuggestionSelected(suggestion)
             isFocused = false
         }
-
+        
         private func triggerFirstSuggestion() {
             guard let first = suggestions.first else { return }
             selectSuggestion(first)
         }
     }
-
+    
     private func searchEntries(matching query: String) -> [SettingsSearchEntry] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
-
+        
         return settingsSearchIndex
             .filter { availableTabs.contains($0.tab) }
             .filter { entry in
@@ -588,7 +588,7 @@ struct SettingsView: View {
                 entry.keywords.contains { $0.localizedCaseInsensitiveContains(trimmed) }
             }
     }
-
+    
     private var settingsSearchIndex: [SettingsSearchEntry] {
         [
             // General
@@ -671,281 +671,746 @@ struct SettingsView: View {
                 keywords: [String(localized: "hover to open"), String(localized: "auto open")],
                 highlightID: SettingsTab.general.highlightID(for: "Open notch on hover")
             ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized: "Notch display height"),
-                keywords: [String(localized: "display height"), String(localized: "menu bar size")],
-                highlightID: SettingsTab.general.highlightID(for: "Notch display height")
-            ),
-
-            // Battery (Charge)
-            SettingsSearchEntry(tab: .battery, title: "Show battery indicator", keywords: ["battery hud", "charge"], highlightID: SettingsTab.battery.highlightID(for: "Show battery indicator")),
-            SettingsSearchEntry(tab: .battery, title: "Show battery percentage", keywords: ["battery percent"], highlightID: SettingsTab.battery.highlightID(for: "Show battery percentage")),
-            SettingsSearchEntry(tab: .battery, title: "Show power status notifications", keywords: ["notifications", "power"], highlightID: SettingsTab.battery.highlightID(for: "Show power status notifications")),
-            SettingsSearchEntry(tab: .battery, title: "Show power status icons", keywords: ["power icons", "charging icon"], highlightID: SettingsTab.battery.highlightID(for: "Show power status icons")),
-            SettingsSearchEntry(tab: .battery, title: "Play low battery alert sound", keywords: ["low battery", "alert", "sound"], highlightID: SettingsTab.battery.highlightID(for: "Play low battery alert sound")),
-
-            // HUDs
-            SettingsSearchEntry(tab: .devices, title: "Show Bluetooth device connections", keywords: ["bluetooth", "hud"], highlightID: SettingsTab.devices.highlightID(for: "Show Bluetooth device connections")),
-            SettingsSearchEntry(tab: .devices, title: "Use circular battery indicator", keywords: ["battery", "circular"], highlightID: SettingsTab.devices.highlightID(for: "Use circular battery indicator")),
-            SettingsSearchEntry(tab: .devices, title: "Show battery percentage text in HUD", keywords: ["battery text"], highlightID: SettingsTab.devices.highlightID(for: "Show battery percentage text in HUD")),
-            SettingsSearchEntry(tab: .devices, title: "Scroll device name in HUD", keywords: ["marquee", "device name"], highlightID: SettingsTab.devices.highlightID(for: "Scroll device name in HUD")),
-            SettingsSearchEntry(tab: .devices, title: "Color-coded battery display", keywords: ["color", "battery"], highlightID: SettingsTab.devices.highlightID(for: "Color-coded battery display")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Color-coded volume display", keywords: ["volume", "color"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Color-coded volume display")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Smooth color transitions", keywords: ["gradient", "smooth"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Smooth color transitions")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Show percentages beside progress bars", keywords: ["percentages", "progress"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Show percentages beside progress bars")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "HUD style", keywords: ["inline", "compact"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "HUD style")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Progressbar style", keywords: ["progress", "style"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Progressbar style")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Enable glowing effect", keywords: ["glow", "indicator"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Enable glowing effect")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Use accent color", keywords: ["accent", "color"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Use accent color")),
-
-            // Custom OSD
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Enable Custom OSD", keywords: ["osd", "on-screen display", "custom osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Enable Custom OSD")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Volume OSD", keywords: ["volume", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Volume OSD")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Brightness OSD", keywords: ["brightness", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Brightness OSD")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Keyboard Backlight OSD", keywords: ["keyboard", "backlight", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Keyboard Backlight OSD")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Material", keywords: ["material", "frosted", "liquid", "glass", "solid", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Material")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Icon & Progress Color", keywords: ["color", "icon", "white", "black", "gray", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Icon & Progress Color")),
-
-            // Media
-            SettingsSearchEntry(tab: .media, title: "Music Source", keywords: ["media source", "controller"], highlightID: SettingsTab.media.highlightID(for: "Music Source")),
-            SettingsSearchEntry(tab: .media, title: "Skip buttons", keywords: ["skip", "controls", "±10"], highlightID: SettingsTab.media.highlightID(for: "Skip buttons")),
-            SettingsSearchEntry(tab: .media, title: "Sneak Peek Style", keywords: ["sneak peek", "preview"], highlightID: SettingsTab.media.highlightID(for: "Sneak Peek Style")),
-            SettingsSearchEntry(tab: .media, title: "Enable lyrics", keywords: ["lyrics", "song text"], highlightID: SettingsTab.media.highlightID(for: "Enable lyrics")),
-            SettingsSearchEntry(tab: .media, title: "Show Change Media Output control", keywords: ["airplay", "route picker", "media output"], highlightID: SettingsTab.media.highlightID(for: "Show Change Media Output control")),
-            SettingsSearchEntry(tab: .media, title: "Enable album art parallax", keywords: ["parallax", "lock screen", "album art"], highlightID: SettingsTab.media.highlightID(for: "Enable album art parallax")),
-            SettingsSearchEntry(tab: .media, title: "Enable album art parallax effect", keywords: ["parallax", "parallax effect", "album art"], highlightID: SettingsTab.media.highlightID(for: "Enable album art parallax effect")),
-
-            // Calendar
-            SettingsSearchEntry(
-                tab: .calendar,
-                title: String(localized: "Show calendar"),
-                keywords: [String(localized: "calendar"), String(localized: "events")],
-                highlightID: SettingsTab.calendar.highlightID(for: "Show calendar")
-            ),
-            SettingsSearchEntry(
-                tab: .calendar,
-                title: String(localized: "Enable reminder live activity"),
-                keywords: [String(localized: "reminder"), String(localized: "live activity")],
-                highlightID: SettingsTab.calendar.highlightID(for: "Enable reminder live activity")
-            ),
-            SettingsSearchEntry(
-                tab: .calendar,
-                title: String(localized:"Countdown style"),
-                keywords: [String(localized:"reminder countdown")],
-                highlightID: SettingsTab.calendar.highlightID(for: "Countdown style")
-            ),
-            SettingsSearchEntry(
-                tab: .calendar,
-                title: String(localized:"Show lock screen reminder"),
-                keywords: [String(localized:"lock screen"), String(localized:"reminder widget")],
-                highlightID: SettingsTab.calendar.highlightID(for: "Show lock screen reminder")
-            ),
-            SettingsSearchEntry(
-                tab: .calendar,
-                title: String(localized: "Chip color"),
-                keywords: [
-                    String(localized: "reminder chip"),
-                    String(localized: "color")
-                ],
-                highlightID: SettingsTab.calendar.highlightID(for: "Chip color")
-            ),
-            SettingsSearchEntry(
-                tab: .calendar,
-                title: String(localized: "Hide all-day events"),
-                keywords: [
-                    String(localized: "calendar"),
-                    String(localized: "all-day")
-                ],
-                highlightID: SettingsTab.calendar.highlightID(for: "Hide all-day events")
-            ),
-            SettingsSearchEntry(
-                tab: .calendar,
-                title: String(localized: "Hide completed reminders"),
-                keywords: [
-                    String(localized: "reminder"),
-                    String(localized: "completed")
-                ],
-                highlightID: SettingsTab.calendar.highlightID(for: "Hide completed reminders")
-            ),
-            SettingsSearchEntry(
-                tab: .calendar,
-                title: String(localized: "Show full event titles"),
-                keywords: [
-                    String(localized: "calendar"),
-                    String(localized: "titles")
-                ],
-                highlightID: SettingsTab.calendar.highlightID(for: "Show full event titles")
-            ),
-            SettingsSearchEntry(
-                tab: .calendar,
-                title: String(localized: "Auto-scroll to next event"),
-                keywords: [
-                    String(localized: "calendar"),
-                    String(localized: "scroll")
-                ],
-                highlightID: SettingsTab.calendar.highlightID(for: "Auto-scroll to next event")
-            ),
-
-            // Shelf
-            SettingsSearchEntry(tab: .shelf, title: "Enable shelf", keywords: ["shelf", "dock"], highlightID: SettingsTab.shelf.highlightID(for: "Enable shelf")),
-            SettingsSearchEntry(tab: .shelf, title: "Open shelf tab by default if items added", keywords: ["auto open", "shelf tab"], highlightID: SettingsTab.shelf.highlightID(for: "Open shelf tab by default if items added")),
-            SettingsSearchEntry(tab: .shelf, title: "Expanded drag detection area", keywords: ["shelf", "drag"], highlightID: SettingsTab.shelf.highlightID(for: "Expanded drag detection area")),
-            SettingsSearchEntry(tab: .shelf, title: "Copy items on drag", keywords: ["shelf", "drag", "copy"], highlightID: SettingsTab.shelf.highlightID(for: "Copy items on drag")),
-            SettingsSearchEntry(tab: .shelf, title: "Remove from shelf after dragging", keywords: ["shelf", "drag", "remove"], highlightID: SettingsTab.shelf.highlightID(for: "Remove from shelf after dragging")),
-            SettingsSearchEntry(tab: .shelf, title: "Quick Share Service", keywords: ["shelf", "share", "airdrop"], highlightID: SettingsTab.shelf.highlightID(for: "Quick Share Service")),
-
-            // Appearance
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "Settings icon in notch"),
-                keywords: [String(localized: "settings button"), String(localized: "toolbar")],
-                highlightID: SettingsTab.appearance.highlightID(for: "Settings icon in notch")
-            ),
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "Enable window shadow"),
-                keywords: [String(localized: "shadow"), String(localized: "appearance")],
-                highlightID: SettingsTab.appearance.highlightID(for: "Enable window shadow")
-            ),
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "Corner radius scaling"),
-                keywords: [String(localized: "corner radius"), String(localized: "shape")],
-                highlightID: SettingsTab.appearance.highlightID(for: "Corner radius scaling")
-            ),
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "Use simpler close animation"),
-                keywords: [String(localized: "close animation"), String(localized: "notch")],
-                highlightID: SettingsTab.appearance.highlightID(for: "Use simpler close animation")
-            ),
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "Notch Width"),
-                keywords: [String(localized: "expanded notch"), String(localized: "width"), String(localized: "resize")],
-                highlightID: SettingsTab.appearance.highlightID(for: "Expanded notch width")
-            ),
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "Enable colored spectrograms"), keywords: [String(localized: "spectrogram"), String(localized: "audio")],
-                highlightID: SettingsTab.appearance.highlightID(for: "Enable colored spectrograms")
-            ),
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "Enable blur effect behind album art"),
-                keywords: [String(localized: "blur"), String(localized: "album art")],
-                highlightID: SettingsTab.appearance.highlightID(for: "Enable blur effect behind album art")
-            ),
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "Slider color"),
-                keywords: [String(localized: "slider"), String(localized: "accent")],
-                highlightID: SettingsTab.appearance.highlightID(for: "Slider color")
-            ),
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "Enable Dynamic mirror"),
-                keywords: [String(localized: "mirror"), String(localized: "reflection")],
-                highlightID: SettingsTab.appearance.highlightID(for: "Enable Dynamic mirror")
-            ),
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "Mirror shape"),
-                keywords: [String(localized: "mirror shape"), String(localized: "circle"), String(localized: "rectangle")],
-                highlightID: SettingsTab.appearance.highlightID(for: "Mirror shape")
-            ),
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "Show cool face animation while inactivity"),
-                keywords: [String(localized: "face animation"), String(localized: "idle")],
-                highlightID: SettingsTab.appearance.highlightID(for: "Show cool face animation while inactivity")
-            ),
-            SettingsSearchEntry(
-                tab: .appearance,
-                title: String(localized: "App icon"),
-                keywords: [String(localized: "app icon"), String(localized: "custom icon")],
-                highlightID: SettingsTab.appearance.highlightID(for: "App icon")
-            ),
-
-            // Lock Screen
-            SettingsSearchEntry(tab: .lockScreen, title: "Enable lock screen live activity", keywords: ["lock screen", "live activity"], highlightID: SettingsTab.lockScreen.highlightID(for: "Enable lock screen live activity")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Play lock/unlock sounds", keywords: ["chime", "sound"], highlightID: SettingsTab.lockScreen.highlightID(for: "Play lock/unlock sounds")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Material", keywords: ["glass", "frosted", "liquid"], highlightID: SettingsTab.lockScreen.highlightID(for: "Material")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Show lock screen media panel", keywords: ["media panel", "lock screen media"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen media panel")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Show media app icon", keywords: ["app icon", "media"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show media app icon")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Show panel border", keywords: ["panel border"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show panel border")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Enable media panel blur", keywords: ["blur", "media panel"], highlightID: SettingsTab.lockScreen.highlightID(for: "Enable media panel blur")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Show lock screen timer", keywords: ["timer widget", "lock screen timer"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen timer")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Timer surface", keywords: ["timer glass", "classic", "blur"], highlightID: SettingsTab.lockScreen.highlightID(for: "Timer surface")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Timer glass material", keywords: ["frosted", "liquid", "timer material"], highlightID: SettingsTab.lockScreen.highlightID(for: "Timer glass material")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Timer liquid mode", keywords: ["timer", "standard", "custom"], highlightID: SettingsTab.lockScreen.highlightID(for: "Timer liquid mode")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Timer widget variant", keywords: ["timer variant", "liquid"], highlightID: SettingsTab.lockScreen.highlightID(for: "Timer widget variant")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Show lock screen weather", keywords: ["weather widget"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen weather")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Layout", keywords: ["inline", "circular", "weather layout"], highlightID: SettingsTab.lockScreen.highlightID(for: "Layout")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Weather data provider", keywords: ["wttr", "open meteo"], highlightID: SettingsTab.lockScreen.highlightID(for: "Weather data provider")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Temperature unit", keywords: ["celsius", "fahrenheit"], highlightID: SettingsTab.lockScreen.highlightID(for: "Temperature unit")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Show location label", keywords: ["location", "weather"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show location label")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Show charging status", keywords: ["charging", "weather"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show charging status")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Show charging percentage", keywords: ["charging percentage"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show charging percentage")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Show battery indicator", keywords: ["battery gauge", "weather"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show battery indicator")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Use MacBook icon when on battery", keywords: ["laptop icon", "battery"], highlightID: SettingsTab.lockScreen.highlightID(for: "Use MacBook icon when on battery")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Show Bluetooth battery", keywords: ["bluetooth", "gauge"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show Bluetooth battery")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Show AQI widget", keywords: ["air quality", "aqi"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show AQI widget")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Air quality scale", keywords: ["aqi", "scale"], highlightID: SettingsTab.lockScreen.highlightID(for: "Air quality scale")),
-            SettingsSearchEntry(tab: .lockScreen, title: "Use colored gauges", keywords: ["gauge tint", "monochrome"], highlightID: SettingsTab.lockScreen.highlightID(for: "Use colored gauges")),
-
-            // Extensions
-            SettingsSearchEntry(tab: .extensions, title: "Enable third-party extensions", keywords: ["extensions", "authorization", "third party"], highlightID: SettingsTab.extensions.highlightID(for: "Enable third-party extensions")),
-            SettingsSearchEntry(tab: .extensions, title: "Allow extension live activities", keywords: ["extensions", "live activities", "permissions"], highlightID: SettingsTab.extensions.highlightID(for: "Allow extension live activities")),
-            SettingsSearchEntry(tab: .extensions, title: "Allow extension lock screen widgets", keywords: ["extensions", "lock screen", "widgets"], highlightID: SettingsTab.extensions.highlightID(for: "Allow extension lock screen widgets")),
-            SettingsSearchEntry(tab: .extensions, title: "Enable extension diagnostics logging", keywords: ["extensions", "diagnostics", "logging"], highlightID: SettingsTab.extensions.highlightID(for: "Enable extension diagnostics logging")),
-            SettingsSearchEntry(tab: .extensions, title: "Manage app permissions", keywords: ["extensions", "permissions", "apps"], highlightID: SettingsTab.extensions.highlightID(for: "App permissions list")),
-
-            // Shortcuts
-            SettingsSearchEntry(tab: .shortcuts, title: "Enable global keyboard shortcuts", keywords: ["keyboard", "shortcut"], highlightID: SettingsTab.shortcuts.highlightID(for: "Enable global keyboard shortcuts")),
-
-            // Timer
-            SettingsSearchEntry(tab: .timer, title: "Enable timer feature", keywords: ["timer", "enable"], highlightID: SettingsTab.timer.highlightID(for: "Enable timer feature")),
-            SettingsSearchEntry(tab: .timer, title: "Mirror macOS Clock timers", keywords: ["system timer", "clock app"], highlightID: SettingsTab.timer.highlightID(for: "Mirror macOS Clock timers")),
-            SettingsSearchEntry(tab: .timer, title: "Show lock screen timer widget", keywords: ["lock screen", "timer widget"], highlightID: SettingsTab.timer.highlightID(for: "Show lock screen timer widget")),
-            SettingsSearchEntry(tab: .timer, title: "Timer surface", keywords: ["timer glass", "classic", "blur"], highlightID: SettingsTab.timer.highlightID(for: "Timer surface")),
-            SettingsSearchEntry(tab: .timer, title: "Timer glass material", keywords: ["frosted", "liquid", "timer material"], highlightID: SettingsTab.timer.highlightID(for: "Timer glass material")),
-            SettingsSearchEntry(tab: .timer, title: "Timer liquid mode", keywords: ["timer", "standard", "custom"], highlightID: SettingsTab.timer.highlightID(for: "Timer liquid mode")),
-            SettingsSearchEntry(tab: .timer, title: "Timer widget variant", keywords: ["timer variant", "liquid"], highlightID: SettingsTab.timer.highlightID(for: "Timer widget variant")),
-            SettingsSearchEntry(tab: .timer, title: "Timer tint", keywords: ["timer colour", "preset"], highlightID: SettingsTab.timer.highlightID(for: "Timer tint")),
-            SettingsSearchEntry(tab: .timer, title: "Solid colour", keywords: ["timer colour", "custom"], highlightID: SettingsTab.timer.highlightID(for: "Solid colour")),
-            SettingsSearchEntry(tab: .timer, title: "Progress style", keywords: ["progress", "bar", "ring"], highlightID: SettingsTab.timer.highlightID(for: "Progress style")),
-            SettingsSearchEntry(tab: .timer, title: "Accent colour", keywords: ["accent", "timer"], highlightID: SettingsTab.timer.highlightID(for: "Accent colour")),
-
-            // Stats
-            SettingsSearchEntry(tab: .stats, title: "Enable system stats monitoring", keywords: ["stats", "monitoring"], highlightID: SettingsTab.stats.highlightID(for: "Enable system stats monitoring")),
-            SettingsSearchEntry(tab: .stats, title: "Stop monitoring after closing the notch", keywords: ["stats", "auto stop"], highlightID: SettingsTab.stats.highlightID(for: "Stop monitoring after closing the notch")),
-            SettingsSearchEntry(tab: .stats, title: "CPU Usage", keywords: ["cpu", "graph"], highlightID: SettingsTab.stats.highlightID(for: "CPU Usage")),
-            SettingsSearchEntry(tab: .stats, title: "Memory Usage", keywords: ["memory", "ram"], highlightID: SettingsTab.stats.highlightID(for: "Memory Usage")),
-            SettingsSearchEntry(tab: .stats, title: "GPU Usage", keywords: ["gpu", "graphics"], highlightID: SettingsTab.stats.highlightID(for: "GPU Usage")),
-            SettingsSearchEntry(tab: .stats, title: "Network Activity", keywords: ["network", "graph"], highlightID: SettingsTab.stats.highlightID(for: "Network Activity")),
-            SettingsSearchEntry(tab: .stats, title: "Disk I/O", keywords: ["disk", "io"], highlightID: SettingsTab.stats.highlightID(for: "Disk I/O")),
-
-            // Clipboard
-            SettingsSearchEntry(tab: .clipboard, title: "Enable Clipboard Manager", keywords: ["clipboard", "manager"], highlightID: SettingsTab.clipboard.highlightID(for: "Enable Clipboard Manager")),
-            SettingsSearchEntry(tab: .clipboard, title: "Show Clipboard Icon", keywords: ["icon", "clipboard"], highlightID: SettingsTab.clipboard.highlightID(for: "Show Clipboard Icon")),
-            SettingsSearchEntry(tab: .clipboard, title: "Display Mode", keywords: ["list", "grid", "clipboard"], highlightID: SettingsTab.clipboard.highlightID(for: "Display Mode")),
-            SettingsSearchEntry(tab: .clipboard, title: "History Size", keywords: ["history", "clipboard"], highlightID: SettingsTab.clipboard.highlightID(for: "History Size")),
-
-            // Screen Assistant
-            SettingsSearchEntry(tab: .screenAssistant, title: "Enable Screen Assistant", keywords: ["screen assistant", "ai"], highlightID: SettingsTab.screenAssistant.highlightID(for: "Enable Screen Assistant")),
-            SettingsSearchEntry(tab: .screenAssistant, title: "Display Mode", keywords: ["screen assistant", "mode"], highlightID: SettingsTab.screenAssistant.highlightID(for: "Display Mode")),
-
-            // Color Picker
-            SettingsSearchEntry(tab: .colorPicker, title: "Enable Color Picker", keywords: ["color picker", "eyedropper"], highlightID: SettingsTab.colorPicker.highlightID(for: "Enable Color Picker")),
-            SettingsSearchEntry(tab: .colorPicker, title: "Show Color Picker Icon", keywords: ["color icon", "toolbar"], highlightID: SettingsTab.colorPicker.highlightID(for: "Show Color Picker Icon")),
-            SettingsSearchEntry(tab: .colorPicker, title: "Display Mode", keywords: ["color", "list"], highlightID: SettingsTab.colorPicker.highlightID(for: "Display Mode")),
-            SettingsSearchEntry(tab: .colorPicker, title: "History Size", keywords: ["color history"], highlightID: SettingsTab.colorPicker.highlightID(for: "History Size")),
-            SettingsSearchEntry(tab: .colorPicker, title: "Show All Color Formats", keywords: ["hex", "hsl", "color formats"], highlightID: SettingsTab.colorPicker.highlightID(for: "Show All Color Formats"))
-        ]
-    }
-
+                    SettingsSearchEntry(
+                        tab: .general,
+                        title: String(localized: "Notch display height"),
+                        keywords: [String(localized: "display height"), String(localized: "menu bar size")],
+                        highlightID: SettingsTab.general.highlightID(for: "Notch display height")
+                    ),
+                    
+                    // Battery (Charge)
+                    SettingsSearchEntry(
+                        tab: .battery,
+                        title: String(localized: "Show battery indicator"),
+                        keywords: [String(localized: "battery hud"), String(localized: "charge")],
+                        highlightID: SettingsTab.battery.highlightID(for: "Show battery indicator")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .battery,
+                        title: String(localized: "Show battery percentage"),
+                        keywords: [String(localized: "battery percent")],
+                        highlightID: SettingsTab.battery.highlightID(for: "Show battery percentage")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .battery,
+                        title: String(localized: "Show power status notifications"),
+                        keywords: [String(localized: "notifications"), String(localized: "power")],
+                        highlightID: SettingsTab.battery.highlightID(for: "Show power status notifications")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .battery,
+                        title: String(localized: "Show power status icons"),
+                        keywords: [String(localized: "power icons"), String(localized: "charging icon")],
+                        highlightID: SettingsTab.battery.highlightID(for: "Show power status icons")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .battery,
+                        title: String(localized: "Play low battery alert sound"),
+                        keywords: [String(localized: "low battery"), String(localized: "alert"), String(localized: "sound")],
+                        highlightID: SettingsTab.battery.highlightID(for: "Play low battery alert sound")
+                    ),
+                    
+                    // HUDs
+                    SettingsSearchEntry(
+                        tab: .devices,
+                        title: String(localized: "Show Bluetooth device connections"),
+                        keywords: [String(localized: "bluetooth"), String(localized: "hud")],
+                        highlightID: SettingsTab.devices.highlightID(for: "Show Bluetooth device connections")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .devices,
+                        title: String(localized: "Use circular battery indicator"),
+                        keywords: [String(localized: "battery"), String(localized: "circular")],
+                        highlightID: SettingsTab.devices.highlightID(for: "Use circular battery indicator")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .devices,
+                        title: String(localized: "Show battery percentage text in HUD"),
+                        keywords: [String(localized: "battery text")],
+                        highlightID: SettingsTab.devices.highlightID(for: "Show battery percentage text in HUD")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .devices,
+                        title: String(localized: "Scroll device name in HUD"),
+                        keywords: [String(localized: "marquee"), String(localized: "device name")],
+                        highlightID: SettingsTab.devices.highlightID(for: "Scroll device name in HUD")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .devices,
+                        title: String(localized: "Color-coded battery display"),
+                        keywords: [String(localized: "color"), String(localized: "battery")],
+                        highlightID: SettingsTab.devices.highlightID(for: "Color-coded battery display")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Color-coded volume display"),
+                        keywords: [String(localized: "volume"), String(localized: "color")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Color-coded volume display")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Smooth color transitions"),
+                        keywords: [String(localized: "gradient"), String(localized: "smooth")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Smooth color transitions")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Show percentages beside progress bars"),
+                        keywords: [String(localized: "percentages"), String(localized: "progress")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Show percentages beside progress bars")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "HUD style"),
+                        keywords: [String(localized: "inline"), String(localized: "compact")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "HUD style")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Progressbar style"),
+                        keywords: [String(localized: "progress"), String(localized: "style")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Progressbar style")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Enable glowing effect"),
+                        keywords: [String(localized: "glow"), String(localized: "indicator")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Enable glowing effect")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Use accent color"),
+                        keywords: [String(localized: "accent"), String(localized: "color")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Use accent color")
+                    ),
+                    
+                    // Custom OSD
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Enable Custom OSD"),
+                        keywords: [String(localized: "osd"), String(localized: "on-screen display"), String(localized: "custom osd")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Enable Custom OSD")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Volume OSD"),
+                        keywords: [String(localized: "volume"), String(localized: "osd")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Volume OSD")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Brightness OSD"),
+                        keywords: [String(localized: "brightness"), String(localized: "osd")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Brightness OSD")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Keyboard Backlight OSD"),
+                        keywords: [String(localized: "keyboard"), String(localized: "backlight"), String(localized: "osd")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Keyboard Backlight OSD")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Material"),
+                        keywords: [String(localized: "material"), String(localized: "frosted"), String(localized: "liquid"), String(localized: "glass"), String(localized: "solid"), String(localized: "osd")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Material")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .hudAndOSD,
+                        title: String(localized: "Icon & Progress Color"),
+                        keywords: [String(localized: "color"), String(localized: "icon"), String(localized: "white"), String(localized: "black"), String(localized: "gray"), String(localized: "osd")],
+                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Icon & Progress Color")
+                    ),
+                    
+                    // Media
+                    SettingsSearchEntry(
+                        tab: .media,
+                        title: String(localized: "Music Source"),
+                        keywords: [String(localized: "media source"), String(localized: "controller")],
+                        highlightID: SettingsTab.media.highlightID(for: "Music Source")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .media,
+                        title: String(localized: "Skip buttons"),
+                        keywords: [String(localized: "skip"), String(localized: "controls"), String(localized: "±10")],
+                        highlightID: SettingsTab.media.highlightID(for: "Skip buttons")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .media,
+                        title: String(localized: "Sneak Peek Style"),
+                        keywords: [String(localized: "sneak peek"), String(localized: "preview")],
+                        highlightID: SettingsTab.media.highlightID(for: "Sneak Peek Style")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .media,
+                        title: String(localized: "Enable lyrics"),
+                        keywords: [String(localized: "lyrics"), String(localized: "song text")],
+                        highlightID: SettingsTab.media.highlightID(for: "Enable lyrics")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .media,
+                        title: String(localized: "Show Change Media Output control"),
+                        keywords: [String(localized: "airplay"), String(localized: "route picker"), String(localized: "media output")],
+                        highlightID: SettingsTab.media.highlightID(for: "Show Change Media Output control")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .media,
+                        title: String(localized: "Enable album art parallax"),
+                        keywords: [String(localized: "parallax"), String(localized: "lock screen"), String(localized: "album art")],
+                        highlightID: SettingsTab.media.highlightID(for: "Enable album art parallax")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .media,
+                        title: String(localized: "Enable album art parallax effect"),
+                        keywords: [String(localized: "parallax"), String(localized: "parallax effect"), String(localized: "album art")],
+                        highlightID: SettingsTab.media.highlightID(for: "Enable album art parallax effect")
+                    ),
+                    
+                    // Calendar
+                    SettingsSearchEntry(
+                        tab: .calendar,
+                        title: String(localized: "Show calendar"),
+                        keywords: [String(localized: "calendar"), String(localized: "events")],
+                        highlightID: SettingsTab.calendar.highlightID(for: "Show calendar")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .calendar,
+                        title: String(localized: "Enable reminder live activity"),
+                        keywords: [String(localized: "reminder"), String(localized: "live activity")],
+                        highlightID: SettingsTab.calendar.highlightID(for: "Enable reminder live activity")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .calendar,
+                        title: String(localized: "Countdown style"),
+                        keywords: [String(localized: "reminder countdown")],
+                        highlightID: SettingsTab.calendar.highlightID(for: "Countdown style")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .calendar,
+                        title: String(localized: "Show lock screen reminder"),
+                        keywords: [String(localized: "lock screen"), String(localized: "reminder widget")],
+                        highlightID: SettingsTab.calendar.highlightID(for: "Show lock screen reminder")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .calendar,
+                        title: String(localized: "Chip color"),
+                        keywords: [String(localized: "reminder chip"), String(localized: "color")],
+                        highlightID: SettingsTab.calendar.highlightID(for: "Chip color")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .calendar,
+                        title: String(localized: "Hide all-day events"),
+                        keywords: [String(localized: "calendar"), String(localized: "all-day")],
+                        highlightID: SettingsTab.calendar.highlightID(for: "Hide all-day events")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .calendar,
+                        title: String(localized: "Hide completed reminders"),
+                        keywords: [String(localized: "reminder"), String(localized: "completed")],
+                        highlightID: SettingsTab.calendar.highlightID(for: "Hide completed reminders")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .calendar,
+                        title: String(localized: "Show full event titles"),
+                        keywords: [String(localized: "calendar"), String(localized: "titles")],
+                        highlightID: SettingsTab.calendar.highlightID(for: "Show full event titles")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .calendar,
+                        title: String(localized: "Auto-scroll to next event"),
+                        keywords: [String(localized: "calendar"), String(localized: "scroll")],
+                        highlightID: SettingsTab.calendar.highlightID(for: "Auto-scroll to next event")
+                    ),
+                    
+                    // Shelf
+                    SettingsSearchEntry(
+                        tab: .shelf,
+                        title: String(localized: "Enable shelf"),
+                        keywords: [String(localized: "shelf"), String(localized: "dock")],
+                        highlightID: SettingsTab.shelf.highlightID(for: "Enable shelf")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .shelf,
+                        title: String(localized: "Open shelf tab by default if items added"),
+                        keywords: [String(localized: "auto open"), String(localized: "shelf tab")],
+                        highlightID: SettingsTab.shelf.highlightID(for: "Open shelf tab by default if items added")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .shelf,
+                        title: String(localized: "Expanded drag detection area"),
+                        keywords: [String(localized: "shelf"), String(localized: "drag")],
+                        highlightID: SettingsTab.shelf.highlightID(for: "Expanded drag detection area")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .shelf,
+                        title: String(localized: "Copy items on drag"),
+                        keywords: [String(localized: "shelf"), String(localized: "drag"), String(localized: "copy")],
+                        highlightID: SettingsTab.shelf.highlightID(for: "Copy items on drag")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .shelf,
+                        title: String(localized: "Remove from shelf after dragging"),
+                        keywords: [String(localized: "shelf"), String(localized: "drag"), String(localized: "remove")],
+                        highlightID: SettingsTab.shelf.highlightID(for: "Remove from shelf after dragging")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .shelf,
+                        title: String(localized: "Quick Share Service"),
+                        keywords: [String(localized: "shelf"), String(localized: "share"), String(localized: "airdrop")],
+                        highlightID: SettingsTab.shelf.highlightID(for: "Quick Share Service")
+                    ),
+                    
+                    // Appearance
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "Settings icon in notch"),
+                        keywords: [String(localized: "settings button"), String(localized: "toolbar")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "Settings icon in notch")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "Enable window shadow"),
+                        keywords: [String(localized: "shadow"), String(localized: "appearance")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "Enable window shadow")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "Corner radius scaling"),
+                        keywords: [String(localized: "corner radius"), String(localized: "shape")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "Corner radius scaling")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "Use simpler close animation"),
+                        keywords: [String(localized: "close animation"), String(localized: "notch")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "Use simpler close animation")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "Notch Width"),
+                        keywords: [String(localized: "expanded notch"), String(localized: "width"), String(localized: "resize")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "Expanded notch width")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "Enable colored spectrograms"),
+                        keywords: [String(localized: "spectrogram"), String(localized: "audio")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "Enable colored spectrograms")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "Enable blur effect behind album art"),
+                        keywords: [String(localized: "blur"), String(localized: "album art")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "Enable blur effect behind album art")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "Slider color"),
+                        keywords: [String(localized: "slider"), String(localized: "accent")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "Slider color")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "Enable Dynamic mirror"),
+                        keywords: [String(localized: "mirror"), String(localized: "reflection")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "Enable Dynamic mirror")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "Mirror shape"),
+                        keywords: [String(localized: "mirror shape"), String(localized: "circle"), String(localized: "rectangle")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "Mirror shape")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "Show cool face animation while inactivity"),
+                        keywords: [String(localized: "face animation"), String(localized: "idle")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "Show cool face animation while inactivity")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .appearance,
+                        title: String(localized: "App icon"),
+                        keywords: [String(localized: "app icon"), String(localized: "custom icon")],
+                        highlightID: SettingsTab.appearance.highlightID(for: "App icon")
+                    ),
+                    
+                    // Lock Screen
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Enable lock screen live activity"),
+                        keywords: [String(localized: "lock screen"), String(localized: "live activity")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Enable lock screen live activity")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Play lock/unlock sounds"),
+                        keywords: [String(localized: "chime"), String(localized: "sound")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Play lock/unlock sounds")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Material"),
+                        keywords: [String(localized: "glass"), String(localized: "frosted"), String(localized: "liquid")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Material")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Show lock screen media panel"),
+                        keywords: [String(localized: "media panel"), String(localized: "lock screen media")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen media panel")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Show media app icon"),
+                        keywords: [String(localized: "app icon"), String(localized: "media")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show media app icon")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Show panel border"),
+                        keywords: [String(localized: "panel border")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show panel border")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Enable media panel blur"),
+                        keywords: [String(localized: "blur"), String(localized: "media panel")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Enable media panel blur")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Show lock screen timer"),
+                        keywords: [String(localized: "timer widget"), String(localized: "lock screen timer")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen timer")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Timer surface"),
+                        keywords: [String(localized: "timer glass"), String(localized: "classic"), String(localized: "blur")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Timer surface")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Timer glass material"),
+                        keywords: [String(localized: "frosted"), String(localized: "liquid"), String(localized: "timer material")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Timer glass material")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Timer liquid mode"),
+                        keywords: [String(localized: "timer"), String(localized: "standard"), String(localized: "custom")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Timer liquid mode")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Timer widget variant"),
+                        keywords: [String(localized: "timer variant"), String(localized: "liquid")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Timer widget variant")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Show lock screen weather"),
+                        keywords: [String(localized: "weather widget")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen weather")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Layout"),
+                        keywords: [String(localized: "inline"), String(localized: "circular"), String(localized: "weather layout")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Layout")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Weather data provider"),
+                        keywords: [String(localized: "wttr"), String(localized: "open meteo")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Weather data provider")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Temperature unit"),
+                        keywords: [String(localized: "celsius"), String(localized: "fahrenheit")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Temperature unit")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Show location label"),
+                        keywords: [String(localized: "location"), String(localized: "weather")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show location label")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Show charging status"),
+                        keywords: [String(localized: "charging"), String(localized: "weather")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show charging status")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Show charging percentage"),
+                        keywords: [String(localized: "charging percentage")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show charging percentage")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Show battery indicator"),
+                        keywords: [String(localized: "battery gauge"), String(localized: "weather")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show battery indicator")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Use MacBook icon when on battery"),
+                        keywords: [String(localized: "laptop icon"), String(localized: "battery")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Use MacBook icon when on battery")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Show Bluetooth battery"),
+                        keywords: [String(localized: "bluetooth"), String(localized: "gauge")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show Bluetooth battery")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Show AQI widget"),
+                        keywords: [String(localized: "air quality"), String(localized: "aqi")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show AQI widget")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Air quality scale"),
+                        keywords: [String(localized: "aqi"), String(localized: "scale")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Air quality scale")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .lockScreen,
+                        title: String(localized: "Use colored gauges"),
+                        keywords: [String(localized: "gauge tint"), String(localized: "monochrome")],
+                        highlightID: SettingsTab.lockScreen.highlightID(for: "Use colored gauges")
+                    ),
+                    
+                    // Extensions
+                    SettingsSearchEntry(
+                        tab: .extensions,
+                        title: String(localized: "Enable third-party extensions"),
+                        keywords: [String(localized: "extensions"), String(localized: "authorization"), String(localized: "third party")],
+                        highlightID: SettingsTab.extensions.highlightID(for: "Enable third-party extensions")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .extensions,
+                        title: String(localized: "Allow extension live activities"),
+                        keywords: [String(localized: "extensions"), String(localized: "live activities"), String(localized: "permissions")],
+                        highlightID: SettingsTab.extensions.highlightID(for: "Allow extension live activities")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .extensions,
+                        title: String(localized: "Allow extension lock screen widgets"),
+                        keywords: [String(localized: "extensions"), String(localized: "lock screen"), String(localized: "widgets")],
+                        highlightID: SettingsTab.extensions.highlightID(for: "Allow extension lock screen widgets")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .extensions,
+                        title: String(localized: "Enable extension diagnostics logging"),
+                        keywords: [String(localized: "extensions"), String(localized: "diagnostics"), String(localized: "logging")],
+                        highlightID: SettingsTab.extensions.highlightID(for: "Enable extension diagnostics logging")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .extensions,
+                        title: String(localized: "Manage app permissions"),
+                        keywords: [String(localized: "extensions"), String(localized: "permissions"), String(localized: "apps")],
+                        highlightID: SettingsTab.extensions.highlightID(for: "App permissions list")
+                    ),
+                    
+                    // Shortcuts
+                    SettingsSearchEntry(
+                        tab: .shortcuts,
+                        title: String(localized: "Enable global keyboard shortcuts"),
+                        keywords: [String(localized: "keyboard"), String(localized: "shortcut")],
+                        highlightID: SettingsTab.shortcuts.highlightID(for: "Enable global keyboard shortcuts")
+                    ),
+                    
+                    // Timer
+                    SettingsSearchEntry(
+                        tab: .timer,
+                        title: String(localized: "Enable timer feature"),
+                        keywords: [String(localized: "timer"), String(localized: "enable")],
+                        highlightID: SettingsTab.timer.highlightID(for: "Enable timer feature")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .timer,
+                        title: String(localized: "Mirror macOS Clock timers"),
+                        keywords: [String(localized: "system timer"), String(localized: "clock app")],
+                        highlightID: SettingsTab.timer.highlightID(for: "Mirror macOS Clock timers")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .timer,
+                        title: String(localized: "Show lock screen timer widget"),
+                        keywords: [String(localized: "lock screen"), String(localized: "timer widget")],
+                        highlightID: SettingsTab.timer.highlightID(for: "Show lock screen timer widget")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .timer,
+                        title: String(localized: "Timer surface"),
+                        keywords: [String(localized: "timer glass"), String(localized: "classic"), String(localized: "blur")],
+                        highlightID: SettingsTab.timer.highlightID(for: "Timer surface")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .timer,
+                        title: String(localized: "Timer glass material"),
+                        keywords: [String(localized: "frosted"), String(localized: "liquid"), String(localized: "timer material")],
+                        highlightID: SettingsTab.timer.highlightID(for: "Timer glass material")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .timer,
+                        title: String(localized: "Timer liquid mode"),
+                        keywords: [String(localized: "timer"), String(localized: "standard"), String(localized: "custom")],
+                        highlightID: SettingsTab.timer.highlightID(for: "Timer liquid mode")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .timer,
+                        title: String(localized: "Timer widget variant"),
+                        keywords: [String(localized: "timer variant"), String(localized: "liquid")],
+                        highlightID: SettingsTab.timer.highlightID(for: "Timer widget variant")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .timer,
+                        title: String(localized: "Timer tint"),
+                        keywords: [String(localized: "timer colour"), String(localized: "preset")],
+                        highlightID: SettingsTab.timer.highlightID(for: "Timer tint")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .timer,
+                        title: String(localized: "Solid colour"),
+                        keywords: [String(localized: "timer colour"), String(localized: "custom")],
+                        highlightID: SettingsTab.timer.highlightID(for: "Solid colour")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .timer,
+                        title: String(localized: "Progress style"),
+                        keywords: [String(localized: "progress"), String(localized: "bar"), String(localized: "ring")],
+                        highlightID: SettingsTab.timer.highlightID(for: "Progress style")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .timer,
+                        title: String(localized: "Accent colour"),
+                        keywords: [String(localized: "accent"), String(localized: "timer")],
+                        highlightID: SettingsTab.timer.highlightID(for: "Accent colour")
+                    ),
+                    
+                    // Stats
+                    SettingsSearchEntry(
+                        tab: .stats,
+                        title: String(localized: "Enable system stats monitoring"),
+                        keywords: [String(localized: "stats"), String(localized: "monitoring")],
+                        highlightID: SettingsTab.stats.highlightID(for: "Enable system stats monitoring")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .stats,
+                        title: String(localized: "Stop monitoring after closing the notch"),
+                        keywords: [String(localized: "stats"), String(localized: "auto stop")],
+                        highlightID: SettingsTab.stats.highlightID(for: "Stop monitoring after closing the notch")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .stats,
+                        title: String(localized: "CPU Usage"),
+                        keywords: [String(localized: "cpu"), String(localized: "graph")],
+                        highlightID: SettingsTab.stats.highlightID(for: "CPU Usage")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .stats,
+                        title: String(localized: "Memory Usage"),
+                        keywords: [String(localized: "memory"), String(localized: "ram")],
+                        highlightID: SettingsTab.stats.highlightID(for: "Memory Usage")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .stats,
+                        title: String(localized: "GPU Usage"),
+                        keywords: [String(localized: "gpu"), String(localized: "graphics")],
+                        highlightID: SettingsTab.stats.highlightID(for: "GPU Usage")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .stats,
+                        title: String(localized: "Network Activity"),
+                        keywords: [String(localized: "network"), String(localized: "graph")],
+                        highlightID: SettingsTab.stats.highlightID(for: "Network Activity")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .stats,
+                        title: String(localized: "Disk I/O"),
+                        keywords: [String(localized: "disk"), String(localized: "io")],
+                        highlightID: SettingsTab.stats.highlightID(for: "Disk I/O")
+                    ),
+                    
+                    // Clipboard
+                    SettingsSearchEntry(
+                        tab: .clipboard,
+                        title: String(localized: "Enable Clipboard Manager"),
+                        keywords: [String(localized: "clipboard"), String(localized: "manager")],
+                        highlightID: SettingsTab.clipboard.highlightID(for: "Enable Clipboard Manager")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .clipboard,
+                        title: String(localized: "Show Clipboard Icon"),
+                        keywords: [String(localized: "icon"), String(localized: "clipboard")],
+                        highlightID: SettingsTab.clipboard.highlightID(for: "Show Clipboard Icon")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .clipboard,
+                        title: String(localized: "Display Mode"),
+                        keywords: [String(localized: "list"), String(localized: "grid"), String(localized: "clipboard")],
+                        highlightID: SettingsTab.clipboard.highlightID(for: "Display Mode")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .clipboard,
+                        title: String(localized: "History Size"),
+                        keywords: [String(localized: "history"), String(localized: "clipboard")],
+                        highlightID: SettingsTab.clipboard.highlightID(for: "History Size")
+                    ),
+                    
+                    // Screen Assistant
+                    SettingsSearchEntry(
+                        tab: .screenAssistant,
+                        title: String(localized: "Enable Screen Assistant"),
+                        keywords: [String(localized: "screen assistant"), String(localized: "ai")],
+                        highlightID: SettingsTab.screenAssistant.highlightID(for: "Enable Screen Assistant")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .screenAssistant,
+                        title: String(localized: "Display Mode"),
+                        keywords: [String(localized: "screen assistant"), String(localized: "mode")],
+                        highlightID: SettingsTab.screenAssistant.highlightID(for: "Display Mode")
+                    ),
+                    
+                    // Color Picker
+                    SettingsSearchEntry(
+                        tab: .colorPicker,
+                        title: String(localized: "Enable Color Picker"),
+                        keywords: [String(localized: "color picker"), String(localized: "eyedropper")],
+                        highlightID: SettingsTab.colorPicker.highlightID(for: "Enable Color Picker")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .colorPicker,
+                        title: String(localized: "Show Color Picker Icon"),
+                        keywords: [String(localized: "color icon"), String(localized: "toolbar")],
+                        highlightID: SettingsTab.colorPicker.highlightID(for: "Show Color Picker Icon")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .colorPicker,
+                        title: String(localized: "Display Mode"),
+                        keywords: [String(localized: "color"), String(localized: "list")],
+                        highlightID: SettingsTab.colorPicker.highlightID(for: "Display Mode")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .colorPicker,
+                        title: String(localized: "History Size"),
+                        keywords: [String(localized: "color history")],
+                        highlightID: SettingsTab.colorPicker.highlightID(for: "History Size")
+                    ),
+                    SettingsSearchEntry(
+                        tab: .colorPicker,
+                        title: String(localized: "Show All Color Formats"),
+                        keywords: [String(localized: "hex"), String(localized: "hsl"), String(localized: "color formats")],
+                        highlightID: SettingsTab.colorPicker.highlightID(for: "Show All Color Formats")
+                    )
+                ]
+            }
     private func isTabVisible(_ tab: SettingsTab) -> Bool {
         switch tab {
         case .timer, .stats, .clipboard, .screenAssistant, .colorPicker, .shelf, .notes:
