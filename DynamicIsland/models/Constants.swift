@@ -263,9 +263,9 @@ enum ClipboardDisplayMode: String, CaseIterable, Codable, Defaults.Serializable 
     
     var displayName: String {
         switch self {
-        case .popover: return "Popover"
-        case .panel: return "Panel"
-        case .separateTab: return "Separate Tab"
+        case .popover: return String(localized: "Popover")
+        case .panel: return String(localized: "Panel")
+        case .separateTab: return String(localized: "Separate Tab")
         }
     }
     
@@ -352,6 +352,13 @@ enum SneakPeekStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
     case inline = "Inline"
     
     var id: String { self.rawValue }
+    
+    var LocalizedName : String {
+        switch self {
+        case .standard: return String(localized: "Default")
+        case .inline: return String(localized: "Inline")
+        }
+    }
 }
 
 enum CapsLockIndicatorTintMode: String, CaseIterable, Identifiable, Defaults.Serializable {

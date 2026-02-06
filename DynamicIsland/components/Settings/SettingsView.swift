@@ -2753,7 +2753,7 @@ struct Media: View {
                     .settingsHighlight(id: highlightID("Enable album art parallax effect"))
                 Picker("Sneak Peek Style", selection: $sneakPeekStyles){
                     ForEach(SneakPeekStyle.allCases) { style in
-                        Text(style.rawValue).tag(style)
+                        Text(style.LocalizedName).tag(style)
                     }
                 }
                 .disabled(!enableSneakPeek || enableMinimalisticUI)
