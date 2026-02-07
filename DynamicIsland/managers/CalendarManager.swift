@@ -38,6 +38,7 @@ class CalendarManager: ObservableObject {
     @Published var selectedCalendarIDs: Set<String> = []
     @Published var calendarAuthorizationStatus: EKAuthorizationStatus = .notDetermined
     @Published var reminderAuthorizationStatus: EKAuthorizationStatus = .notDetermined
+    @Published var lockScreenEvents: [EventModel] = []
 
     private var selectedCalendars: [CalendarModel] = []
     private let calendarService = CalendarService()
@@ -50,6 +51,9 @@ class CalendarManager: ObservableObject {
     private let eventStoreChangeThrottle: TimeInterval = 20
     private let selfInducedChangeSuppression: TimeInterval = 6
     private let eventFetchLimiter = EventFetchLimiter()
+    private var lastLockScreenEventsFetchDate: Date?
+    private let lockScreenRefreshInterval: TimeInterval = 15
+    private var lockScreenRefreshTask: Task<Void, Never>?
 
     var hasCalendarAccess: Bool { isAuthorized(calendarAuthorizationStatus) }
     var hasReminderAccess: Bool { isAuthorized(reminderAuthorizationStatus) }
@@ -57,6 +61,7 @@ class CalendarManager: ObservableObject {
     private init() {
         currentWeekStartDate = CalendarManager.startOfDay(Date())
         setupEventStoreChangedObserver()
+        startLockScreenRefreshLoop()
         Task {
             await reloadCalendarAndReminderLists()
         }
@@ -67,6 +72,7 @@ class CalendarManager: ObservableObject {
             NotificationCenter.default.removeObserver(observer)
         }
         pendingEventStoreRefreshTask?.cancel()
+        lockScreenRefreshTask?.cancel()
     }
 
     private func setupEventStoreChangedObserver() {
@@ -111,6 +117,7 @@ class CalendarManager: ObservableObject {
         pendingEventStoreRefreshTask = nil
         await reloadCalendarAndReminderLists()
         await maybeRefreshEventsAfterReload()
+        await updateLockScreenEvents(force: true)
         nextAllowedEventStoreRefresh = Date().addingTimeInterval(eventStoreChangeThrottle)
         ignoreEventStoreChangesUntil = Date().addingTimeInterval(selfInducedChangeSuppression)
     }
@@ -154,12 +161,14 @@ class CalendarManager: ObservableObject {
             if granted {
                 await reloadCalendarAndReminderLists()
                 await updateEvents(force: true)
+                await updateLockScreenEvents(force: true)
             }
         case .restricted, .denied:
             NSLog("Calendar access denied or restricted")
         case .authorized, .fullAccess:
             await reloadCalendarAndReminderLists()
             await updateEvents(force: true)
+            await updateLockScreenEvents(force: true)
         case .writeOnly:
             NSLog("Calendar write only")
         @unknown default:
@@ -230,6 +239,7 @@ class CalendarManager: ObservableObject {
         Defaults[.calendarSelectionState] = selectionState
         updateSelectedCalendars()
         await updateEvents(force: true)
+        await updateLockScreenEvents(force: true)
     }
 
     static func startOfDay(_ date: Date) -> Date {
@@ -239,6 +249,88 @@ class CalendarManager: ObservableObject {
     func updateCurrentDate(_ date: Date) async {
         currentWeekStartDate = Calendar.current.startOfDay(for: date)
         await updateEvents(force: true)
+        await updateLockScreenEvents(force: true)
+    }
+
+    func updateLockScreenEvents(force: Bool = false) async {
+        let now = Date()
+
+        if !force,
+           let lastFetch = lastLockScreenEventsFetchDate,
+           now.timeIntervalSince(lastFetch) < lockScreenRefreshInterval {
+            return
+        }
+
+        let lookaheadRaw = Defaults[.lockScreenCalendarEventLookaheadWindow]
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        let isAllTimeLookahead =
+            lookaheadRaw == "all_time" ||
+            lookaheadRaw == "all time" ||
+            lookaheadRaw == "alltime"
+
+        let isRestOfDay =
+            lookaheadRaw == "rest_of_day" ||
+            lookaheadRaw == "rest of the day" ||
+            lookaheadRaw == "restofday"
+
+        func lookaheadMinutes(from raw: String) -> Int? {
+            switch raw {
+            case "15m", "15 min", "15 mins", "15min", "15mins": return 15
+            case "30m", "30 min", "30 mins", "30min", "30mins": return 30
+            case "1h", "1 hr", "1 hour", "1hour": return 60
+            case "3h", "3 hr", "3 hours", "3hours": return 180
+            case "6h", "6 hr", "6 hours", "6hours": return 360
+            case "12h", "12 hr", "12 hours", "12hours": return 720
+            default: return nil
+            }
+        }
+
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: now)
+        let startDate = calendar.date(byAdding: .day, value: -1, to: startOfToday) ?? startOfToday
+
+        let endDate: Date
+        if isAllTimeLookahead {
+            endDate = calendar.date(byAdding: .day, value: 365, to: now) ?? now.addingTimeInterval(365 * 24 * 3600)
+        } else if isRestOfDay {
+            endDate = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday.addingTimeInterval(24 * 3600)
+        } else if let minutes = lookaheadMinutes(from: lookaheadRaw) {
+            endDate = calendar.date(byAdding: .minute, value: minutes, to: now) ?? now.addingTimeInterval(TimeInterval(minutes * 60))
+        } else {
+            endDate = calendar.date(byAdding: .minute, value: 180, to: now) ?? now.addingTimeInterval(180 * 60)
+        }
+
+        let calendarIDs = allCalendars.map { $0.id }
+        let service = calendarService
+
+        let fetched = await eventFetchLimiter.run {
+            await service.events(from: startDate, to: endDate, calendars: calendarIDs)
+        }
+
+        if lockScreenEvents == fetched {
+            lastLockScreenEventsFetchDate = Date()
+            return
+        }
+
+        withAnimation(.smooth(duration: 0.25)) {
+            lockScreenEvents = fetched
+        }
+        lastLockScreenEventsFetchDate = Date()
+    }
+
+    private func startLockScreenRefreshLoop() {
+        lockScreenRefreshTask?.cancel()
+        lockScreenRefreshTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 60 * 1_000_000_000)
+                if Task.isCancelled { break }
+                guard self.hasCalendarAccess else { continue }
+                await self.updateLockScreenEvents(force: false)
+            }
+        }
     }
 
     private func updateEvents(force: Bool = false) async {

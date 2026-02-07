@@ -20,6 +20,7 @@ import AppKit
 import SwiftUI
 import SkyLightWindow
 import QuartzCore
+import Defaults
 
 @MainActor
 final class LockScreenReminderWidgetPanelManager {
@@ -119,7 +120,18 @@ final class LockScreenReminderWidgetPanelManager {
 
     private func frame(for size: CGSize, on screen: NSScreen) -> NSRect {
         let screenFrame = screen.frame
-        let originX = screenFrame.midX - (size.width / 2)
+        let horizontalPadding: CGFloat = 24
+        let alignment = Defaults[.lockScreenReminderWidgetHorizontalAlignment].lowercased()
+        let originX: CGFloat
+
+        switch alignment {
+        case "leading", "left":
+            originX = screenFrame.minX + horizontalPadding
+        case "trailing", "right":
+            originX = screenFrame.maxX - size.width - horizontalPadding
+        default:
+            originX = screenFrame.midX - (size.width / 2)
+        }
         let musicTop = LockScreenPanelManager.shared.latestFrame?.maxY ?? (screenFrame.midY - 32)
         let timerFrame = LockScreenTimerWidgetPanelManager.shared.latestFrame
 
@@ -148,7 +160,9 @@ final class LockScreenReminderWidgetPanelManager {
             proposedY = (lowerBound + clampedUpperBound) / 2
         }
 
-        proposedY = max(lowerBound, min(proposedY, clampedUpperBound))
+        let rawOffset = CGFloat(Defaults[.lockScreenReminderWidgetVerticalOffset])
+        let clampedOffset = min(max(rawOffset, -160), 160)
+        proposedY = max(lowerBound, min(proposedY + clampedOffset, clampedUpperBound))
 
         return NSRect(x: originX, y: proposedY, width: size.width, height: size.height)
     }

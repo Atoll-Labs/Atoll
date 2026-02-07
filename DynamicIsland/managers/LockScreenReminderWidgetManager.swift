@@ -94,6 +94,18 @@ final class LockScreenReminderWidgetManager: ObservableObject {
                 self.handleSnapshotUpdate(self.reminderManager.lockScreenSnapshot)
             }
             .store(in: &cancellables)
+
+        Defaults.publisher(.lockScreenReminderWidgetHorizontalAlignment, options: [])
+            .sink { _ in
+                LockScreenReminderWidgetPanelManager.shared.refreshPosition(animated: true)
+            }
+            .store(in: &cancellables)
+
+        Defaults.publisher(.lockScreenReminderWidgetVerticalOffset, options: [])
+            .sink { _ in
+                LockScreenReminderWidgetPanelManager.shared.refreshPosition(animated: true)
+            }
+            .store(in: &cancellables)
     }
 
     private func handleSnapshotUpdate(_ newSnapshot: LockScreenReminderWidgetSnapshot?) {

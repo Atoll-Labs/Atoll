@@ -663,6 +663,14 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .calendar, title: "Enable reminder live activity", keywords: ["reminder", "live activity"], highlightID: SettingsTab.calendar.highlightID(for: "Enable reminder live activity")),
             SettingsSearchEntry(tab: .calendar, title: "Countdown style", keywords: ["reminder countdown"], highlightID: SettingsTab.calendar.highlightID(for: "Countdown style")),
             SettingsSearchEntry(tab: .calendar, title: "Show lock screen reminder", keywords: ["lock screen", "reminder widget"], highlightID: SettingsTab.calendar.highlightID(for: "Show lock screen reminder")),
+            SettingsSearchEntry(tab: .calendar, title: "Show next calendar event", keywords: ["calendar widget", "lock screen", "next event"], highlightID: SettingsTab.calendar.highlightID(for: "Show next calendar event")),
+            SettingsSearchEntry(tab: .calendar, title: "Show events within the next", keywords: ["calendar widget", "lookahead"], highlightID: SettingsTab.calendar.highlightID(for: "Show events within the next")),
+            SettingsSearchEntry(tab: .calendar, title: "Show events from all calendars", keywords: ["calendar widget", "selection"], highlightID: SettingsTab.calendar.highlightID(for: "Show events from all calendars")),
+            SettingsSearchEntry(tab: .calendar, title: "Show countdown", keywords: ["calendar widget", "countdown"], highlightID: SettingsTab.calendar.highlightID(for: "Show countdown")),
+            SettingsSearchEntry(tab: .calendar, title: "Show event for entire duration", keywords: ["calendar widget", "duration"], highlightID: SettingsTab.calendar.highlightID(for: "Show event for entire duration")),
+            SettingsSearchEntry(tab: .calendar, title: "Hide active event and show next upcoming event", keywords: ["calendar widget", "after start"], highlightID: SettingsTab.calendar.highlightID(for: "Hide active event and show next upcoming event")),
+            SettingsSearchEntry(tab: .calendar, title: "Show time remaining", keywords: ["calendar widget", "remaining"], highlightID: SettingsTab.calendar.highlightID(for: "Show time remaining")),
+            SettingsSearchEntry(tab: .calendar, title: "Show start time after event begins", keywords: ["calendar widget", "start time"], highlightID: SettingsTab.calendar.highlightID(for: "Show start time after event begins")),
             SettingsSearchEntry(tab: .calendar, title: "Chip color", keywords: ["reminder chip", "color"], highlightID: SettingsTab.calendar.highlightID(for: "Chip color")),
             SettingsSearchEntry(tab: .calendar, title: "Hide all-day events", keywords: ["calendar", "all-day"], highlightID: SettingsTab.calendar.highlightID(for: "Hide all-day events")),
             SettingsSearchEntry(tab: .calendar, title: "Hide completed reminders", keywords: ["reminder", "completed"], highlightID: SettingsTab.calendar.highlightID(for: "Hide completed reminders")),
@@ -717,6 +725,10 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .lockScreen, title: "Show AQI widget", keywords: ["air quality", "aqi"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show AQI widget")),
             SettingsSearchEntry(tab: .lockScreen, title: "Air quality scale", keywords: ["aqi", "scale"], highlightID: SettingsTab.lockScreen.highlightID(for: "Air quality scale")),
             SettingsSearchEntry(tab: .lockScreen, title: "Use colored gauges", keywords: ["gauge tint", "monochrome"], highlightID: SettingsTab.lockScreen.highlightID(for: "Use colored gauges")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show lock screen reminder", keywords: ["lock screen", "reminder widget"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen reminder")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Chip color", keywords: ["reminder chip", "color"], highlightID: SettingsTab.lockScreen.highlightID(for: "Chip color")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Reminder alignment", keywords: ["reminder", "alignment", "position"], highlightID: SettingsTab.lockScreen.highlightID(for: "Reminder alignment")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Reminder vertical offset", keywords: ["reminder", "offset", "position"], highlightID: SettingsTab.lockScreen.highlightID(for: "Reminder vertical offset")),
 
             // Extensions
             SettingsSearchEntry(tab: .extensions, title: "Enable third-party extensions", keywords: ["extensions", "authorization", "third party"], highlightID: SettingsTab.extensions.highlightID(for: "Enable third-party extensions")),
@@ -1161,7 +1173,7 @@ struct Downloads: View {
     }
 
     var body: some View {
-        Form {
+        SwiftUI.Form {
             Section {
                 Defaults.Toggle("Enable download detection", key: .enableDownloadListener)
                     .settingsHighlight(id: highlightID("Enable download detection"))
@@ -2226,9 +2238,45 @@ struct CalendarSettings: View {
     @Default(.hideCompletedReminders) var hideCompletedReminders
     @Default(.showFullEventTitles) var showFullEventTitles
     @Default(.autoScrollToNextEvent) var autoScrollToNextEvent
+    @Default(.lockScreenShowCalendarCountdown) private var lockScreenShowCalendarCountdown
+    @Default(.lockScreenShowCalendarEvent) private var lockScreenShowCalendarEvent
+    @Default(.lockScreenShowCalendarEventEntireDuration) private var lockScreenShowCalendarEventEntireDuration
+    @Default(.lockScreenShowCalendarEventAfterStartWindow) private var lockScreenShowCalendarEventAfterStartWindow
+    @Default(.lockScreenShowCalendarTimeRemaining) private var lockScreenShowCalendarTimeRemaining
+    @Default(.lockScreenShowCalendarStartTimeAfterBegins) private var lockScreenShowCalendarStartTimeAfterBegins
+    @Default(.lockScreenCalendarEventLookaheadWindow) private var lockScreenCalendarEventLookaheadWindow
+    @Default(.lockScreenCalendarSelectionMode) private var lockScreenCalendarSelectionMode
+    @Default(.lockScreenSelectedCalendarIDs) private var lockScreenSelectedCalendarIDs
+    @Default(.lockScreenShowCalendarEventAfterStartEnabled) private var lockScreenShowCalendarEventAfterStartEnabled
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.calendar.highlightID(for: title)
+    }
+
+    private enum CalendarLookaheadOption: String, CaseIterable, Identifiable {
+        case mins15 = "15m"
+        case mins30 = "30m"
+        case hour1 = "1h"
+        case hours3 = "3h"
+        case hours6 = "6h"
+        case hours12 = "12h"
+        case restOfDay = "rest_of_day"
+        case allTime = "all_time"
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .mins15: return "15 mins"
+            case .mins30: return "30 mins"
+            case .hour1: return "1 hour"
+            case .hours3: return "3 hours"
+            case .hours6: return "6 hours"
+            case .hours12: return "12 hours"
+            case .restOfDay: return "Rest of the day"
+            case .allTime: return "All time"
+            }
+        }
     }
 
     var body: some View {
@@ -2256,7 +2304,7 @@ struct CalendarSettings: View {
                 }
             } else {
                 // Permissions status
-                Section {
+                Section(header: Text("Permissions")) {
                     HStack {
                         Text("Calendars")
                         Spacer()
@@ -2269,8 +2317,6 @@ struct CalendarSettings: View {
                         Text(statusText(for: calendarManager.reminderAuthorizationStatus))
                             .foregroundColor(color(for: calendarManager.reminderAuthorizationStatus))
                     }
-                } header: {
-                    Text("Permissions")
                 }
                 
                 Defaults.Toggle("Show calendar", key: .showCalendar)
@@ -2353,21 +2399,147 @@ struct CalendarSettings: View {
                     .settingsHighlight(id: highlightID("Chip color"))
                 }
 
-                Section(header: Text("Select Calendars")) {
-                    List {
-                        ForEach(calendarManager.allCalendars, id: \.id) { calendar in
-                            Toggle(isOn: Binding(
-                                get: { calendarManager.getCalendarSelected(calendar) },
-                                set: { isSelected in
-                                    Task {
-                                        await calendarManager.setCalendarSelected(calendar, isSelected: isSelected)
+                Section(
+                    header: Text("Calendar Widget"),
+                    footer: Text("Displays your next upcoming calendar event above or below the weather capsule. Calendar selection here is independent from the Dynamic Island calendar filter.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                ) {
+                    Defaults.Toggle("Show next calendar event", key: .lockScreenShowCalendarEvent)
+                        .settingsHighlight(id: highlightID("Show next calendar event"))
+
+                    LabeledContent("Show events within the next") {
+                        HStack {
+                            Spacer(minLength: 0)
+                            Picker("", selection: $lockScreenCalendarEventLookaheadWindow) {
+                                ForEach(CalendarLookaheadOption.allCases) { option in
+                                    Text(option.title).tag(option.rawValue)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show events within the next"))
+
+                    Toggle("Show events from all calendars", isOn: Binding(
+                        get: { lockScreenCalendarSelectionMode == "all" },
+                        set: { useAll in
+                            if useAll {
+                                lockScreenCalendarSelectionMode = "all"
+                            } else {
+                                lockScreenCalendarSelectionMode = "selected"
+                                lockScreenSelectedCalendarIDs = Set(calendarManager.eventCalendars.map { $0.id })
+                            }
+                        }
+                    ))
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show events from all calendars"))
+
+                    if lockScreenCalendarSelectionMode != "all" {
+                        HStack {
+                            Spacer()
+                            Button("Deselect All") {
+                                lockScreenSelectedCalendarIDs = []
+                            }
+                            .buttonStyle(.link)
+                        }
+                        .padding(.top, 2)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(calendarManager.eventCalendars, id: \.id) { calendar in
+                                Toggle(isOn: Binding(
+                                    get: { lockScreenSelectedCalendarIDs.contains(calendar.id) },
+                                    set: { isOn in
+                                        if isOn {
+                                            lockScreenSelectedCalendarIDs.insert(calendar.id)
+                                        } else {
+                                            lockScreenSelectedCalendarIDs.remove(calendar.id)
+                                        }
+                                    }
+                                )) {
+                                    HStack(spacing: 8) {
+                                        Circle()
+                                            .fill(Color(calendar.color))
+                                            .frame(width: 8, height: 8)
+                                        Text(calendar.title)
                                     }
                                 }
-                            )) {
-                                Text(calendar.title)
                             }
-                            .disabled(!showCalendar)
                         }
+                        .padding(.top, 4)
+                        .padding(.leading, 2)
+                        .disabled(!lockScreenShowCalendarEvent)
+                    }
+
+                    Defaults.Toggle("Show countdown", key: .lockScreenShowCalendarCountdown)
+                        .disabled(!lockScreenShowCalendarEvent)
+                        .settingsHighlight(id: highlightID("Show countdown"))
+
+                    Defaults.Toggle("Show event for entire duration", key: .lockScreenShowCalendarEventEntireDuration)
+                        .disabled(!lockScreenShowCalendarEvent)
+                        .settingsHighlight(id: highlightID("Show event for entire duration"))
+                        .onChange(of: Defaults[.lockScreenShowCalendarEventEntireDuration]) { _, newValue in
+                            if newValue {
+                                Defaults[.lockScreenShowCalendarEventAfterStartEnabled] = false
+                            }
+                        }
+
+                    Defaults.Toggle(
+                        "Hide active event and show next upcoming event",
+                        key: .lockScreenShowCalendarEventAfterStartEnabled
+                    )
+                    .disabled(!lockScreenShowCalendarEvent || lockScreenShowCalendarEventEntireDuration)
+                    .settingsHighlight(id: highlightID("Hide active event and show next upcoming event"))
+
+                    LabeledContent("Show event after it starts") {
+                        HStack {
+                            Spacer(minLength: 0)
+                            Picker("", selection: $lockScreenShowCalendarEventAfterStartWindow) {
+                                Text("1 min").tag("1m")
+                                Text("5 mins").tag("5m")
+                                Text("10 mins").tag("10m")
+                                Text("15 mins").tag("15m")
+                                Text("30 mins").tag("30m")
+                                Text("45 mins").tag("45m")
+                                Text("1 hour").tag("1h")
+                                Text("2 hours").tag("2h")
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    .disabled(!lockScreenShowCalendarEvent || lockScreenShowCalendarEventEntireDuration || !lockScreenShowCalendarEventAfterStartEnabled)
+
+                    Text("Turn off 'Show event for entire duration' to use the post-start duration option.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Defaults.Toggle("Show time remaining", key: .lockScreenShowCalendarTimeRemaining)
+                        .disabled(!lockScreenShowCalendarEvent)
+                        .settingsHighlight(id: highlightID("Show time remaining"))
+
+                    Defaults.Toggle("Show start time after event begins", key: .lockScreenShowCalendarStartTimeAfterBegins)
+                        .disabled(!lockScreenShowCalendarEvent)
+                        .settingsHighlight(id: highlightID("Show start time after event begins"))
+                }
+
+                Section(header: Text("Select Calendars")) {
+                    ForEach(calendarManager.allCalendars, id: \.id) { calendar in
+                        Toggle(isOn: Binding(
+                            get: { calendarManager.getCalendarSelected(calendar) },
+                            set: { isSelected in
+                                Task {
+                                    await calendarManager.setCalendarSelected(calendar, isSelected: isSelected)
+                                }
+                            }
+                        )) {
+                            Text(calendar.title)
+                        }
+                        .disabled(!showCalendar)
                     }
                 }
             }
@@ -3480,6 +3652,7 @@ struct Appearance: View {
 }
 
 struct LockScreenSettings: View {
+    @ObservedObject private var calendarManager = CalendarManager.shared
     @Default(.lockScreenGlassStyle) private var lockScreenGlassStyle
     @Default(.lockScreenGlassCustomizationMode) private var lockScreenGlassCustomizationMode
     @Default(.lockScreenMusicLiquidGlassVariant) private var lockScreenMusicLiquidGlassVariant
@@ -3499,7 +3672,21 @@ struct LockScreenSettings: View {
     @Default(.lockScreenWeatherShowsAQI) private var lockScreenWeatherShowsAQI
     @Default(.lockScreenWeatherShowsSunrise) private var lockScreenWeatherShowsSunrise
     @Default(.lockScreenWeatherAQIScale) private var lockScreenWeatherAQIScale
+    @Default(.enableLockScreenReminderWidget) private var enableLockScreenReminderWidget
+    @Default(.lockScreenReminderChipStyle) private var lockScreenReminderChipStyle
+    @Default(.lockScreenReminderWidgetHorizontalAlignment) private var lockScreenReminderWidgetHorizontalAlignment
+    @Default(.lockScreenReminderWidgetVerticalOffset) private var lockScreenReminderWidgetVerticalOffset
     @Default(.showStandardMediaControls) private var showStandardMediaControls
+    @Default(.lockScreenShowCalendarCountdown) private var lockScreenShowCalendarCountdown
+    @Default(.lockScreenShowCalendarEvent) private var lockScreenShowCalendarEvent
+    @Default(.lockScreenShowCalendarEventEntireDuration) private var lockScreenShowCalendarEventEntireDuration
+    @Default(.lockScreenShowCalendarEventAfterStartWindow) private var lockScreenShowCalendarEventAfterStartWindow
+    @Default(.lockScreenShowCalendarTimeRemaining) private var lockScreenShowCalendarTimeRemaining
+    @Default(.lockScreenShowCalendarStartTimeAfterBegins) private var lockScreenShowCalendarStartTimeAfterBegins
+    @Default(.lockScreenCalendarEventLookaheadWindow) private var lockScreenCalendarEventLookaheadWindow
+    @Default(.lockScreenCalendarSelectionMode) private var lockScreenCalendarSelectionMode
+    @Default(.lockScreenSelectedCalendarIDs) private var lockScreenSelectedCalendarIDs
+    @Default(.lockScreenShowCalendarEventAfterStartEnabled) private var lockScreenShowCalendarEventAfterStartEnabled
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.lockScreen.highlightID(for: title)
@@ -3507,6 +3694,48 @@ struct LockScreenSettings: View {
 
     private var liquidVariantRange: ClosedRange<Double> {
         Double(LiquidGlassVariant.supportedRange.lowerBound)...Double(LiquidGlassVariant.supportedRange.upperBound)
+    }
+
+    private enum CalendarLookaheadOption: String, CaseIterable, Identifiable {
+        case mins15 = "15m"
+        case mins30 = "30m"
+        case hour1 = "1h"
+        case hours3 = "3h"
+        case hours6 = "6h"
+        case hours12 = "12h"
+        case restOfDay = "rest_of_day"
+        case allTime = "all_time"
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .mins15: return "15 mins"
+            case .mins30: return "30 mins"
+            case .hour1: return "1 hour"
+            case .hours3: return "3 hours"
+            case .hours6: return "6 hours"
+            case .hours12: return "12 hours"
+            case .restOfDay: return "Rest of the day"
+            case .allTime: return "All time"
+            }
+        }
+    }
+
+    private enum ReminderAlignmentOption: String, CaseIterable, Identifiable {
+        case leading
+        case center
+        case trailing
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .leading: return "Left"
+            case .center: return "Center"
+            case .trailing: return "Right"
+            }
+        }
     }
 
     private var musicVariantBinding: Binding<Double> {
@@ -3763,6 +3992,47 @@ struct LockScreenSettings: View {
             } footer: {
                 Text("Enable the weather capsule and configure its layout, provider, units, and optional battery/AQI indicators.")
             }
+
+            Section {
+                Defaults.Toggle("Show lock screen reminder", key: .enableLockScreenReminderWidget)
+                    .settingsHighlight(id: highlightID("Show lock screen reminder"))
+
+                Picker("Chip color", selection: $lockScreenReminderChipStyle) {
+                    ForEach(LockScreenReminderChipStyle.allCases) { style in
+                        Text(style.rawValue).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!enableLockScreenReminderWidget)
+                .settingsHighlight(id: highlightID("Chip color"))
+
+                Picker("Alignment", selection: $lockScreenReminderWidgetHorizontalAlignment) {
+                    ForEach(ReminderAlignmentOption.allCases) { option in
+                        Text(option.title).tag(option.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!enableLockScreenReminderWidget)
+                .settingsHighlight(id: highlightID("Reminder alignment"))
+
+                HStack {
+                    Text("Vertical offset")
+                    Slider(
+                        value: $lockScreenReminderWidgetVerticalOffset,
+                        in: -160...160,
+                        step: 2
+                    )
+                    .disabled(!enableLockScreenReminderWidget)
+                    Text("\(Int(lockScreenReminderWidgetVerticalOffset)) px")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 70, alignment: .trailing)
+                }
+                .settingsHighlight(id: highlightID("Reminder vertical offset"))
+            } header: {
+                Text("Reminder Widget")
+            } footer: {
+                Text("Controls the lock screen reminder chip and its positioning.")
+            }
             
             if BatteryActivityManager.shared.hasBattery() {
                 Section {
@@ -3798,6 +4068,133 @@ struct LockScreenSettings: View {
                 Text("Focus Widget")
             } footer: {
                 Text("Displays the current Focus state above the weather capsule whenever Focus detection is enabled.")
+            }
+
+            Section {
+                Defaults.Toggle("Show next calendar event", key: .lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show next calendar event"))
+
+                LabeledContent("Show events within the next") {
+                    HStack {
+                        Spacer(minLength: 0)
+                        Picker("", selection: $lockScreenCalendarEventLookaheadWindow) {
+                            ForEach(CalendarLookaheadOption.allCases) { option in
+                                Text(option.title).tag(option.rawValue)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .disabled(!lockScreenShowCalendarEvent)
+                .settingsHighlight(id: highlightID("Show events within the next"))
+
+                Toggle("Show events from all calendars", isOn: Binding(
+                    get: { lockScreenCalendarSelectionMode == "all" },
+                    set: { useAll in
+                        if useAll {
+                            lockScreenCalendarSelectionMode = "all"
+                        } else {
+                            lockScreenCalendarSelectionMode = "selected"
+                            lockScreenSelectedCalendarIDs = Set(calendarManager.eventCalendars.map { $0.id })
+                        }
+                    }
+                ))
+                .disabled(!lockScreenShowCalendarEvent)
+                .settingsHighlight(id: highlightID("Show events from all calendars"))
+
+                if lockScreenCalendarSelectionMode != "all" {
+                    HStack {
+                        Spacer()
+                        Button("Deselect All") {
+                            lockScreenSelectedCalendarIDs = []
+                        }
+                        .buttonStyle(.link)
+                    }
+                    .padding(.top, 2)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(calendarManager.eventCalendars, id: \.id) { calendar in
+                            Toggle(isOn: Binding(
+                                get: { lockScreenSelectedCalendarIDs.contains(calendar.id) },
+                                set: { isOn in
+                                    if isOn {
+                                        lockScreenSelectedCalendarIDs.insert(calendar.id)
+                                    } else {
+                                        lockScreenSelectedCalendarIDs.remove(calendar.id)
+                                    }
+                                }
+                            )) {
+                                HStack(spacing: 8) {
+                                    Circle()
+                                        .fill(Color(calendar.color))
+                                        .frame(width: 8, height: 8)
+                                    Text(calendar.title)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.top, 4)
+                    .padding(.leading, 2)
+                    .disabled(!lockScreenShowCalendarEvent)
+                }
+
+                Defaults.Toggle("Show countdown", key: .lockScreenShowCalendarCountdown)
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show countdown"))
+
+                Defaults.Toggle("Show event for entire duration", key: .lockScreenShowCalendarEventEntireDuration)
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show event for entire duration"))
+                    .onChange(of: Defaults[.lockScreenShowCalendarEventEntireDuration]) { _, newValue in
+                        if newValue {
+                            Defaults[.lockScreenShowCalendarEventAfterStartEnabled] = false
+                        }
+                    }
+
+                Defaults.Toggle(
+                    "Hide active event and show next upcoming event",
+                    key: .lockScreenShowCalendarEventAfterStartEnabled
+                )
+                .disabled(!lockScreenShowCalendarEvent || lockScreenShowCalendarEventEntireDuration)
+                .settingsHighlight(id: highlightID("Hide active event and show next upcoming event"))
+
+                LabeledContent("Show event after it starts") {
+                    HStack {
+                        Spacer(minLength: 0)
+                        Picker("", selection: $lockScreenShowCalendarEventAfterStartWindow) {
+                            Text("1 min").tag("1m")
+                            Text("5 mins").tag("5m")
+                            Text("10 mins").tag("10m")
+                            Text("15 mins").tag("15m")
+                            Text("30 mins").tag("30m")
+                            Text("45 mins").tag("45m")
+                            Text("1 hour").tag("1h")
+                            Text("2 hours").tag("2h")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .disabled(!lockScreenShowCalendarEvent || lockScreenShowCalendarEventEntireDuration || !lockScreenShowCalendarEventAfterStartEnabled)
+
+                Text("Turn off 'Show event for entire duration' to use the post-start duration option.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Defaults.Toggle("Show time remaining", key: .lockScreenShowCalendarTimeRemaining)
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show time remaining"))
+
+                Defaults.Toggle("Show start time after event begins", key: .lockScreenShowCalendarStartTimeAfterBegins)
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show start time after event begins"))
+            } header: {
+                Text("Calendar Widget")
+            } footer: {
+                Text("Displays your next upcoming calendar event above or below the weather capsule. Calendar selection here is independent from the Dynamic Island calendar filter.")
             }
 
             LockScreenPositioningControls()
