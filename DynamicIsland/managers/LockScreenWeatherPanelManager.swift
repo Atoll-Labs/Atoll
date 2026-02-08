@@ -31,6 +31,7 @@ final class LockScreenWeatherPanelManager {
     private(set) var latestFrame: NSRect?
     private var lastSnapshot: LockScreenWeatherSnapshot?
     private var lastContentSize: CGSize?
+    private var lastInlineBaselineHeight: CGFloat = 0
     private var screenChangeObserver: NSObjectProtocol?
     private var workspaceObservers: [NSObjectProtocol] = []
 
@@ -64,6 +65,9 @@ final class LockScreenWeatherPanelManager {
         let view = LockScreenWeatherWidget(snapshot: snapshot)
         let hostingView = NSHostingView(rootView: view)
         let fittingSize = hostingView.fittingSize
+        if snapshot.widgetStyle == .inline {
+            lastInlineBaselineHeight = max(lastInlineBaselineHeight, fittingSize.height)
+        }
         hostingView.frame = NSRect(origin: .zero, size: fittingSize)
 
         let targetFrame = frame(for: fittingSize, snapshot: snapshot, on: screen)
@@ -114,14 +118,23 @@ final class LockScreenWeatherPanelManager {
         let screenFrame = screen.frame
         let originX = screenFrame.midX - (size.width / 2)
         let verticalOffset = screenFrame.height * 0.15
-        let maxY = screenFrame.maxY - size.height - 48
+        let isCircular = snapshot.widgetStyle == .circular
+        let topMargin: CGFloat = isCircular ? 120 : 48
+        let inlineBaselineHeight: CGFloat = max(lastInlineBaselineHeight, 80)
+        let positionHeight = snapshot.widgetStyle == .inline
+            ? max(size.height, inlineBaselineHeight)
+            : size.height
+        let maxY = screenFrame.maxY - positionHeight - topMargin
         let baseY = min(maxY, screenFrame.midY + verticalOffset)
         let loweredY = baseY - 36
 
         let inlineLift: CGFloat = snapshot.widgetStyle == .inline ? 44 : 0
+        let circularDrop: CGFloat = isCircular ? 28 : 0
+        let sizeDropHeight = positionHeight
+        let sizeDrop = max(0, sizeDropHeight - 80) * 0.35
         let userOffset = CGFloat(Defaults[.lockScreenWeatherVerticalOffset])
         let clampedOffset = min(max(userOffset, -160), 160)
-        let adjustedY = loweredY + inlineLift + clampedOffset
+        let adjustedY = loweredY + inlineLift + clampedOffset - circularDrop - sizeDrop
         let upperClampedY = min(maxY, adjustedY)
         let clampedY = max(screenFrame.minY + 80, upperClampedY)
         return NSRect(x: originX, y: clampedY, width: size.width, height: size.height)

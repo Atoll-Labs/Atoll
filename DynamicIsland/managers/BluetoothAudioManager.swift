@@ -43,6 +43,25 @@ class BluetoothAudioManager: ObservableObject {
     private let batteryReader = BluetoothLEBatteryReader()
     private var isLiveBatteryRefreshInFlight = false
 
+    private let appleVendorID: UInt16 = 0x05AC
+    private let devicePIDMap: [UInt16: BluetoothAudioDeviceType] = [
+        0x2002: .airpods,      // Gen 1 AirPods
+        0x200F: .airpods,      // Gen 2 AirPods
+        0x2013: .airpodsGen3,  // Gen 3 AirPods
+        0x2019: .airpodsGen4,  // Gen 4 AirPods
+        0x201B: .airpodsGen4,  // Gen 4 AirPods ANC
+        0x200A: .airpodsMax,   // AirPods Max Lightning
+        0x201F: .airpodsMax,   // AirPods Max USB-C
+        0x200E: .airpodsPro,   // AirPods Pro Gen 1
+        0x2014: .airpodsPro,   // AirPods Pro Gen 2 Lightning
+        0x2024: .airpodsPro,   // AirPods Pro Gen 2 USB-C
+        0x2027: .airpodsPro3,  // AirPods Pro Gen 3
+        0x2017: .beatsstudio,  // Beats Studio Pro
+        0x2009: .beatsstudio,  // Beats Studio 3
+        0x2006: .beatssolo,    // Beats Solo 3
+        0x200C: .beatssolo     // Beats Solo Pro
+    ]
+
     @Published private(set) var batteryStatus: [String: String] = [:]
 
     private var batteryStatusByAddress: [String: Int] = [:]
@@ -396,24 +415,247 @@ class BluetoothAudioManager: ObservableObject {
         logMissingBatteryInfo(for: device)
         return nil
     }
+
+    // MARK: - PID-based device detection
+
+    /// Extract a UInt16 from common payload formats (Int/NSNumber/String including hex like "0x201B").
+    private func extractUInt16(from payload: [String: Any], keys: [String]) -> UInt16? {
+        for key in keys {
+            guard let raw = payload[key] else { continue }
+
+            if let number = raw as? NSNumber {
+                return UInt16(truncatingIfNeeded: number.uint16Value)
+            }
+            if let intValue = raw as? Int {
+                return UInt16(truncatingIfNeeded: intValue)
+            }
+            if let string = raw as? String {
+                let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if trimmed.hasPrefix("0x") {
+                    let hex = trimmed.dropFirst(2)
+                    if let value = UInt16(hex, radix: 16) { return value }
+                } else if let value = UInt16(trimmed, radix: 10) {
+                    return value
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Recursively search nested dictionaries/arrays for the first UInt16 value whose key matches `predicate`.
+    private func deepSearchUInt16(in value: Any, predicate: (String) -> Bool) -> UInt16? {
+        if let dict = value as? [String: Any] {
+            for (key, entry) in dict {
+                if predicate(key) {
+                    if let found = extractUInt16(from: dict, keys: [key]) {
+                        return found
+                    }
+                    if let number = entry as? NSNumber { return UInt16(truncatingIfNeeded: number.uint16Value) }
+                    if let intValue = entry as? Int { return UInt16(truncatingIfNeeded: intValue) }
+                    if let string = entry as? String {
+                        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                        if trimmed.hasPrefix("0x"), let value = UInt16(trimmed.dropFirst(2), radix: 16) { return value }
+                        if let value = UInt16(trimmed, radix: 10) { return value }
+                    }
+                }
+            }
+
+            for entry in dict.values {
+                if let found = deepSearchUInt16(in: entry, predicate: predicate) { return found }
+            }
+            return nil
+        }
+
+        if let array = value as? [Any] {
+            for entry in array {
+                if let found = deepSearchUInt16(in: entry, predicate: predicate) { return found }
+            }
+            return nil
+        }
+
+        return nil
+    }
+
+    /// Fallback: attempt to get VendorID/ProductID from system_profiler SPBluetoothDataType JSON.
+    private func vendorProductIDsFromSystemProfiler(forNormalizedAddress target: String) -> (vendor: UInt16, product: UInt16)? {
+        guard !target.isEmpty else { return nil }
+        guard let root = systemProfilerBluetoothDictionary() else { return nil }
+        guard let deviceConnected = root["device_connected"] as? [Any] else { return nil }
+
+        func pidFromPayload(_ payload: [String: Any]) -> UInt16? {
+            if let raw = payload["device_productID"] as? String {
+                let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if trimmed.hasPrefix("0x"), let value = UInt16(trimmed.dropFirst(2), radix: 16) { return value }
+                if let value = UInt16(trimmed, radix: 16) { return value }
+            }
+            let productKeys = ["device_productID", "ProductID", "product_id", "productID", "DeviceProductID", "ProductId", "Product ID"]
+            return extractUInt16(from: payload, keys: productKeys)
+                ?? deepSearchUInt16(in: payload) { $0.lowercased().contains("productid") }
+        }
+
+        func vidFromPayload(_ payload: [String: Any]) -> UInt16? {
+            let vendorKeys = ["device_vendorID", "VendorID", "vendor_id", "vendorID", "DeviceVendorID", "VendorId", "Vendor ID"]
+            return extractUInt16(from: payload, keys: vendorKeys)
+                ?? deepSearchUInt16(in: payload) { $0.lowercased().contains("vendorid") }
+        }
+
+        for item in deviceConnected {
+            guard let dict = item as? [String: Any],
+                  let nameKey = dict.keys.first,
+                  let infoAny = dict[nameKey],
+                  let payload = infoAny as? [String: Any] else {
+                continue
+            }
+
+            if let address = payload["device_address"] as? String {
+                if normalizeBluetoothIdentifier(address) != target { continue }
+            } else {
+                let candidates = profilerAddressCandidates(from: payload).map(normalizeBluetoothIdentifier)
+                if !candidates.contains(target) { continue }
+            }
+
+            if let pid = pidFromPayload(payload) {
+                if let vid = vidFromPayload(payload) {
+                    return (vendor: vid, product: pid)
+                }
+                if devicePIDMap[pid] != nil {
+                    return (vendor: appleVendorID, product: pid)
+                }
+            }
+        }
+
+        return nil
+    }
+
+    /// Attempts to find VendorID/ProductID for a device using Bluetooth caches.
+    private func vendorProductIDs(for device: IOBluetoothDevice) -> (vendor: UInt16, product: UInt16)? {
+        guard let preferences = UserDefaults(suiteName: bluetoothPreferencesSuite),
+              let deviceCache = preferences.object(forKey: "DeviceCache") as? [String: Any] else {
+            return nil
+        }
+
+        let target = normalizeBluetoothIdentifier(device.addressString ?? "")
+        guard !target.isEmpty else { return nil }
+
+        let vendorKeys = [
+            "VendorID", "vendor_id", "vendorID",
+            "device_vendorID", "DeviceVendorID", "device_vendor_id",
+            "device_vendorId", "DeviceVendorId",
+            "VendorId", "Vendor ID",
+            "VendorIDSource", "VendorIDSourceLocal", "VendorIDSourceRemote"
+        ]
+        let productKeys = [
+            "ProductID", "product_id", "productID",
+            "device_productID", "DeviceProductID", "device_product_id",
+            "device_productId", "DeviceProductId",
+            "ProductId", "Product ID",
+            "ProductIDSource", "ProductIDSourceLocal", "ProductIDSourceRemote"
+        ]
+
+        for (key, value) in deviceCache {
+            guard let payload = value as? [String: Any] else { continue }
+            if matchesBluetoothIdentifier(target, key: key, payload: payload) {
+                let vendor = extractUInt16(from: payload, keys: vendorKeys)
+                    ?? deepSearchUInt16(in: payload) { $0.lowercased().contains("vendorid") }
+
+                let product = extractUInt16(from: payload, keys: productKeys)
+                    ?? deepSearchUInt16(in: payload) { $0.lowercased().contains("productid") }
+
+                if let product {
+                    if let vendor {
+                        return (vendor: vendor, product: product)
+                    }
+                    if devicePIDMap[product] != nil {
+                        return (vendor: appleVendorID, product: product)
+                    }
+                }
+            }
+        }
+
+        if let coreCache = preferences.object(forKey: "CoreBluetoothCache") as? [String: [String: Any]] {
+            for payload in coreCache.values {
+                if let addressValue = payload["DeviceAddress"]
+                    ?? payload["Address"]
+                    ?? payload["BD_ADDR"]
+                    ?? payload["device_address"],
+                   let address = normalizeBluetoothIdentifier(from: addressValue),
+                   address == target {
+                    let vendor = extractUInt16(from: payload, keys: vendorKeys)
+                        ?? deepSearchUInt16(in: payload) { $0.lowercased().contains("vendorid") }
+
+                    let product = extractUInt16(from: payload, keys: productKeys)
+                        ?? deepSearchUInt16(in: payload) { $0.lowercased().contains("productid") }
+
+                    if let product {
+                        if let vendor {
+                            return (vendor: vendor, product: product)
+                        }
+                        if devicePIDMap[product] != nil {
+                            return (vendor: appleVendorID, product: product)
+                        }
+                    }
+                }
+            }
+        }
+
+        if let fromProfiler = vendorProductIDsFromSystemProfiler(forNormalizedAddress: target) {
+            return fromProfiler
+        }
+
+        return nil
+    }
+
+    /// Attempts to detect AirPods/Beats type using vendor/product IDs.
+    private func airPodsTypeFromPID(_ device: IOBluetoothDevice) -> BluetoothAudioDeviceType? {
+        if let ids = vendorProductIDs(for: device) {
+            return devicePIDMap[ids.product]
+        }
+        return nil
+    }
     
     /// Detects the type of audio device based on name and properties
     private func detectDeviceType(from device: IOBluetoothDevice, name: String) -> BluetoothAudioDeviceType {
         let lowercaseName = name.lowercased()
+
+        if let pidBasedType = airPodsTypeFromPID(device) {
+            return pidBasedType
+        }
         
         // Check for specific AirPods models
         if lowercaseName.contains("airpods") {
             if lowercaseName.contains("max") {
                 return .airpodsMax
             } else if lowercaseName.contains("pro") {
+                if lowercaseName.contains("3") || lowercaseName.contains("gen 3") || lowercaseName.contains("gen3") {
+                    return .airpodsPro3
+                }
                 return .airpodsPro
+            } else if lowercaseName.contains("gen 4")
+                        || lowercaseName.contains("gen4")
+                        || lowercaseName.contains("4th")
+                        || lowercaseName.contains("airpods 4")
+                        || lowercaseName.contains("airpods4") {
+                return .airpodsGen4
+            } else if lowercaseName.contains("gen 3")
+                        || lowercaseName.contains("gen3")
+                        || lowercaseName.contains("3rd")
+                        || lowercaseName.contains("third")
+                        || lowercaseName.contains("airpods 3")
+                        || lowercaseName.contains("airpods3") {
+                return .airpodsGen3
             }
             return .airpods
         }
         
         // Check for other brands
         if lowercaseName.contains("beats") {
-            return .beats
+            if lowercaseName.contains("studio") {
+                return .beatsstudio
+            }
+            if lowercaseName.contains("solo") {
+                return .beatssolo
+            }
+            return .beatssolo
         } else if lowercaseName.contains("speaker") || lowercaseName.contains("boombox") {
             return .speaker
         } else if lowercaseName.contains("headphone") || lowercaseName.contains("headset") || 
@@ -1770,9 +2012,14 @@ extension BluetoothAudioDevice {
 
 enum BluetoothAudioDeviceType {
     case airpods
+    case airpodsGen3
+    case airpodsGen4
     case airpodsPro
+    case airpodsPro3
     case airpodsMax
     case beats
+    case beatsstudio
+    case beatssolo
     case headphones
     case speaker
     case generic
@@ -1781,11 +2028,21 @@ enum BluetoothAudioDeviceType {
         switch self {
         case .airpods:
             return "airpods"
+        case .airpodsGen3:
+            return "airpods.gen3"
+        case .airpodsGen4:
+            return "airpods.gen4"
         case .airpodsPro:
-            return "airpodspro"
+            return "airpods.pro"
+        case .airpodsPro3:
+            return "airpods.pro"
         case .airpodsMax:
             return "airpodsmax"
         case .beats:
+            return "beats.headphones"
+        case .beatsstudio:
+            return "beats.headphones"
+        case .beatssolo:
             return "beats.headphones"
         case .headphones:
             return "headphones"
@@ -1799,13 +2056,23 @@ enum BluetoothAudioDeviceType {
     var displayName: String {
         switch self {
         case .airpods: return "AirPods"
+        case .airpodsGen3: return "AirPods (Gen 3)"
+        case .airpodsGen4: return "AirPods (Gen 4)"
         case .airpodsPro: return "AirPods Pro"
+        case .airpodsPro3: return "AirPods Pro 3"
         case .airpodsMax: return "AirPods Max"
         case .beats: return "Beats"
+        case .beatsstudio: return "Beats Studio"
+        case .beatssolo: return "Beats Solo"
         case .headphones: return "Headphones"
         case .speaker: return "Speaker"
         case .generic: return "Bluetooth Device"
         }
+    }
+
+    /// Inline HUD only: base filename (no extension) for a looping .mov animation.
+    var inlineHUDAnimationBaseName: String {
+        String(describing: self)
     }
 }
 
