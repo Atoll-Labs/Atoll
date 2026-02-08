@@ -636,8 +636,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let timerWidgetManager = LockScreenTimerWidgetManager.shared
         timerWidgetManager.handleLockStateChange(isLocked: LockScreenManager.shared.currentLockStatus)
 
-        // Ensure the reminder widget mirrors live activity snapshots as soon as they exist.
-        _ = LockScreenReminderWidgetManager.shared
     }
 
     private func registerOptionalShortcutHandlers() {
