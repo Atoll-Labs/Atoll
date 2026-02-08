@@ -43,26 +43,26 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .general: return String(localized: "General")
-        case .liveActivities: return String(localized: "Live Activities")
-        case .appearance: return String(localized: "Appearance")
-        case .lockScreen: return String(localized: "Lock Screen")
-        case .media: return String(localized: "Media")
-        case .devices: return String(localized: "Devices")
-        case .extensions: return String(localized: "Extensions")
-        case .timer: return String(localized: "Timer")
-        case .calendar: return String(localized: "Calendar")
-        case .hudAndOSD: return String(localized: "Controls")
-        case .battery: return String(localized: "Battery")
-        case .stats: return String(localized: "Stats")
-        case .clipboard: return String(localized: "Clipboard")
-        case .screenAssistant: return String(localized: "Screen Assistant")
-        case .colorPicker: return String(localized: "Color Picker")
-        case .downloads: return String(localized: "Downloads")
-        case .shelf: return String(localized: "Shelf")
-        case .shortcuts: return String(localized: "Shortcuts")
-        case .notes: return String(localized: "Notes")
-        case .about: return String(localized: "About")
+        case .general: return "General"
+        case .liveActivities: return "Live Activities"
+        case .appearance: return "Appearance"
+        case .lockScreen: return "Lock Screen"
+        case .media: return "Media"
+        case .devices: return "Devices"
+        case .extensions: return "Extensions"
+        case .timer: return "Timer"
+        case .calendar: return "Calendar"
+        case .hudAndOSD: return "Controls"
+        case .battery: return "Battery"
+        case .stats: return "Stats"
+        case .clipboard: return "Clipboard"
+        case .screenAssistant: return "Screen Assistant"
+        case .colorPicker: return "Color Picker"
+        case .downloads: return "Downloads"
+        case .shelf: return "Shelf"
+        case .shortcuts: return "Shortcuts"
+        case .notes: return "Notes"
+        case .about: return "About"
         }
     }
 
@@ -250,13 +250,13 @@ struct SettingsView: View {
     @State private var searchText: String = ""
     @StateObject private var highlightCoordinator = SettingsHighlightCoordinator()
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
-    
+
     let updaterController: SPUStandardUpdaterController?
-    
+
     init(updaterController: SPUStandardUpdaterController? = nil) {
         self.updaterController = updaterController
     }
-    
+
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 12) {
@@ -267,10 +267,10 @@ struct SettingsView: View {
                 )
                 .padding(.horizontal, 12)
                 .padding(.top, 12)
-                
+
                 Divider()
                     .padding(.horizontal, 12)
-                
+
                 List(filteredTabs, selection: selectionBinding) { tab in
                     NavigationLink(value: tab) {
                         HStack(spacing: 10) {
@@ -349,11 +349,11 @@ struct SettingsView: View {
             .ignoresSafeArea()
         }
     }
-    
+
     private var resolvedSelection: SettingsTab {
         availableTabs.contains(selectedTab) ? selectedTab : (availableTabs.first ?? .general)
     }
-    
+
     @ToolbarContentBuilder
     private var toolbarSpacingShim: some ToolbarContent {
         if #available(macOS 26.0, *) {
@@ -367,7 +367,7 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     @ViewBuilder
     private var toolbarSpacerView: some View {
         Color.clear
@@ -375,11 +375,11 @@ struct SettingsView: View {
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
-    
+
     private var filteredTabs: [SettingsTab] {
         tabsMatchingSearch(searchText)
     }
-    
+
     private var selectionBinding: Binding<SettingsTab> {
         Binding(
             get: { resolvedSelection },
@@ -388,7 +388,7 @@ struct SettingsView: View {
             }
         )
     }
-    
+
     @ViewBuilder
     private func sidebarIcon(for tab: SettingsTab) -> some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -400,7 +400,7 @@ struct SettingsView: View {
                     .foregroundStyle(Color.white)
             }
     }
-    
+
     private var availableTabs: [SettingsTab] {
         let ordered: [SettingsTab] = [
             .general,
@@ -424,40 +424,40 @@ struct SettingsView: View {
             .extensions,
             .about
         ]
-        
+
         return ordered.filter { isTabVisible($0) }
     }
-    
+
     private func tabsMatchingSearch(_ query: String) -> [SettingsTab] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return availableTabs }
-        
+
         let entryMatches = searchEntries(matching: trimmed)
         let matchingTabs = Set(entryMatches.map(\.tab))
-        
+
         return availableTabs.filter { tab in
             tab.title.localizedCaseInsensitiveContains(trimmed) || matchingTabs.contains(tab)
         }
     }
-    
+
     private var searchSuggestions: [SettingsSearchEntry] {
         Array(searchEntries(matching: searchText).filter { $0.tab != .downloads }.prefix(8))
     }
-    
+
     private func handleSearchSuggestionSelection(_ suggestion: SettingsSearchEntry) {
         guard suggestion.tab != .downloads else { return }
         highlightCoordinator.focus(on: suggestion)
         selectedTab = suggestion.tab
     }
-    
+
     private struct SettingsSidebarSearchBar: View {
         @Binding var text: String
         let suggestions: [SettingsSearchEntry]
         let onSuggestionSelected: (SettingsSearchEntry) -> Void
-        
+
         @FocusState private var isFocused: Bool
         @State private var hoveredSuggestionID: SettingsSearchEntry.ID?
-        
+
         var body: some View {
             VStack(spacing: 6) {
                 searchField
@@ -467,21 +467,21 @@ struct SettingsView: View {
             }
             .animation(.easeInOut(duration: 0.15), value: showSuggestions)
         }
-        
+
         private var showSuggestions: Bool {
             isFocused && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !suggestions.isEmpty
         }
-        
+
         private var searchField: some View {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(Color.secondary)
-                
+
                 TextField("Search Settings", text: $text)
                     .textFieldStyle(.plain)
                     .focused($isFocused)
                     .onSubmit(triggerFirstSuggestion)
-                
+
                 if !text.isEmpty {
                     Button {
                         text = ""
@@ -505,7 +505,7 @@ struct SettingsView: View {
                     .stroke(Color.white.opacity(0.08))
             )
         }
-        
+
         private var suggestionList: some View {
             VStack(spacing: 0) {
                 ForEach(suggestions) { suggestion in
@@ -521,7 +521,7 @@ struct SettingsView: View {
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundStyle(Color.white)
                                 }
-                            
+
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(suggestion.title)
                                     .font(.system(size: 13, weight: .semibold))
@@ -530,7 +530,7 @@ struct SettingsView: View {
                                     .font(.system(size: 11))
                                     .foregroundStyle(Color.secondary)
                             }
-                            
+
                             Spacer(minLength: 0)
                         }
                         .padding(.horizontal, 10)
@@ -542,7 +542,7 @@ struct SettingsView: View {
                     .onHover { hovering in
                         hoveredSuggestionID = hovering ? suggestion.id : (hoveredSuggestionID == suggestion.id ? nil : hoveredSuggestionID)
                     }
-                    
+
                     if suggestion.id != suggestions.last?.id {
                         Divider()
                             .padding(.leading, 48)
@@ -560,27 +560,27 @@ struct SettingsView: View {
             .shadow(color: Color.black.opacity(0.2), radius: 8, y: 4)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
-        
+
         private func rowBackground(for suggestion: SettingsSearchEntry) -> some View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(hoveredSuggestionID == suggestion.id ? Color.white.opacity(0.08) : Color.clear)
         }
-        
+
         private func selectSuggestion(_ suggestion: SettingsSearchEntry) {
             onSuggestionSelected(suggestion)
             isFocused = false
         }
-        
+
         private func triggerFirstSuggestion() {
             guard let first = suggestions.first else { return }
             selectSuggestion(first)
         }
     }
-    
+
     private func searchEntries(matching query: String) -> [SettingsSearchEntry] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
-        
+
         return settingsSearchIndex
             .filter { availableTabs.contains($0.tab) }
             .filter { entry in
@@ -588,829 +588,199 @@ struct SettingsView: View {
                 entry.keywords.contains { $0.localizedCaseInsensitiveContains(trimmed) }
             }
     }
-    
+
     private var settingsSearchIndex: [SettingsSearchEntry] {
         [
             // General
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized: "Enable Minimalistic UI"),
-                keywords: [ String(localized: "minimalistic"), String(localized: "ui mode"), String(localized: "general") ],
-                highlightID: SettingsTab.general.highlightID(for: "Enable Minimalistic UI")
-            ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized:"Menubar icon"),
-                keywords: [ String(localized:"menu bar"), String(localized:"status bar"), String(localized:"icon") ],
-                highlightID: SettingsTab.general.highlightID(for: "Menubar icon")
-            ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized:"Launch at login"),
-                keywords: [ String(localized:"autostart"), String(localized:"startup")],
-                highlightID: SettingsTab.general.highlightID(for: "Launch at login")
-            ),
+            SettingsSearchEntry(tab: .general, title: "Enable Minimalistic UI", keywords: ["minimalistic", "ui mode", "general"], highlightID: SettingsTab.general.highlightID(for: "Enable Minimalistic UI")),
+            SettingsSearchEntry(tab: .general, title: "Menubar icon", keywords: ["menu bar", "status bar", "icon"], highlightID: SettingsTab.general.highlightID(for: "Menubar icon")),
+            SettingsSearchEntry(tab: .general, title: "Launch at login", keywords: ["autostart", "startup"], highlightID: SettingsTab.general.highlightID(for: "Launch at login")),
             SettingsSearchEntry(tab: .general, title: "Show on all displays", keywords: ["multi-display", "external monitor"], highlightID: SettingsTab.general.highlightID(for: "Show on all displays")),
-            SettingsSearchEntry(
-                tab: .general,
-                title: "Show on a specific display",
-                keywords: ["preferred screen", "display picker"],
-                highlightID: SettingsTab.general.highlightID(for: "Show on a specific display")
-            ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized:"Automatically switch displays"),
-                keywords: [String(localized:"auto switch"), String(localized:"displays")],
-                highlightID: SettingsTab.general.highlightID(for: "Automatically switch displays")
-            ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized:"Hide Dynamic Island during screenshots & recordings"),
-                keywords: [String(localized:"privacy"), String(localized:"screenshot"), String(localized:"recording")],
-                highlightID: SettingsTab.general.highlightID(for: "Hide Dynamic Island during screenshots & recordings")
-            ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized: "Enable gestures"),
-                keywords: [String(localized: "gestures"), String(localized: "trackpad")],
-                highlightID: SettingsTab.general.highlightID(for: "Enable gestures")
-            ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized: "Close gesture"),
-                keywords: [String(localized: "pinch"), String(localized: "swipe")],
-                highlightID: SettingsTab.general.highlightID(for: "Close gesture")
-            ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized: "Reverse swipe gestures"),
-                keywords: [String(localized: "reverse"), String(localized: "swipe"), String(localized: "media")],
-                highlightID: SettingsTab.general.highlightID(for: "Reverse swipe gestures")
-            ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized: "Reverse scroll gestures"),
-                keywords: [String(localized: "reverse"), String(localized: "scroll"), String(localized: "open"), String(localized: "close")],
-                highlightID: SettingsTab.general.highlightID(for: "Reverse scroll gestures")
-            ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized: "Extend hover area"),
-                keywords: [String(localized: "hover"), String(localized: "cursor")],
-                highlightID: SettingsTab.general.highlightID(for: "Extend hover area")
-            ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized: "Enable haptics"),
-                keywords: [String(localized: "haptic"), String(localized: "feedback")],
-                highlightID: SettingsTab.general.highlightID(for: "Enable haptics")
-            ),
-            SettingsSearchEntry(
-                tab: .general,
-                title: String(localized: "Open notch on hover"),
-                keywords: [String(localized: "hover to open"), String(localized: "auto open")],
-                highlightID: SettingsTab.general.highlightID(for: "Open notch on hover")
-            ),
-                    SettingsSearchEntry(
-                        tab: .general,
-                        title: String(localized: "Notch display height"),
-                        keywords: [String(localized: "display height"), String(localized: "menu bar size")],
-                        highlightID: SettingsTab.general.highlightID(for: "Notch display height")
-                    ),
-                    
-                    // Battery (Charge)
-                    SettingsSearchEntry(
-                        tab: .battery,
-                        title: String(localized: "Show battery indicator"),
-                        keywords: [String(localized: "battery hud"), String(localized: "charge")],
-                        highlightID: SettingsTab.battery.highlightID(for: "Show battery indicator")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .battery,
-                        title: String(localized: "Show battery percentage"),
-                        keywords: [String(localized: "battery percent")],
-                        highlightID: SettingsTab.battery.highlightID(for: "Show battery percentage")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .battery,
-                        title: String(localized: "Show power status notifications"),
-                        keywords: [String(localized: "notifications"), String(localized: "power")],
-                        highlightID: SettingsTab.battery.highlightID(for: "Show power status notifications")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .battery,
-                        title: String(localized: "Show power status icons"),
-                        keywords: [String(localized: "power icons"), String(localized: "charging icon")],
-                        highlightID: SettingsTab.battery.highlightID(for: "Show power status icons")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .battery,
-                        title: String(localized: "Play low battery alert sound"),
-                        keywords: [String(localized: "low battery"), String(localized: "alert"), String(localized: "sound")],
-                        highlightID: SettingsTab.battery.highlightID(for: "Play low battery alert sound")
-                    ),
-                    
-                    // HUDs
-                    SettingsSearchEntry(
-                        tab: .devices,
-                        title: String(localized: "Show Bluetooth device connections"),
-                        keywords: [String(localized: "bluetooth"), String(localized: "hud")],
-                        highlightID: SettingsTab.devices.highlightID(for: "Show Bluetooth device connections")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .devices,
-                        title: String(localized: "Use circular battery indicator"),
-                        keywords: [String(localized: "battery"), String(localized: "circular")],
-                        highlightID: SettingsTab.devices.highlightID(for: "Use circular battery indicator")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .devices,
-                        title: String(localized: "Show battery percentage text in HUD"),
-                        keywords: [String(localized: "battery text")],
-                        highlightID: SettingsTab.devices.highlightID(for: "Show battery percentage text in HUD")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .devices,
-                        title: String(localized: "Scroll device name in HUD"),
-                        keywords: [String(localized: "marquee"), String(localized: "device name")],
-                        highlightID: SettingsTab.devices.highlightID(for: "Scroll device name in HUD")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .devices,
-                        title: String(localized: "Color-coded battery display"),
-                        keywords: [String(localized: "color"), String(localized: "battery")],
-                        highlightID: SettingsTab.devices.highlightID(for: "Color-coded battery display")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Color-coded volume display"),
-                        keywords: [String(localized: "volume"), String(localized: "color")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Color-coded volume display")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Smooth color transitions"),
-                        keywords: [String(localized: "gradient"), String(localized: "smooth")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Smooth color transitions")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Show percentages beside progress bars"),
-                        keywords: [String(localized: "percentages"), String(localized: "progress")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Show percentages beside progress bars")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "HUD style"),
-                        keywords: [String(localized: "inline"), String(localized: "compact")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "HUD style")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Progressbar style"),
-                        keywords: [String(localized: "progress"), String(localized: "style")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Progressbar style")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Enable glowing effect"),
-                        keywords: [String(localized: "glow"), String(localized: "indicator")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Enable glowing effect")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Use accent color"),
-                        keywords: [String(localized: "accent"), String(localized: "color")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Use accent color")
-                    ),
-                    
-                    // Custom OSD
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Enable Custom OSD"),
-                        keywords: [String(localized: "osd"), String(localized: "on-screen display"), String(localized: "custom osd")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Enable Custom OSD")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Volume OSD"),
-                        keywords: [String(localized: "volume"), String(localized: "osd")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Volume OSD")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Brightness OSD"),
-                        keywords: [String(localized: "brightness"), String(localized: "osd")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Brightness OSD")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Keyboard Backlight OSD"),
-                        keywords: [String(localized: "keyboard"), String(localized: "backlight"), String(localized: "osd")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Keyboard Backlight OSD")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Material"),
-                        keywords: [String(localized: "material"), String(localized: "frosted"), String(localized: "liquid"), String(localized: "glass"), String(localized: "solid"), String(localized: "osd")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Material")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .hudAndOSD,
-                        title: String(localized: "Icon & Progress Color"),
-                        keywords: [String(localized: "color"), String(localized: "icon"), String(localized: "white"), String(localized: "black"), String(localized: "gray"), String(localized: "osd")],
-                        highlightID: SettingsTab.hudAndOSD.highlightID(for: "Icon & Progress Color")
-                    ),
-                    
-                    // Media
-                    SettingsSearchEntry(
-                        tab: .media,
-                        title: String(localized: "Music Source"),
-                        keywords: [String(localized: "media source"), String(localized: "controller")],
-                        highlightID: SettingsTab.media.highlightID(for: "Music Source")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .media,
-                        title: String(localized: "Skip buttons"),
-                        keywords: [String(localized: "skip"), String(localized: "controls"), String(localized: "±10")],
-                        highlightID: SettingsTab.media.highlightID(for: "Skip buttons")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .media,
-                        title: String(localized: "Sneak Peek Style"),
-                        keywords: [String(localized: "sneak peek"), String(localized: "preview")],
-                        highlightID: SettingsTab.media.highlightID(for: "Sneak Peek Style")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .media,
-                        title: String(localized: "Enable lyrics"),
-                        keywords: [String(localized: "lyrics"), String(localized: "song text")],
-                        highlightID: SettingsTab.media.highlightID(for: "Enable lyrics")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .media,
-                        title: String(localized: "Show Change Media Output control"),
-                        keywords: [String(localized: "airplay"), String(localized: "route picker"), String(localized: "media output")],
-                        highlightID: SettingsTab.media.highlightID(for: "Show Change Media Output control")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .media,
-                        title: String(localized: "Enable album art parallax"),
-                        keywords: [String(localized: "parallax"), String(localized: "lock screen"), String(localized: "album art")],
-                        highlightID: SettingsTab.media.highlightID(for: "Enable album art parallax")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .media,
-                        title: String(localized: "Enable album art parallax effect"),
-                        keywords: [String(localized: "parallax"), String(localized: "parallax effect"), String(localized: "album art")],
-                        highlightID: SettingsTab.media.highlightID(for: "Enable album art parallax effect")
-                    ),
-                    
-                    // Calendar
-                    SettingsSearchEntry(
-                        tab: .calendar,
-                        title: String(localized: "Show calendar"),
-                        keywords: [String(localized: "calendar"), String(localized: "events")],
-                        highlightID: SettingsTab.calendar.highlightID(for: "Show calendar")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .calendar,
-                        title: String(localized: "Enable reminder live activity"),
-                        keywords: [String(localized: "reminder"), String(localized: "live activity")],
-                        highlightID: SettingsTab.calendar.highlightID(for: "Enable reminder live activity")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .calendar,
-                        title: String(localized: "Countdown style"),
-                        keywords: [String(localized: "reminder countdown")],
-                        highlightID: SettingsTab.calendar.highlightID(for: "Countdown style")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .calendar,
-                        title: String(localized: "Show lock screen reminder"),
-                        keywords: [String(localized: "lock screen"), String(localized: "reminder widget")],
-                        highlightID: SettingsTab.calendar.highlightID(for: "Show lock screen reminder")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .calendar,
-                        title: String(localized: "Chip color"),
-                        keywords: [String(localized: "reminder chip"), String(localized: "color")],
-                        highlightID: SettingsTab.calendar.highlightID(for: "Chip color")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .calendar,
-                        title: String(localized: "Hide all-day events"),
-                        keywords: [String(localized: "calendar"), String(localized: "all-day")],
-                        highlightID: SettingsTab.calendar.highlightID(for: "Hide all-day events")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .calendar,
-                        title: String(localized: "Hide completed reminders"),
-                        keywords: [String(localized: "reminder"), String(localized: "completed")],
-                        highlightID: SettingsTab.calendar.highlightID(for: "Hide completed reminders")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .calendar,
-                        title: String(localized: "Show full event titles"),
-                        keywords: [String(localized: "calendar"), String(localized: "titles")],
-                        highlightID: SettingsTab.calendar.highlightID(for: "Show full event titles")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .calendar,
-                        title: String(localized: "Auto-scroll to next event"),
-                        keywords: [String(localized: "calendar"), String(localized: "scroll")],
-                        highlightID: SettingsTab.calendar.highlightID(for: "Auto-scroll to next event")
-                    ),
-                    
-                    // Shelf
-                    SettingsSearchEntry(
-                        tab: .shelf,
-                        title: String(localized: "Enable shelf"),
-                        keywords: [String(localized: "shelf"), String(localized: "dock")],
-                        highlightID: SettingsTab.shelf.highlightID(for: "Enable shelf")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .shelf,
-                        title: String(localized: "Open shelf tab by default if items added"),
-                        keywords: [String(localized: "auto open"), String(localized: "shelf tab")],
-                        highlightID: SettingsTab.shelf.highlightID(for: "Open shelf tab by default if items added")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .shelf,
-                        title: String(localized: "Expanded drag detection area"),
-                        keywords: [String(localized: "shelf"), String(localized: "drag")],
-                        highlightID: SettingsTab.shelf.highlightID(for: "Expanded drag detection area")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .shelf,
-                        title: String(localized: "Copy items on drag"),
-                        keywords: [String(localized: "shelf"), String(localized: "drag"), String(localized: "copy")],
-                        highlightID: SettingsTab.shelf.highlightID(for: "Copy items on drag")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .shelf,
-                        title: String(localized: "Remove from shelf after dragging"),
-                        keywords: [String(localized: "shelf"), String(localized: "drag"), String(localized: "remove")],
-                        highlightID: SettingsTab.shelf.highlightID(for: "Remove from shelf after dragging")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .shelf,
-                        title: String(localized: "Quick Share Service"),
-                        keywords: [String(localized: "shelf"), String(localized: "share"), String(localized: "airdrop")],
-                        highlightID: SettingsTab.shelf.highlightID(for: "Quick Share Service")
-                    ),
-                    
-                    // Appearance
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "Settings icon in notch"),
-                        keywords: [String(localized: "settings button"), String(localized: "toolbar")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "Settings icon in notch")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "Enable window shadow"),
-                        keywords: [String(localized: "shadow"), String(localized: "appearance")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "Enable window shadow")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "Corner radius scaling"),
-                        keywords: [String(localized: "corner radius"), String(localized: "shape")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "Corner radius scaling")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "Use simpler close animation"),
-                        keywords: [String(localized: "close animation"), String(localized: "notch")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "Use simpler close animation")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "Notch Width"),
-                        keywords: [String(localized: "expanded notch"), String(localized: "width"), String(localized: "resize")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "Expanded notch width")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "Enable colored spectrograms"),
-                        keywords: [String(localized: "spectrogram"), String(localized: "audio")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "Enable colored spectrograms")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "Enable blur effect behind album art"),
-                        keywords: [String(localized: "blur"), String(localized: "album art")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "Enable blur effect behind album art")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "Slider color"),
-                        keywords: [String(localized: "slider"), String(localized: "accent")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "Slider color")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "Enable Dynamic mirror"),
-                        keywords: [String(localized: "mirror"), String(localized: "reflection")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "Enable Dynamic mirror")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "Mirror shape"),
-                        keywords: [String(localized: "mirror shape"), String(localized: "circle"), String(localized: "rectangle")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "Mirror shape")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "Show cool face animation while inactivity"),
-                        keywords: [String(localized: "face animation"), String(localized: "idle")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "Show cool face animation while inactivity")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .appearance,
-                        title: String(localized: "App icon"),
-                        keywords: [String(localized: "app icon"), String(localized: "custom icon")],
-                        highlightID: SettingsTab.appearance.highlightID(for: "App icon")
-                    ),
-                    
-                    // Lock Screen
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Enable lock screen live activity"),
-                        keywords: [String(localized: "lock screen"), String(localized: "live activity")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Enable lock screen live activity")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Play lock/unlock sounds"),
-                        keywords: [String(localized: "chime"), String(localized: "sound")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Play lock/unlock sounds")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Material"),
-                        keywords: [String(localized: "glass"), String(localized: "frosted"), String(localized: "liquid")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Material")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Show lock screen media panel"),
-                        keywords: [String(localized: "media panel"), String(localized: "lock screen media")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen media panel")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Show media app icon"),
-                        keywords: [String(localized: "app icon"), String(localized: "media")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show media app icon")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Show panel border"),
-                        keywords: [String(localized: "panel border")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show panel border")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Enable media panel blur"),
-                        keywords: [String(localized: "blur"), String(localized: "media panel")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Enable media panel blur")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Show lock screen timer"),
-                        keywords: [String(localized: "timer widget"), String(localized: "lock screen timer")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen timer")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Timer surface"),
-                        keywords: [String(localized: "timer glass"), String(localized: "classic"), String(localized: "blur")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Timer surface")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Timer glass material"),
-                        keywords: [String(localized: "frosted"), String(localized: "liquid"), String(localized: "timer material")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Timer glass material")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Timer liquid mode"),
-                        keywords: [String(localized: "timer"), String(localized: "standard"), String(localized: "custom")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Timer liquid mode")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Timer widget variant"),
-                        keywords: [String(localized: "timer variant"), String(localized: "liquid")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Timer widget variant")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Show lock screen weather"),
-                        keywords: [String(localized: "weather widget")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen weather")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Layout"),
-                        keywords: [String(localized: "inline"), String(localized: "circular"), String(localized: "weather layout")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Layout")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Weather data provider"),
-                        keywords: [String(localized: "wttr"), String(localized: "open meteo")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Weather data provider")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Temperature unit"),
-                        keywords: [String(localized: "celsius"), String(localized: "fahrenheit")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Temperature unit")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Show location label"),
-                        keywords: [String(localized: "location"), String(localized: "weather")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show location label")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Show charging status"),
-                        keywords: [String(localized: "charging"), String(localized: "weather")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show charging status")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Show charging percentage"),
-                        keywords: [String(localized: "charging percentage")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show charging percentage")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Show battery indicator"),
-                        keywords: [String(localized: "battery gauge"), String(localized: "weather")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show battery indicator")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Use MacBook icon when on battery"),
-                        keywords: [String(localized: "laptop icon"), String(localized: "battery")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Use MacBook icon when on battery")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Show Bluetooth battery"),
-                        keywords: [String(localized: "bluetooth"), String(localized: "gauge")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show Bluetooth battery")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Show AQI widget"),
-                        keywords: [String(localized: "air quality"), String(localized: "aqi")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Show AQI widget")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Air quality scale"),
-                        keywords: [String(localized: "aqi"), String(localized: "scale")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Air quality scale")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .lockScreen,
-                        title: String(localized: "Use colored gauges"),
-                        keywords: [String(localized: "gauge tint"), String(localized: "monochrome")],
-                        highlightID: SettingsTab.lockScreen.highlightID(for: "Use colored gauges")
-                    ),
-                    
-                    // Extensions
-                    SettingsSearchEntry(
-                        tab: .extensions,
-                        title: String(localized: "Enable third-party extensions"),
-                        keywords: [String(localized: "extensions"), String(localized: "authorization"), String(localized: "third party")],
-                        highlightID: SettingsTab.extensions.highlightID(for: "Enable third-party extensions")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .extensions,
-                        title: String(localized: "Allow extension live activities"),
-                        keywords: [String(localized: "extensions"), String(localized: "live activities"), String(localized: "permissions")],
-                        highlightID: SettingsTab.extensions.highlightID(for: "Allow extension live activities")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .extensions,
-                        title: String(localized: "Allow extension lock screen widgets"),
-                        keywords: [String(localized: "extensions"), String(localized: "lock screen"), String(localized: "widgets")],
-                        highlightID: SettingsTab.extensions.highlightID(for: "Allow extension lock screen widgets")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .extensions,
-                        title: String(localized: "Enable extension diagnostics logging"),
-                        keywords: [String(localized: "extensions"), String(localized: "diagnostics"), String(localized: "logging")],
-                        highlightID: SettingsTab.extensions.highlightID(for: "Enable extension diagnostics logging")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .extensions,
-                        title: String(localized: "Manage app permissions"),
-                        keywords: [String(localized: "extensions"), String(localized: "permissions"), String(localized: "apps")],
-                        highlightID: SettingsTab.extensions.highlightID(for: "App permissions list")
-                    ),
-                    
-                    // Shortcuts
-                    SettingsSearchEntry(
-                        tab: .shortcuts,
-                        title: String(localized: "Enable global keyboard shortcuts"),
-                        keywords: [String(localized: "keyboard"), String(localized: "shortcut")],
-                        highlightID: SettingsTab.shortcuts.highlightID(for: "Enable global keyboard shortcuts")
-                    ),
-                    
-                    // Timer
-                    SettingsSearchEntry(
-                        tab: .timer,
-                        title: String(localized: "Enable timer feature"),
-                        keywords: [String(localized: "timer"), String(localized: "enable")],
-                        highlightID: SettingsTab.timer.highlightID(for: "Enable timer feature")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .timer,
-                        title: String(localized: "Mirror macOS Clock timers"),
-                        keywords: [String(localized: "system timer"), String(localized: "clock app")],
-                        highlightID: SettingsTab.timer.highlightID(for: "Mirror macOS Clock timers")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .timer,
-                        title: String(localized: "Show lock screen timer widget"),
-                        keywords: [String(localized: "lock screen"), String(localized: "timer widget")],
-                        highlightID: SettingsTab.timer.highlightID(for: "Show lock screen timer widget")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .timer,
-                        title: String(localized: "Timer surface"),
-                        keywords: [String(localized: "timer glass"), String(localized: "classic"), String(localized: "blur")],
-                        highlightID: SettingsTab.timer.highlightID(for: "Timer surface")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .timer,
-                        title: String(localized: "Timer glass material"),
-                        keywords: [String(localized: "frosted"), String(localized: "liquid"), String(localized: "timer material")],
-                        highlightID: SettingsTab.timer.highlightID(for: "Timer glass material")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .timer,
-                        title: String(localized: "Timer liquid mode"),
-                        keywords: [String(localized: "timer"), String(localized: "standard"), String(localized: "custom")],
-                        highlightID: SettingsTab.timer.highlightID(for: "Timer liquid mode")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .timer,
-                        title: String(localized: "Timer widget variant"),
-                        keywords: [String(localized: "timer variant"), String(localized: "liquid")],
-                        highlightID: SettingsTab.timer.highlightID(for: "Timer widget variant")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .timer,
-                        title: String(localized: "Timer tint"),
-                        keywords: [String(localized: "timer colour"), String(localized: "preset")],
-                        highlightID: SettingsTab.timer.highlightID(for: "Timer tint")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .timer,
-                        title: String(localized: "Solid colour"),
-                        keywords: [String(localized: "timer colour"), String(localized: "custom")],
-                        highlightID: SettingsTab.timer.highlightID(for: "Solid colour")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .timer,
-                        title: String(localized: "Progress style"),
-                        keywords: [String(localized: "progress"), String(localized: "bar"), String(localized: "ring")],
-                        highlightID: SettingsTab.timer.highlightID(for: "Progress style")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .timer,
-                        title: String(localized: "Accent colour"),
-                        keywords: [String(localized: "accent"), String(localized: "timer")],
-                        highlightID: SettingsTab.timer.highlightID(for: "Accent colour")
-                    ),
-                    
-                    // Stats
-                    SettingsSearchEntry(
-                        tab: .stats,
-                        title: String(localized: "Enable system stats monitoring"),
-                        keywords: [String(localized: "stats"), String(localized: "monitoring")],
-                        highlightID: SettingsTab.stats.highlightID(for: "Enable system stats monitoring")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .stats,
-                        title: String(localized: "Stop monitoring after closing the notch"),
-                        keywords: [String(localized: "stats"), String(localized: "auto stop")],
-                        highlightID: SettingsTab.stats.highlightID(for: "Stop monitoring after closing the notch")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .stats,
-                        title: String(localized: "CPU Usage"),
-                        keywords: [String(localized: "cpu"), String(localized: "graph")],
-                        highlightID: SettingsTab.stats.highlightID(for: "CPU Usage")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .stats,
-                        title: String(localized: "Memory Usage"),
-                        keywords: [String(localized: "memory"), String(localized: "ram")],
-                        highlightID: SettingsTab.stats.highlightID(for: "Memory Usage")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .stats,
-                        title: String(localized: "GPU Usage"),
-                        keywords: [String(localized: "gpu"), String(localized: "graphics")],
-                        highlightID: SettingsTab.stats.highlightID(for: "GPU Usage")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .stats,
-                        title: String(localized: "Network Activity"),
-                        keywords: [String(localized: "network"), String(localized: "graph")],
-                        highlightID: SettingsTab.stats.highlightID(for: "Network Activity")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .stats,
-                        title: String(localized: "Disk I/O"),
-                        keywords: [String(localized: "disk"), String(localized: "io")],
-                        highlightID: SettingsTab.stats.highlightID(for: "Disk I/O")
-                    ),
-                    
-                    // Clipboard
-                    SettingsSearchEntry(
-                        tab: .clipboard,
-                        title: String(localized: "Enable Clipboard Manager"),
-                        keywords: [String(localized: "clipboard"), String(localized: "manager")],
-                        highlightID: SettingsTab.clipboard.highlightID(for: "Enable Clipboard Manager")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .clipboard,
-                        title: String(localized: "Show Clipboard Icon"),
-                        keywords: [String(localized: "icon"), String(localized: "clipboard")],
-                        highlightID: SettingsTab.clipboard.highlightID(for: "Show Clipboard Icon")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .clipboard,
-                        title: String(localized: "Display Mode"),
-                        keywords: [String(localized: "list"), String(localized: "grid"), String(localized: "clipboard")],
-                        highlightID: SettingsTab.clipboard.highlightID(for: "Display Mode")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .clipboard,
-                        title: String(localized: "History Size"),
-                        keywords: [String(localized: "history"), String(localized: "clipboard")],
-                        highlightID: SettingsTab.clipboard.highlightID(for: "History Size")
-                    ),
-                    
-                    // Screen Assistant
-                    SettingsSearchEntry(
-                        tab: .screenAssistant,
-                        title: String(localized: "Enable Screen Assistant"),
-                        keywords: [String(localized: "screen assistant"), String(localized: "ai")],
-                        highlightID: SettingsTab.screenAssistant.highlightID(for: "Enable Screen Assistant")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .screenAssistant,
-                        title: String(localized: "Display Mode"),
-                        keywords: [String(localized: "screen assistant"), String(localized: "mode")],
-                        highlightID: SettingsTab.screenAssistant.highlightID(for: "Display Mode")
-                    ),
-                    
-                    // Color Picker
-                    SettingsSearchEntry(
-                        tab: .colorPicker,
-                        title: String(localized: "Enable Color Picker"),
-                        keywords: [String(localized: "color picker"), String(localized: "eyedropper")],
-                        highlightID: SettingsTab.colorPicker.highlightID(for: "Enable Color Picker")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .colorPicker,
-                        title: String(localized: "Show Color Picker Icon"),
-                        keywords: [String(localized: "color icon"), String(localized: "toolbar")],
-                        highlightID: SettingsTab.colorPicker.highlightID(for: "Show Color Picker Icon")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .colorPicker,
-                        title: String(localized: "Display Mode"),
-                        keywords: [String(localized: "color"), String(localized: "list")],
-                        highlightID: SettingsTab.colorPicker.highlightID(for: "Display Mode")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .colorPicker,
-                        title: String(localized: "History Size"),
-                        keywords: [String(localized: "color history")],
-                        highlightID: SettingsTab.colorPicker.highlightID(for: "History Size")
-                    ),
-                    SettingsSearchEntry(
-                        tab: .colorPicker,
-                        title: String(localized: "Show All Color Formats"),
-                        keywords: [String(localized: "hex"), String(localized: "hsl"), String(localized: "color formats")],
-                        highlightID: SettingsTab.colorPicker.highlightID(for: "Show All Color Formats")
-                    )
-                ]
-            }
+            SettingsSearchEntry(tab: .general, title: "Show on a specific display", keywords: ["preferred screen", "display picker"], highlightID: SettingsTab.general.highlightID(for: "Show on a specific display")),
+            SettingsSearchEntry(tab: .general, title: "Automatically switch displays", keywords: ["auto switch", "displays"], highlightID: SettingsTab.general.highlightID(for: "Automatically switch displays")),
+            SettingsSearchEntry(tab: .general, title: "Hide Dynamic Island during screenshots & recordings", keywords: ["privacy", "screenshot", "recording"], highlightID: SettingsTab.general.highlightID(for: "Hide Dynamic Island during screenshots & recordings")),
+            SettingsSearchEntry(tab: .general, title: "Enable gestures", keywords: ["gestures", "trackpad"], highlightID: SettingsTab.general.highlightID(for: "Enable gestures")),
+            SettingsSearchEntry(tab: .general, title: "Close gesture", keywords: ["pinch", "swipe"], highlightID: SettingsTab.general.highlightID(for: "Close gesture")),
+            SettingsSearchEntry(tab: .general, title: "Reverse swipe gestures", keywords: ["reverse", "swipe", "media"], highlightID: SettingsTab.general.highlightID(for: "Reverse swipe gestures")),
+            SettingsSearchEntry(tab: .general, title: "Reverse scroll gestures", keywords: ["reverse", "scroll", "open", "close"], highlightID: SettingsTab.general.highlightID(for: "Reverse scroll gestures")),
+            SettingsSearchEntry(tab: .general, title: "Extend hover area", keywords: ["hover", "cursor"], highlightID: SettingsTab.general.highlightID(for: "Extend hover area")),
+            SettingsSearchEntry(tab: .general, title: "Enable haptics", keywords: ["haptic", "feedback"], highlightID: SettingsTab.general.highlightID(for: "Enable haptics")),
+            SettingsSearchEntry(tab: .general, title: "Open notch on hover", keywords: ["hover to open", "auto open"], highlightID: SettingsTab.general.highlightID(for: "Open notch on hover")),
+            SettingsSearchEntry(tab: .general, title: "Notch display height", keywords: ["display height", "menu bar size"], highlightID: SettingsTab.general.highlightID(for: "Notch display height")),
+
+            // Live Activities
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable Screen Recording Detection", keywords: ["screen recording", "indicator"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable Screen Recording Detection")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Show Recording Indicator", keywords: ["recording indicator", "red dot"], highlightID: SettingsTab.liveActivities.highlightID(for: "Show Recording Indicator")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable Focus Detection", keywords: ["focus", "do not disturb", "dnd"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable Focus Detection")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Show Focus Indicator", keywords: ["focus icon", "moon"], highlightID: SettingsTab.liveActivities.highlightID(for: "Show Focus Indicator")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Show Focus Label", keywords: ["focus label", "text"], highlightID: SettingsTab.liveActivities.highlightID(for: "Show Focus Label")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable Camera Detection", keywords: ["camera", "privacy indicator"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable Camera Detection")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable Microphone Detection", keywords: ["microphone", "privacy"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable Microphone Detection")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable music live activity", keywords: ["music", "now playing"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable music live activity")),
+            SettingsSearchEntry(tab: .liveActivities, title: "Enable reminder live activity", keywords: ["reminder", "live activity"], highlightID: SettingsTab.liveActivities.highlightID(for: "Enable reminder live activity")),
+
+            // Battery (Charge)
+            SettingsSearchEntry(tab: .battery, title: "Show battery indicator", keywords: ["battery hud", "charge"], highlightID: SettingsTab.battery.highlightID(for: "Show battery indicator")),
+            SettingsSearchEntry(tab: .battery, title: "Show battery percentage", keywords: ["battery percent"], highlightID: SettingsTab.battery.highlightID(for: "Show battery percentage")),
+            SettingsSearchEntry(tab: .battery, title: "Show power status notifications", keywords: ["notifications", "power"], highlightID: SettingsTab.battery.highlightID(for: "Show power status notifications")),
+            SettingsSearchEntry(tab: .battery, title: "Show power status icons", keywords: ["power icons", "charging icon"], highlightID: SettingsTab.battery.highlightID(for: "Show power status icons")),
+            SettingsSearchEntry(tab: .battery, title: "Play low battery alert sound", keywords: ["low battery", "alert", "sound"], highlightID: SettingsTab.battery.highlightID(for: "Play low battery alert sound")),
+
+            // HUDs
+            SettingsSearchEntry(tab: .devices, title: "Show Bluetooth device connections", keywords: ["bluetooth", "hud"], highlightID: SettingsTab.devices.highlightID(for: "Show Bluetooth device connections")),
+            SettingsSearchEntry(tab: .devices, title: "Use circular battery indicator", keywords: ["battery", "circular"], highlightID: SettingsTab.devices.highlightID(for: "Use circular battery indicator")),
+            SettingsSearchEntry(tab: .devices, title: "Show battery percentage text in HUD", keywords: ["battery text"], highlightID: SettingsTab.devices.highlightID(for: "Show battery percentage text in HUD")),
+            SettingsSearchEntry(tab: .devices, title: "Scroll device name in HUD", keywords: ["marquee", "device name"], highlightID: SettingsTab.devices.highlightID(for: "Scroll device name in HUD")),
+            SettingsSearchEntry(tab: .devices, title: "Use 3D Bluetooth HUD icon", keywords: ["bluetooth", "3d", "animation", "mov"], highlightID: SettingsTab.devices.highlightID(for: "Use 3D Bluetooth HUD icon")),
+            SettingsSearchEntry(tab: .devices, title: "Color-coded battery display", keywords: ["color", "battery"], highlightID: SettingsTab.devices.highlightID(for: "Color-coded battery display")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Color-coded volume display", keywords: ["volume", "color"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Color-coded volume display")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Smooth color transitions", keywords: ["gradient", "smooth"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Smooth color transitions")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Show percentages beside progress bars", keywords: ["percentages", "progress"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Show percentages beside progress bars")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "HUD style", keywords: ["inline", "compact"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "HUD style")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Progressbar style", keywords: ["progress", "style"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Progressbar style")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Enable glowing effect", keywords: ["glow", "indicator"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Enable glowing effect")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Use accent color", keywords: ["accent", "color"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Use accent color")),
+
+            // Custom OSD
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Enable Custom OSD", keywords: ["osd", "on-screen display", "custom osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Enable Custom OSD")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Volume OSD", keywords: ["volume", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Volume OSD")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Brightness OSD", keywords: ["brightness", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Brightness OSD")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Keyboard Backlight OSD", keywords: ["keyboard", "backlight", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Keyboard Backlight OSD")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Material", keywords: ["material", "frosted", "liquid", "glass", "solid", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Material")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "Icon & Progress Color", keywords: ["color", "icon", "white", "black", "gray", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Icon & Progress Color")),
+
+            // Media
+            SettingsSearchEntry(tab: .media, title: "Music Source", keywords: ["media source", "controller"], highlightID: SettingsTab.media.highlightID(for: "Music Source")),
+            SettingsSearchEntry(tab: .media, title: "Skip buttons", keywords: ["skip", "controls", "±10"], highlightID: SettingsTab.media.highlightID(for: "Skip buttons")),
+            SettingsSearchEntry(tab: .media, title: "Sneak Peek Style", keywords: ["sneak peek", "preview"], highlightID: SettingsTab.media.highlightID(for: "Sneak Peek Style")),
+            SettingsSearchEntry(tab: .media, title: "Enable lyrics", keywords: ["lyrics", "song text"], highlightID: SettingsTab.media.highlightID(for: "Enable lyrics")),
+            SettingsSearchEntry(tab: .media, title: "Show Change Media Output control", keywords: ["airplay", "route picker", "media output"], highlightID: SettingsTab.media.highlightID(for: "Show Change Media Output control")),
+            SettingsSearchEntry(tab: .media, title: "Enable album art parallax", keywords: ["parallax", "lock screen", "album art"], highlightID: SettingsTab.media.highlightID(for: "Enable album art parallax")),
+            SettingsSearchEntry(tab: .media, title: "Enable album art parallax effect", keywords: ["parallax", "parallax effect", "album art"], highlightID: SettingsTab.media.highlightID(for: "Enable album art parallax effect")),
+
+            // Calendar
+            SettingsSearchEntry(tab: .calendar, title: "Show calendar", keywords: ["calendar", "events"], highlightID: SettingsTab.calendar.highlightID(for: "Show calendar")),
+            SettingsSearchEntry(tab: .calendar, title: "Enable reminder live activity", keywords: ["reminder", "live activity"], highlightID: SettingsTab.calendar.highlightID(for: "Enable reminder live activity")),
+            SettingsSearchEntry(tab: .calendar, title: "Countdown style", keywords: ["reminder countdown"], highlightID: SettingsTab.calendar.highlightID(for: "Countdown style")),
+            SettingsSearchEntry(tab: .calendar, title: "Show lock screen reminder", keywords: ["lock screen", "reminder widget"], highlightID: SettingsTab.calendar.highlightID(for: "Show lock screen reminder")),
+            SettingsSearchEntry(tab: .calendar, title: "Show next calendar event", keywords: ["calendar widget", "lock screen", "next event"], highlightID: SettingsTab.calendar.highlightID(for: "Show next calendar event")),
+            SettingsSearchEntry(tab: .calendar, title: "Show events within the next", keywords: ["calendar widget", "lookahead"], highlightID: SettingsTab.calendar.highlightID(for: "Show events within the next")),
+            SettingsSearchEntry(tab: .calendar, title: "Show events from all calendars", keywords: ["calendar widget", "selection"], highlightID: SettingsTab.calendar.highlightID(for: "Show events from all calendars")),
+            SettingsSearchEntry(tab: .calendar, title: "Show countdown", keywords: ["calendar widget", "countdown"], highlightID: SettingsTab.calendar.highlightID(for: "Show countdown")),
+            SettingsSearchEntry(tab: .calendar, title: "Show event for entire duration", keywords: ["calendar widget", "duration"], highlightID: SettingsTab.calendar.highlightID(for: "Show event for entire duration")),
+            SettingsSearchEntry(tab: .calendar, title: "Hide active event and show next upcoming event", keywords: ["calendar widget", "after start"], highlightID: SettingsTab.calendar.highlightID(for: "Hide active event and show next upcoming event")),
+            SettingsSearchEntry(tab: .calendar, title: "Show time remaining", keywords: ["calendar widget", "remaining"], highlightID: SettingsTab.calendar.highlightID(for: "Show time remaining")),
+            SettingsSearchEntry(tab: .calendar, title: "Show start time after event begins", keywords: ["calendar widget", "start time"], highlightID: SettingsTab.calendar.highlightID(for: "Show start time after event begins")),
+            SettingsSearchEntry(tab: .calendar, title: "Chip color", keywords: ["reminder chip", "color"], highlightID: SettingsTab.calendar.highlightID(for: "Chip color")),
+            SettingsSearchEntry(tab: .calendar, title: "Hide all-day events", keywords: ["calendar", "all-day"], highlightID: SettingsTab.calendar.highlightID(for: "Hide all-day events")),
+            SettingsSearchEntry(tab: .calendar, title: "Hide completed reminders", keywords: ["reminder", "completed"], highlightID: SettingsTab.calendar.highlightID(for: "Hide completed reminders")),
+            SettingsSearchEntry(tab: .calendar, title: "Show full event titles", keywords: ["calendar", "titles"], highlightID: SettingsTab.calendar.highlightID(for: "Show full event titles")),
+            SettingsSearchEntry(tab: .calendar, title: "Auto-scroll to next event", keywords: ["calendar", "scroll"], highlightID: SettingsTab.calendar.highlightID(for: "Auto-scroll to next event")),
+
+            // Shelf
+            SettingsSearchEntry(tab: .shelf, title: "Enable shelf", keywords: ["shelf", "dock"], highlightID: SettingsTab.shelf.highlightID(for: "Enable shelf")),
+            SettingsSearchEntry(tab: .shelf, title: "Open shelf tab by default if items added", keywords: ["auto open", "shelf tab"], highlightID: SettingsTab.shelf.highlightID(for: "Open shelf tab by default if items added")),
+            SettingsSearchEntry(tab: .shelf, title: "Expanded drag detection area", keywords: ["shelf", "drag"], highlightID: SettingsTab.shelf.highlightID(for: "Expanded drag detection area")),
+            SettingsSearchEntry(tab: .shelf, title: "Copy items on drag", keywords: ["shelf", "drag", "copy"], highlightID: SettingsTab.shelf.highlightID(for: "Copy items on drag")),
+            SettingsSearchEntry(tab: .shelf, title: "Remove from shelf after dragging", keywords: ["shelf", "drag", "remove"], highlightID: SettingsTab.shelf.highlightID(for: "Remove from shelf after dragging")),
+            SettingsSearchEntry(tab: .shelf, title: "Quick Share Service", keywords: ["shelf", "share", "airdrop"], highlightID: SettingsTab.shelf.highlightID(for: "Quick Share Service")),
+
+            // Appearance
+            SettingsSearchEntry(tab: .appearance, title: "Settings icon in notch", keywords: ["settings button", "toolbar"], highlightID: SettingsTab.appearance.highlightID(for: "Settings icon in notch")),
+            SettingsSearchEntry(tab: .appearance, title: "Enable window shadow", keywords: ["shadow", "appearance"], highlightID: SettingsTab.appearance.highlightID(for: "Enable window shadow")),
+            SettingsSearchEntry(tab: .appearance, title: "Corner radius scaling", keywords: ["corner radius", "shape"], highlightID: SettingsTab.appearance.highlightID(for: "Corner radius scaling")),
+            SettingsSearchEntry(tab: .appearance, title: "Use simpler close animation", keywords: ["close animation", "notch"], highlightID: SettingsTab.appearance.highlightID(for: "Use simpler close animation")),
+            SettingsSearchEntry(tab: .appearance, title: "Notch Width", keywords: ["expanded notch", "width", "resize"], highlightID: SettingsTab.appearance.highlightID(for: "Expanded notch width")),
+            SettingsSearchEntry(tab: .appearance, title: "Enable colored spectrograms", keywords: ["spectrogram", "audio"], highlightID: SettingsTab.appearance.highlightID(for: "Enable colored spectrograms")),
+            SettingsSearchEntry(tab: .appearance, title: "Enable blur effect behind album art", keywords: ["blur", "album art"], highlightID: SettingsTab.appearance.highlightID(for: "Enable blur effect behind album art")),
+            SettingsSearchEntry(tab: .appearance, title: "Slider color", keywords: ["slider", "accent"], highlightID: SettingsTab.appearance.highlightID(for: "Slider color")),
+            SettingsSearchEntry(tab: .appearance, title: "Enable Dynamic mirror", keywords: ["mirror", "reflection"], highlightID: SettingsTab.appearance.highlightID(for: "Enable Dynamic mirror")),
+            SettingsSearchEntry(tab: .appearance, title: "Mirror shape", keywords: ["mirror shape", "circle", "rectangle"], highlightID: SettingsTab.appearance.highlightID(for: "Mirror shape")),
+            SettingsSearchEntry(tab: .appearance, title: "Show cool face animation while inactivity", keywords: ["face animation", "idle"], highlightID: SettingsTab.appearance.highlightID(for: "Show cool face animation while inactivity")),
+            SettingsSearchEntry(tab: .appearance, title: "App icon", keywords: ["app icon", "custom icon"], highlightID: SettingsTab.appearance.highlightID(for: "App icon")),
+
+            // Lock Screen
+            SettingsSearchEntry(tab: .lockScreen, title: "Enable lock screen live activity", keywords: ["lock screen", "live activity"], highlightID: SettingsTab.lockScreen.highlightID(for: "Enable lock screen live activity")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Play lock/unlock sounds", keywords: ["chime", "sound"], highlightID: SettingsTab.lockScreen.highlightID(for: "Play lock/unlock sounds")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Material", keywords: ["glass", "frosted", "liquid"], highlightID: SettingsTab.lockScreen.highlightID(for: "Material")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show lock screen media panel", keywords: ["media panel", "lock screen media"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen media panel")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show media app icon", keywords: ["app icon", "media"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show media app icon")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show panel border", keywords: ["panel border"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show panel border")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Enable media panel blur", keywords: ["blur", "media panel"], highlightID: SettingsTab.lockScreen.highlightID(for: "Enable media panel blur")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show lock screen timer", keywords: ["timer widget", "lock screen timer"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen timer")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Timer surface", keywords: ["timer glass", "classic", "blur"], highlightID: SettingsTab.lockScreen.highlightID(for: "Timer surface")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Timer glass material", keywords: ["frosted", "liquid", "timer material"], highlightID: SettingsTab.lockScreen.highlightID(for: "Timer glass material")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Timer liquid mode", keywords: ["timer", "standard", "custom"], highlightID: SettingsTab.lockScreen.highlightID(for: "Timer liquid mode")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Timer widget variant", keywords: ["timer variant", "liquid"], highlightID: SettingsTab.lockScreen.highlightID(for: "Timer widget variant")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show lock screen weather", keywords: ["weather widget"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen weather")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Layout", keywords: ["inline", "circular", "weather layout"], highlightID: SettingsTab.lockScreen.highlightID(for: "Layout")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Weather data provider", keywords: ["wttr", "open meteo"], highlightID: SettingsTab.lockScreen.highlightID(for: "Weather data provider")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Temperature unit", keywords: ["celsius", "fahrenheit"], highlightID: SettingsTab.lockScreen.highlightID(for: "Temperature unit")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show location label", keywords: ["location", "weather"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show location label")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show charging status", keywords: ["charging", "weather"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show charging status")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show charging percentage", keywords: ["charging percentage"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show charging percentage")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show battery indicator", keywords: ["battery gauge", "weather"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show battery indicator")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Use MacBook icon when on battery", keywords: ["laptop icon", "battery"], highlightID: SettingsTab.lockScreen.highlightID(for: "Use MacBook icon when on battery")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show Bluetooth battery", keywords: ["bluetooth", "gauge"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show Bluetooth battery")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show AQI widget", keywords: ["air quality", "aqi"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show AQI widget")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Air quality scale", keywords: ["aqi", "scale"], highlightID: SettingsTab.lockScreen.highlightID(for: "Air quality scale")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Use colored gauges", keywords: ["gauge tint", "monochrome"], highlightID: SettingsTab.lockScreen.highlightID(for: "Use colored gauges")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Show lock screen reminder", keywords: ["lock screen", "reminder widget"], highlightID: SettingsTab.lockScreen.highlightID(for: "Show lock screen reminder")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Chip color", keywords: ["reminder chip", "color"], highlightID: SettingsTab.lockScreen.highlightID(for: "Chip color")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Reminder alignment", keywords: ["reminder", "alignment", "position"], highlightID: SettingsTab.lockScreen.highlightID(for: "Reminder alignment")),
+            SettingsSearchEntry(tab: .lockScreen, title: "Reminder vertical offset", keywords: ["reminder", "offset", "position"], highlightID: SettingsTab.lockScreen.highlightID(for: "Reminder vertical offset")),
+
+            // Extensions
+            SettingsSearchEntry(tab: .extensions, title: "Enable third-party extensions", keywords: ["extensions", "authorization", "third party"], highlightID: SettingsTab.extensions.highlightID(for: "Enable third-party extensions")),
+            SettingsSearchEntry(tab: .extensions, title: "Allow extension live activities", keywords: ["extensions", "live activities", "permissions"], highlightID: SettingsTab.extensions.highlightID(for: "Allow extension live activities")),
+            SettingsSearchEntry(tab: .extensions, title: "Allow extension lock screen widgets", keywords: ["extensions", "lock screen", "widgets"], highlightID: SettingsTab.extensions.highlightID(for: "Allow extension lock screen widgets")),
+            SettingsSearchEntry(tab: .extensions, title: "Enable extension diagnostics logging", keywords: ["extensions", "diagnostics", "logging"], highlightID: SettingsTab.extensions.highlightID(for: "Enable extension diagnostics logging")),
+            SettingsSearchEntry(tab: .extensions, title: "Manage app permissions", keywords: ["extensions", "permissions", "apps"], highlightID: SettingsTab.extensions.highlightID(for: "App permissions list")),
+
+            // Shortcuts
+            SettingsSearchEntry(tab: .shortcuts, title: "Enable global keyboard shortcuts", keywords: ["keyboard", "shortcut"], highlightID: SettingsTab.shortcuts.highlightID(for: "Enable global keyboard shortcuts")),
+
+            // Timer
+            SettingsSearchEntry(tab: .timer, title: "Enable timer feature", keywords: ["timer", "enable"], highlightID: SettingsTab.timer.highlightID(for: "Enable timer feature")),
+            SettingsSearchEntry(tab: .timer, title: "Mirror macOS Clock timers", keywords: ["system timer", "clock app"], highlightID: SettingsTab.timer.highlightID(for: "Mirror macOS Clock timers")),
+            SettingsSearchEntry(tab: .timer, title: "Show lock screen timer widget", keywords: ["lock screen", "timer widget"], highlightID: SettingsTab.timer.highlightID(for: "Show lock screen timer widget")),
+            SettingsSearchEntry(tab: .timer, title: "Timer surface", keywords: ["timer glass", "classic", "blur"], highlightID: SettingsTab.timer.highlightID(for: "Timer surface")),
+            SettingsSearchEntry(tab: .timer, title: "Timer glass material", keywords: ["frosted", "liquid", "timer material"], highlightID: SettingsTab.timer.highlightID(for: "Timer glass material")),
+            SettingsSearchEntry(tab: .timer, title: "Timer liquid mode", keywords: ["timer", "standard", "custom"], highlightID: SettingsTab.timer.highlightID(for: "Timer liquid mode")),
+            SettingsSearchEntry(tab: .timer, title: "Timer widget variant", keywords: ["timer variant", "liquid"], highlightID: SettingsTab.timer.highlightID(for: "Timer widget variant")),
+            SettingsSearchEntry(tab: .timer, title: "Timer tint", keywords: ["timer colour", "preset"], highlightID: SettingsTab.timer.highlightID(for: "Timer tint")),
+            SettingsSearchEntry(tab: .timer, title: "Solid colour", keywords: ["timer colour", "custom"], highlightID: SettingsTab.timer.highlightID(for: "Solid colour")),
+            SettingsSearchEntry(tab: .timer, title: "Progress style", keywords: ["progress", "bar", "ring"], highlightID: SettingsTab.timer.highlightID(for: "Progress style")),
+            SettingsSearchEntry(tab: .timer, title: "Accent colour", keywords: ["accent", "timer"], highlightID: SettingsTab.timer.highlightID(for: "Accent colour")),
+
+            // Stats
+            SettingsSearchEntry(tab: .stats, title: "Enable system stats monitoring", keywords: ["stats", "monitoring"], highlightID: SettingsTab.stats.highlightID(for: "Enable system stats monitoring")),
+            SettingsSearchEntry(tab: .stats, title: "Stop monitoring after closing the notch", keywords: ["stats", "auto stop"], highlightID: SettingsTab.stats.highlightID(for: "Stop monitoring after closing the notch")),
+            SettingsSearchEntry(tab: .stats, title: "CPU Usage", keywords: ["cpu", "graph"], highlightID: SettingsTab.stats.highlightID(for: "CPU Usage")),
+            SettingsSearchEntry(tab: .stats, title: "Memory Usage", keywords: ["memory", "ram"], highlightID: SettingsTab.stats.highlightID(for: "Memory Usage")),
+            SettingsSearchEntry(tab: .stats, title: "GPU Usage", keywords: ["gpu", "graphics"], highlightID: SettingsTab.stats.highlightID(for: "GPU Usage")),
+            SettingsSearchEntry(tab: .stats, title: "Network Activity", keywords: ["network", "graph"], highlightID: SettingsTab.stats.highlightID(for: "Network Activity")),
+            SettingsSearchEntry(tab: .stats, title: "Disk I/O", keywords: ["disk", "io"], highlightID: SettingsTab.stats.highlightID(for: "Disk I/O")),
+
+            // Clipboard
+            SettingsSearchEntry(tab: .clipboard, title: "Enable Clipboard Manager", keywords: ["clipboard", "manager"], highlightID: SettingsTab.clipboard.highlightID(for: "Enable Clipboard Manager")),
+            SettingsSearchEntry(tab: .clipboard, title: "Show Clipboard Icon", keywords: ["icon", "clipboard"], highlightID: SettingsTab.clipboard.highlightID(for: "Show Clipboard Icon")),
+            SettingsSearchEntry(tab: .clipboard, title: "Display Mode", keywords: ["list", "grid", "clipboard"], highlightID: SettingsTab.clipboard.highlightID(for: "Display Mode")),
+            SettingsSearchEntry(tab: .clipboard, title: "History Size", keywords: ["history", "clipboard"], highlightID: SettingsTab.clipboard.highlightID(for: "History Size")),
+
+            // Screen Assistant
+            SettingsSearchEntry(tab: .screenAssistant, title: "Enable Screen Assistant", keywords: ["screen assistant", "ai"], highlightID: SettingsTab.screenAssistant.highlightID(for: "Enable Screen Assistant")),
+            SettingsSearchEntry(tab: .screenAssistant, title: "Display Mode", keywords: ["screen assistant", "mode"], highlightID: SettingsTab.screenAssistant.highlightID(for: "Display Mode")),
+
+            // Color Picker
+            SettingsSearchEntry(tab: .colorPicker, title: "Enable Color Picker", keywords: ["color picker", "eyedropper"], highlightID: SettingsTab.colorPicker.highlightID(for: "Enable Color Picker")),
+            SettingsSearchEntry(tab: .colorPicker, title: "Show Color Picker Icon", keywords: ["color icon", "toolbar"], highlightID: SettingsTab.colorPicker.highlightID(for: "Show Color Picker Icon")),
+            SettingsSearchEntry(tab: .colorPicker, title: "Display Mode", keywords: ["color", "list"], highlightID: SettingsTab.colorPicker.highlightID(for: "Display Mode")),
+            SettingsSearchEntry(tab: .colorPicker, title: "History Size", keywords: ["color history"], highlightID: SettingsTab.colorPicker.highlightID(for: "History Size")),
+            SettingsSearchEntry(tab: .colorPicker, title: "Show All Color Formats", keywords: ["hex", "hsl", "color formats"], highlightID: SettingsTab.colorPicker.highlightID(for: "Show All Color Formats"))
+        ]
+    }
+
     private func isTabVisible(_ tab: SettingsTab) -> Bool {
         switch tab {
         case .timer, .stats, .clipboard, .screenAssistant, .colorPicker, .shelf, .notes:
@@ -1542,7 +912,7 @@ struct GeneralSettings: View {
     var body: some View {
         Form {
             Section {
-                Defaults.Toggle(String(localized: "Enable Minimalistic UI"), key: .enableMinimalisticUI)
+                Defaults.Toggle("Enable Minimalistic UI", key: .enableMinimalisticUI)
                     .onChange(of: enableMinimalisticUI) { _, newValue in
                         if newValue {
                             // Auto-enable simpler animation mode
@@ -1557,9 +927,9 @@ struct GeneralSettings: View {
             }
             
             Section {
-                Defaults.Toggle(String(localized:"Menubar icon"), key: .menubarIcon)
-                    .settingsHighlight(id: highlightID("Menubar icon"));
-                LaunchAtLogin.Toggle(String(localized:"Launch at login"))
+                Defaults.Toggle("Menubar icon", key: .menubarIcon)
+                    .settingsHighlight(id: highlightID("Menubar icon"))
+                LaunchAtLogin.Toggle("Launch at login")
                     .settingsHighlight(id: highlightID("Launch at login"))
                 Defaults.Toggle(key: .showOnAllDisplays) {
                     Text("Show on all displays")
@@ -1578,13 +948,13 @@ struct GeneralSettings: View {
                 }
                 .disabled(showOnAllDisplays)
                 .settingsHighlight(id: highlightID("Show on a specific display"))
-                Defaults.Toggle(String(localized:"Automatically switch displays"), key: .automaticallySwitchDisplay)
+                Defaults.Toggle("Automatically switch displays", key: .automaticallySwitchDisplay)
                 .onChange(of: automaticallySwitchDisplay) {
                     NotificationCenter.default.post(name: Notification.Name.automaticallySwitchDisplayChanged, object: nil)
                 }
                 .disabled(showOnAllDisplays)
                 .settingsHighlight(id: highlightID("Automatically switch displays"))
-                Defaults.Toggle(String(localized:"Hide Dynamic Island during screenshots & recordings"), key: .hideDynamicIslandFromScreenCapture)
+                Defaults.Toggle("Hide Dynamic Island during screenshots & recordings", key: .hideDynamicIslandFromScreenCapture)
                     .settingsHighlight(id: highlightID("Hide Dynamic Island during screenshots & recordings"))
             } header: {
                 Text("System features")
@@ -1672,17 +1042,18 @@ struct GeneralSettings: View {
     @ViewBuilder
     func gestureControls() -> some View {
         Section {
-            Defaults.Toggle(String(localized:"Enable gestures"), key: .enableGestures)
+            Defaults.Toggle("Enable gestures", key: .enableGestures)
                 .disabled(!openNotchOnHover)
                 .settingsHighlight(id: highlightID("Enable gestures"))
             if enableGestures {
-                Defaults.Toggle(String(localized:"Media change with horizontal gestures"), key: .enableHorizontalMusicGestures)
+                Defaults.Toggle("Media change with horizontal gestures", key: .enableHorizontalMusicGestures)
                     .settingsHighlight(id: highlightID("Horizontal media gestures"))
 
                 if enableHorizontalMusicGestures {
                     Picker("Gesture skip behavior", selection: $musicGestureBehavior) {
                         ForEach(MusicSkipBehavior.allCases) { behavior in
-                            Text(behavior.displayName).tag(behavior)
+                            Text(behavior.displayName)
+                                .tag(behavior)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -1692,11 +1063,11 @@ struct GeneralSettings: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    Defaults.Toggle(String(localized:"Reverse swipe gestures"), key: .reverseSwipeGestures)
+                    Defaults.Toggle("Reverse swipe gestures", key: .reverseSwipeGestures)
                         .settingsHighlight(id: highlightID("Reverse swipe gestures"))
                 }
 
-                Defaults.Toggle(String(localized:"Close gesture"), key: .closeGestureEnabled)
+                Defaults.Toggle("Close gesture", key: .closeGestureEnabled)
                     .settingsHighlight(id: highlightID("Close gesture"))
                 Slider(value: $gestureSensitivity, in: 100...300, step: 100) {
                     HStack {
@@ -1707,7 +1078,7 @@ struct GeneralSettings: View {
                     }
                 }
 
-                Defaults.Toggle(String(localized:"Reverse open/close scroll gestures"), key: .reverseScrollGestures)
+                Defaults.Toggle("Reverse open/close scroll gestures", key: .reverseScrollGestures)
                     .settingsHighlight(id: highlightID("Reverse scroll gestures"))
             }
         } header: {
@@ -1726,11 +1097,11 @@ struct GeneralSettings: View {
     @ViewBuilder
     func NotchBehaviour() -> some View {
         Section {
-            Defaults.Toggle(String(localized:"Extend hover area"), key: .extendHoverArea)
+            Defaults.Toggle("Extend hover area", key: .extendHoverArea)
                 .settingsHighlight(id: highlightID("Extend hover area"))
-            Defaults.Toggle(String(localized:"Enable haptics"), key: .enableHaptics)
+            Defaults.Toggle("Enable haptics", key: .enableHaptics)
                 .settingsHighlight(id: highlightID("Enable haptics"))
-            Defaults.Toggle(String(localized:"Open notch on hover"), key: .openNotchOnHover)
+            Defaults.Toggle("Open notch on hover", key: .openNotchOnHover)
                 .settingsHighlight(id: highlightID("Open notch on hover"))
             Toggle("Remember last tab", isOn: $coordinator.openLastTabByDefault)
             if openNotchOnHover {
@@ -1761,19 +1132,19 @@ struct Charge: View {
         Form {
             if BatteryActivityManager.shared.hasBattery() {
                 Section {
-                    Defaults.Toggle(String(localized: "Show battery indicator"), key: .showBatteryIndicator)
+                    Defaults.Toggle("Show battery indicator", key: .showBatteryIndicator)
                         .settingsHighlight(id: highlightID("Show battery indicator"))
-                    Defaults.Toggle(String(localized: "Show power status notifications"), key: .showPowerStatusNotifications)
+                    Defaults.Toggle("Show power status notifications", key: .showPowerStatusNotifications)
                         .settingsHighlight(id: highlightID("Show power status notifications"))
-                    Defaults.Toggle(String(localized: "Play low battery alert sound"), key: .playLowBatteryAlertSound)
+                    Defaults.Toggle("Play low battery alert sound", key: .playLowBatteryAlertSound)
                         .settingsHighlight(id: highlightID("Play low battery alert sound"))
                 } header: {
                     Text("General")
                 }
                 Section {
-                    Defaults.Toggle(String(localized: "Show battery percentage"), key: .showBatteryPercentage)
+                    Defaults.Toggle("Show battery percentage", key: .showBatteryPercentage)
                         .settingsHighlight(id: highlightID("Show battery percentage"))
-                    Defaults.Toggle(String(localized: "Show power status icons"), key: .showPowerStatusIcons)
+                    Defaults.Toggle("Show power status icons", key: .showPowerStatusIcons)
                         .settingsHighlight(id: highlightID("Show power status icons"))
                 } header: {
                     Text("Battery Information")
@@ -1802,12 +1173,12 @@ struct Downloads: View {
     }
 
     var body: some View {
-        Form {
+        SwiftUI.Form {
             Section {
-                Defaults.Toggle(String(localized: "Enable download detection"), key: .enableDownloadListener)
+                Defaults.Toggle("Enable download detection", key: .enableDownloadListener)
                     .settingsHighlight(id: highlightID("Enable download detection"))
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(String(localized: "Download indicator style"))
+                    Text("Download indicator style")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.white)
                     
@@ -1875,7 +1246,7 @@ struct Downloads: View {
                     }
                 }
                 
-                Text(style.localizedName)
+                Text(style.rawValue)
                     .font(.caption)
                     .fontWeight(.medium)
                     .lineLimit(2)
@@ -2013,15 +1384,6 @@ private struct HUDAndOSDSettingsView: View {
         case circular = "Circular"
         
         var id: String { rawValue }
-        
-        var title: String {
-            switch self {
-                case .hud: return String(localized: "Dynamic Island HUD")
-                case .osd: return String(localized: "Custom OSD")
-                case .vertical: return String(localized: "Vertical Bar")
-                case .circular: return String(localized: "Circular")
-            }
-        }
     }
 
     private var paneBackgroundColor: Color {
@@ -2032,7 +1394,7 @@ private struct HUDAndOSDSettingsView: View {
         VStack(spacing: 20) {
             HStack(spacing: 16) {
                 HUDSelectionCard(
-                    title: String(localized: "Dynamic Island"),
+                    title: "Dynamic Island",
                     isSelected: selectedTab == .hud,
                     action: {
                         selectedTab = .hud
@@ -2072,7 +1434,7 @@ private struct HUDAndOSDSettingsView: View {
                 }
                 
                 HUDSelectionCard(
-                    title: String(localized: "Custom OSD"),
+                    title: "Custom OSD",
                     isSelected: selectedTab == .osd,
                     action: {
                         selectedTab = .osd
@@ -2114,7 +1476,7 @@ private struct HUDAndOSDSettingsView: View {
                 }
                 
                 HUDSelectionCard(
-                    title: String(localized: "Vertical Bar"),
+                    title: "Vertical Bar",
                     isSelected: selectedTab == .vertical,
                     action: {
                         selectedTab = .vertical
@@ -2157,7 +1519,7 @@ private struct HUDAndOSDSettingsView: View {
                 }
 
                 HUDSelectionCard(
-                    title: String(localized: "Circular"),
+                    title: "Circular",
                     isSelected: selectedTab == .circular,
                     action: {
                         selectedTab = .circular
@@ -2426,14 +1788,16 @@ private struct DevicesSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Defaults.Toggle(String(localized: "Show Bluetooth device connections"), key: .showBluetoothDeviceConnections)
+                Defaults.Toggle("Show Bluetooth device connections", key: .showBluetoothDeviceConnections)
                     .settingsHighlight(id: highlightID("Show Bluetooth device connections"))
-                Defaults.Toggle(String(localized: "Use circular battery indicator"), key: .useCircularBluetoothBatteryIndicator)
+                Defaults.Toggle("Use circular battery indicator", key: .useCircularBluetoothBatteryIndicator)
                     .settingsHighlight(id: highlightID("Use circular battery indicator"))
-                Defaults.Toggle(String(localized: "Show battery percentage text in HUD"), key: .showBluetoothBatteryPercentageText)
+                Defaults.Toggle("Show battery percentage text in HUD", key: .showBluetoothBatteryPercentageText)
                     .settingsHighlight(id: highlightID("Show battery percentage text in HUD"))
-                Defaults.Toggle(String(localized: "Scroll device name in HUD"), key: .showBluetoothDeviceNameMarquee)
+                Defaults.Toggle("Scroll device name in HUD", key: .showBluetoothDeviceNameMarquee)
                     .settingsHighlight(id: highlightID("Scroll device name in HUD"))
+                Defaults.Toggle("Use 3D Bluetooth HUD icon", key: .useBluetoothHUD3DIcon)
+                    .settingsHighlight(id: highlightID("Use 3D Bluetooth HUD icon"))
             } header: {
                 Text("Bluetooth Audio Devices")
             } footer: {
@@ -2443,7 +1807,7 @@ private struct DevicesSettingsView: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized: "Color-coded battery display"), key: .useColorCodedBatteryDisplay)
+                Defaults.Toggle("Color-coded battery display", key: .useColorCodedBatteryDisplay)
                     .disabled(colorCodingDisabled)
                     .settingsHighlight(id: highlightID("Color-coded battery display"))
             } header: {
@@ -2497,7 +1861,7 @@ struct HUD: View {
             if !hasAccessibilityPermission {
                 Section {
                     SettingsPermissionCallout(
-                        message: String(localized: "Accessibility permission lets Dynamic Island replace the native volume, brightness, and keyboard HUDs."),
+                        message: "Accessibility permission lets Dynamic Island replace the native volume, brightness, and keyboard HUDs.",
                         requestAction: { accessibilityPermission.requestAuthorizationPrompt() },
                         openSettingsAction: { accessibilityPermission.openSystemSettings() }
                     )
@@ -2523,7 +1887,7 @@ struct HUD: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized: "Play feedback when volume is changed"), key: .playVolumeChangeFeedback)
+                Defaults.Toggle("Play feedback when volume is changed", key: .playVolumeChangeFeedback)
                     .settingsHighlight(id: highlightID("Play feedback when volume is changed"))
                     .help("Plays the supplied feedback clip whenever you press the hardware volume keys.")
             } header: {
@@ -2535,16 +1899,16 @@ struct HUD: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized: "Color-coded volume display"), key: .useColorCodedVolumeDisplay)
+                Defaults.Toggle("Color-coded volume display", key: .useColorCodedVolumeDisplay)
                     .disabled(colorCodingDisabled)
                     .settingsHighlight(id: highlightID("Color-coded volume display"))
 
                 if !colorCodingDisabled && (Defaults[.useColorCodedBatteryDisplay] || Defaults[.useColorCodedVolumeDisplay]) {
-                    Defaults.Toggle(String(localized: "Smooth color transitions"), key: .useSmoothColorGradient)
+                    Defaults.Toggle("Smooth color transitions", key: .useSmoothColorGradient)
                         .settingsHighlight(id: highlightID("Smooth color transitions"))
                 }
 
-                Defaults.Toggle(String(localized: "Show percentages beside progress bars"), key: .showProgressPercentages)
+                Defaults.Toggle("Show percentages beside progress bars", key: .showProgressPercentages)
                     .settingsHighlight(id: highlightID("Show percentages beside progress bars"))
             } header: {
                 Text("Dynamic Island Progress Bars")
@@ -2589,9 +1953,9 @@ struct HUD: View {
                         .tag(ProgressBarStyle.segmented)
                 }
                 .settingsHighlight(id: highlightID("Progressbar style"))
-                Defaults.Toggle(String(localized: "Enable glowing effect"), key: .systemEventIndicatorShadow)
+                Defaults.Toggle("Enable glowing effect", key: .systemEventIndicatorShadow)
                     .settingsHighlight(id: highlightID("Enable glowing effect"))
-                Defaults.Toggle(String(localized: "Use accent color"), key: .systemEventIndicatorUseAccent)
+                Defaults.Toggle("Use accent color", key: .systemEventIndicatorUseAccent)
                     .settingsHighlight(id: highlightID("Use accent color"))
             } header: {
                 HStack {
@@ -2642,7 +2006,7 @@ struct Media: View {
             Section {
                 Picker("Music Source", selection: $mediaController) {
                     ForEach(availableMediaControllers) { controller in
-                        Text(controller.localizedName).tag(controller)
+                        Text(controller.rawValue).tag(controller)
                     }
                 }
                 .onChange(of: mediaController) { _, _ in
@@ -2671,7 +2035,7 @@ struct Media: View {
                 }
             }
             Section {
-                Defaults.Toggle(String(localized: "Show media controls in Dynamic Island"), key: .showStandardMediaControls)
+                Defaults.Toggle("Show media controls in Dynamic Island", key: .showStandardMediaControls)
                     .disabled(enableMinimalisticUI)
                     .settingsHighlight(id: highlightID("Show media controls in Dynamic Island"))
 
@@ -2695,7 +2059,7 @@ struct Media: View {
                     }
                 }
                 if showShuffleAndRepeat {
-                    Defaults.Toggle(String(localized: "Show \"Change Media Output\" control"), key: .showMediaOutputControl)
+                    Defaults.Toggle("Show \"Change Media Output\" control", key: .showMediaOutputControl)
                         .settingsHighlight(id: highlightID("Show Change Media Output control"))
                         .help("Adds the AirPlay/route picker button back to the customizable controls palette.")
                     MusicSlotConfigurationView()
@@ -2710,7 +2074,7 @@ struct Media: View {
             }
 
             Section(header: Text("Lock Screen Media")) {
-                Defaults.Toggle(String(localized: "Enable album art parallax"), key: .lockScreenMusicAlbumParallaxEnabled)
+                Defaults.Toggle("Enable album art parallax", key: .lockScreenMusicAlbumParallaxEnabled)
                     .settingsHighlight(id: highlightID("Enable album art parallax"))
                 Text("Applies the notch-style parallax effect to the lock screen media widget album art.")
                     .font(.caption)
@@ -2740,20 +2104,22 @@ struct Media: View {
                 )
                 .disabled(standardControlsSuppressed)
                 .help(standardControlsSuppressed ? "Standard notch media controls are hidden while this toggle is off." : "")
-                Defaults.Toggle(String(localized: "Show floating media controls"),
-                key: .musicControlWindowEnabled)
+                Defaults.Toggle(
+                    "Show floating media controls",
+                    key: .musicControlWindowEnabled
+                )
                 .disabled(!coordinator.musicLiveActivityEnabled || standardControlsSuppressed)
                 .help("Displays play/pause and skip buttons beside the notch while music is active. Disabled by default.")
                 Toggle("Enable sneak peek", isOn: $enableSneakPeek)
                 Toggle("Show sneak peek on playback changes", isOn: $showSneakPeekOnTrackChange)
                     .disabled(!enableSneakPeek)
-                Defaults.Toggle(String(localized: "Enable lyrics"), key: .enableLyrics)
+                Defaults.Toggle("Enable lyrics", key: .enableLyrics)
                     .settingsHighlight(id: highlightID("Enable lyrics"))
-                Defaults.Toggle(String(localized: "Enable album art parallax effect"), key: .enableParallaxEffect)
+                Defaults.Toggle("Enable album art parallax effect", key: .enableParallaxEffect)
                     .settingsHighlight(id: highlightID("Enable album art parallax effect"))
                 Picker("Sneak Peek Style", selection: $sneakPeekStyles){
                     ForEach(SneakPeekStyle.allCases) { style in
-                        Text(style.LocalizedName).tag(style)
+                        Text(style.rawValue).tag(style)
                     }
                 }
                 .disabled(!enableSneakPeek || enableMinimalisticUI)
@@ -2786,10 +2152,10 @@ struct Media: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized: "Show lock screen media panel"), key: .enableLockScreenMediaWidget)
-                Defaults.Toggle(String(localized: "Show media app icon"), key: .lockScreenShowAppIcon)
+                Defaults.Toggle("Show lock screen media panel", key: .enableLockScreenMediaWidget)
+                Defaults.Toggle("Show media app icon", key: .lockScreenShowAppIcon)
                     .disabled(!enableLockScreenMediaWidget)
-                Defaults.Toggle(String(localized: "Show panel border"), key: .lockScreenPanelShowsBorder)
+                Defaults.Toggle("Show panel border", key: .lockScreenPanelShowsBorder)
                     .disabled(!enableLockScreenMediaWidget)
                 if lockScreenGlassCustomizationMode == .customLiquid {
                     customLiquidBlurRow
@@ -2872,9 +2238,45 @@ struct CalendarSettings: View {
     @Default(.hideCompletedReminders) var hideCompletedReminders
     @Default(.showFullEventTitles) var showFullEventTitles
     @Default(.autoScrollToNextEvent) var autoScrollToNextEvent
+    @Default(.lockScreenShowCalendarCountdown) private var lockScreenShowCalendarCountdown
+    @Default(.lockScreenShowCalendarEvent) private var lockScreenShowCalendarEvent
+    @Default(.lockScreenShowCalendarEventEntireDuration) private var lockScreenShowCalendarEventEntireDuration
+    @Default(.lockScreenShowCalendarEventAfterStartWindow) private var lockScreenShowCalendarEventAfterStartWindow
+    @Default(.lockScreenShowCalendarTimeRemaining) private var lockScreenShowCalendarTimeRemaining
+    @Default(.lockScreenShowCalendarStartTimeAfterBegins) private var lockScreenShowCalendarStartTimeAfterBegins
+    @Default(.lockScreenCalendarEventLookaheadWindow) private var lockScreenCalendarEventLookaheadWindow
+    @Default(.lockScreenCalendarSelectionMode) private var lockScreenCalendarSelectionMode
+    @Default(.lockScreenSelectedCalendarIDs) private var lockScreenSelectedCalendarIDs
+    @Default(.lockScreenShowCalendarEventAfterStartEnabled) private var lockScreenShowCalendarEventAfterStartEnabled
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.calendar.highlightID(for: title)
+    }
+
+    private enum CalendarLookaheadOption: String, CaseIterable, Identifiable {
+        case mins15 = "15m"
+        case mins30 = "30m"
+        case hour1 = "1h"
+        case hours3 = "3h"
+        case hours6 = "6h"
+        case hours12 = "12h"
+        case restOfDay = "rest_of_day"
+        case allTime = "all_time"
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .mins15: return "15 mins"
+            case .mins30: return "30 mins"
+            case .hour1: return "1 hour"
+            case .hours3: return "3 hours"
+            case .hours6: return "6 hours"
+            case .hours12: return "12 hours"
+            case .restOfDay: return "Rest of the day"
+            case .allTime: return "All time"
+            }
+        }
     }
 
     var body: some View {
@@ -2902,7 +2304,7 @@ struct CalendarSettings: View {
                 }
             } else {
                 // Permissions status
-                Section {
+                Section(header: Text("Permissions")) {
                     HStack {
                         Text("Calendars")
                         Spacer()
@@ -2915,11 +2317,9 @@ struct CalendarSettings: View {
                         Text(statusText(for: calendarManager.reminderAuthorizationStatus))
                             .foregroundColor(color(for: calendarManager.reminderAuthorizationStatus))
                     }
-                } header: {
-                    Text("Permissions")
                 }
                 
-                Defaults.Toggle(String(localized:"Show calendar"), key: .showCalendar)
+                Defaults.Toggle("Show calendar", key: .showCalendar)
                     .settingsHighlight(id: highlightID("Show calendar"))
 
                 Section(header: Text("Event List")) {
@@ -2943,7 +2343,7 @@ struct CalendarSettings: View {
                 }
                 
                 Section(header: Text("Reminder Live Activity")) {
-                    Defaults.Toggle(String(localized:"Enable reminder live activity"), key: .enableReminderLiveActivity)
+                    Defaults.Toggle("Enable reminder live activity", key: .enableReminderLiveActivity)
                         .settingsHighlight(id: highlightID("Enable reminder live activity"))
 
                     Picker("Countdown style", selection: $reminderPresentationStyle) {
@@ -2986,13 +2386,12 @@ struct CalendarSettings: View {
                 }
 
                 Section(header: Text("Lock Screen Reminder Widget")) {
-                    Defaults.Toggle(String(localized:"Show lock screen reminder"), key: .enableLockScreenReminderWidget)
+                    Defaults.Toggle("Show lock screen reminder", key: .enableLockScreenReminderWidget)
                         .settingsHighlight(id: highlightID("Show lock screen reminder"))
 
-                    Picker(String(localized: "Chip color"), selection: $lockScreenReminderChipStyle) {
+                    Picker("Chip color", selection: $lockScreenReminderChipStyle) {
                         ForEach(LockScreenReminderChipStyle.allCases) { style in
-
-                            Text(style.localizedName).tag(style)
+                            Text(style.rawValue).tag(style)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -3000,21 +2399,147 @@ struct CalendarSettings: View {
                     .settingsHighlight(id: highlightID("Chip color"))
                 }
 
-                Section(header: Text("Select Calendars")) {
-                    List {
-                        ForEach(calendarManager.allCalendars, id: \.id) { calendar in
-                            Toggle(isOn: Binding(
-                                get: { calendarManager.getCalendarSelected(calendar) },
-                                set: { isSelected in
-                                    Task {
-                                        await calendarManager.setCalendarSelected(calendar, isSelected: isSelected)
+                Section(
+                    header: Text("Calendar Widget"),
+                    footer: Text("Displays your next upcoming calendar event above or below the weather capsule. Calendar selection here is independent from the Dynamic Island calendar filter.")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                ) {
+                    Defaults.Toggle("Show next calendar event", key: .lockScreenShowCalendarEvent)
+                        .settingsHighlight(id: highlightID("Show next calendar event"))
+
+                    LabeledContent("Show events within the next") {
+                        HStack {
+                            Spacer(minLength: 0)
+                            Picker("", selection: $lockScreenCalendarEventLookaheadWindow) {
+                                ForEach(CalendarLookaheadOption.allCases) { option in
+                                    Text(option.title).tag(option.rawValue)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show events within the next"))
+
+                    Toggle("Show events from all calendars", isOn: Binding(
+                        get: { lockScreenCalendarSelectionMode == "all" },
+                        set: { useAll in
+                            if useAll {
+                                lockScreenCalendarSelectionMode = "all"
+                            } else {
+                                lockScreenCalendarSelectionMode = "selected"
+                                lockScreenSelectedCalendarIDs = Set(calendarManager.eventCalendars.map { $0.id })
+                            }
+                        }
+                    ))
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show events from all calendars"))
+
+                    if lockScreenCalendarSelectionMode != "all" {
+                        HStack {
+                            Spacer()
+                            Button("Deselect All") {
+                                lockScreenSelectedCalendarIDs = []
+                            }
+                            .buttonStyle(.link)
+                        }
+                        .padding(.top, 2)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(calendarManager.eventCalendars, id: \.id) { calendar in
+                                Toggle(isOn: Binding(
+                                    get: { lockScreenSelectedCalendarIDs.contains(calendar.id) },
+                                    set: { isOn in
+                                        if isOn {
+                                            lockScreenSelectedCalendarIDs.insert(calendar.id)
+                                        } else {
+                                            lockScreenSelectedCalendarIDs.remove(calendar.id)
+                                        }
+                                    }
+                                )) {
+                                    HStack(spacing: 8) {
+                                        Circle()
+                                            .fill(Color(calendar.color))
+                                            .frame(width: 8, height: 8)
+                                        Text(calendar.title)
                                     }
                                 }
-                            )) {
-                                Text(calendar.title)
                             }
-                            .disabled(!showCalendar)
                         }
+                        .padding(.top, 4)
+                        .padding(.leading, 2)
+                        .disabled(!lockScreenShowCalendarEvent)
+                    }
+
+                    Defaults.Toggle("Show countdown", key: .lockScreenShowCalendarCountdown)
+                        .disabled(!lockScreenShowCalendarEvent)
+                        .settingsHighlight(id: highlightID("Show countdown"))
+
+                    Defaults.Toggle("Show event for entire duration", key: .lockScreenShowCalendarEventEntireDuration)
+                        .disabled(!lockScreenShowCalendarEvent)
+                        .settingsHighlight(id: highlightID("Show event for entire duration"))
+                        .onChange(of: Defaults[.lockScreenShowCalendarEventEntireDuration]) { _, newValue in
+                            if newValue {
+                                Defaults[.lockScreenShowCalendarEventAfterStartEnabled] = false
+                            }
+                        }
+
+                    Defaults.Toggle(
+                        "Hide active event and show next upcoming event",
+                        key: .lockScreenShowCalendarEventAfterStartEnabled
+                    )
+                    .disabled(!lockScreenShowCalendarEvent || lockScreenShowCalendarEventEntireDuration)
+                    .settingsHighlight(id: highlightID("Hide active event and show next upcoming event"))
+
+                    LabeledContent("Show event after it starts") {
+                        HStack {
+                            Spacer(minLength: 0)
+                            Picker("", selection: $lockScreenShowCalendarEventAfterStartWindow) {
+                                Text("1 min").tag("1m")
+                                Text("5 mins").tag("5m")
+                                Text("10 mins").tag("10m")
+                                Text("15 mins").tag("15m")
+                                Text("30 mins").tag("30m")
+                                Text("45 mins").tag("45m")
+                                Text("1 hour").tag("1h")
+                                Text("2 hours").tag("2h")
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    .disabled(!lockScreenShowCalendarEvent || lockScreenShowCalendarEventEntireDuration || !lockScreenShowCalendarEventAfterStartEnabled)
+
+                    Text("Turn off 'Show event for entire duration' to use the post-start duration option.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Defaults.Toggle("Show time remaining", key: .lockScreenShowCalendarTimeRemaining)
+                        .disabled(!lockScreenShowCalendarEvent)
+                        .settingsHighlight(id: highlightID("Show time remaining"))
+
+                    Defaults.Toggle("Show start time after event begins", key: .lockScreenShowCalendarStartTimeAfterBegins)
+                        .disabled(!lockScreenShowCalendarEvent)
+                        .settingsHighlight(id: highlightID("Show start time after event begins"))
+                }
+
+                Section(header: Text("Select Calendars")) {
+                    ForEach(calendarManager.allCalendars, id: \.id) { calendar in
+                        Toggle(isOn: Binding(
+                            get: { calendarManager.getCalendarSelected(calendar) },
+                            set: { isSelected in
+                                Task {
+                                    await calendarManager.setCalendarSelected(calendar, isSelected: isSelected)
+                                }
+                            }
+                        )) {
+                            Text(calendar.title)
+                        }
+                        .disabled(!showCalendar)
                     }
                 }
             }
@@ -3030,12 +2555,12 @@ struct CalendarSettings: View {
     
     private func statusText(for status: EKAuthorizationStatus) -> String {
         switch status {
-        case .fullAccess, .authorized: return String(localized:"Full Access")
-        case .writeOnly: return String(localized:"Write Only")
-        case .denied: return String(localized:"Denied")
-        case .restricted: return String(localized:"Restricted")
-        case .notDetermined: return String(localized:"Not Determined")
-        @unknown default: return String(localized:"Unknown")
+        case .fullAccess, .authorized: return "Full Access"
+        case .writeOnly: return "Write Only"
+        case .denied: return "Denied"
+        case .restricted: return "Restricted"
+        case .notDetermined: return "Not Determined"
+        @unknown default: return "Unknown"
         }
     }
     
@@ -3169,12 +2694,12 @@ struct Shelf: View {
             if !fullDiskAccessPermission.isAuthorized {
                 Section {
                     SettingsPermissionCallout(
-                        title: String(localized: "Full Disk Access required"),
-                        message: String(localized: "Grant Full Disk Access so the Shelf can index and move files outside the app sandbox."),
+                        title: "Full Disk Access required",
+                        message: "Grant Full Disk Access so the Shelf can index and move files outside the app sandbox.",
                         icon: "externaldrive.fill",
                         iconColor: .purple,
-                        requestButtonTitle: String(localized: "Request Full Disk Access"),
-                        openSettingsButtonTitle: String(localized: "Open Privacy & Security"),
+                        requestButtonTitle: "Request Full Disk Access",
+                        openSettingsButtonTitle: "Open Privacy & Security",
                         requestAction: { fullDiskAccessPermission.requestAccessPrompt() },
                         openSettingsAction: { fullDiskAccessPermission.openSystemSettings() }
                     )
@@ -3184,11 +2709,11 @@ struct Shelf: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized: "Enable shelf"), key: .dynamicShelf)
+                Defaults.Toggle("Enable shelf", key: .dynamicShelf)
                     .disabled(!fullDiskAccessPermission.isAuthorized)
                     .settingsHighlight(id: highlightID("Enable shelf"))
 
-                Defaults.Toggle(String(localized: "Open shelf tab by default if items added"), key: .openShelfByDefault)
+                Defaults.Toggle("Open shelf tab by default if items added", key: .openShelfByDefault)
                     .settingsHighlight(id: highlightID("Open shelf tab by default if items added"))
 
                 Defaults.Toggle(key: .expandedDragDetection) {
@@ -3295,10 +2820,10 @@ struct LiveActivitiesSettings: View {
     var body: some View {
         Form {
             Section {
-                Defaults.Toggle(String(localized: "Enable Screen Recording Detection"), key: .enableScreenRecordingDetection)
+                Defaults.Toggle("Enable Screen Recording Detection", key: .enableScreenRecordingDetection)
                     .settingsHighlight(id: highlightID("Enable Screen Recording Detection"))
 
-                Defaults.Toggle(String(localized: "Show Recording Indicator"), key: .showRecordingIndicator)
+                Defaults.Toggle("Show Recording Indicator", key: .showRecordingIndicator)
                     .disabled(!enableScreenRecordingDetection)
                     .settingsHighlight(id: highlightID("Show Recording Indicator"))
 
@@ -3329,30 +2854,30 @@ struct LiveActivitiesSettings: View {
             Section {
                 if !fullDiskAccessPermission.isAuthorized {
                     SettingsPermissionCallout(
-                        title: String(localized: "Custom Focus metadata"),
-                        message: String(localized: "Full Disk Access unlocks custom Focus icons, colors, and labels. Standard Focus detection still works without it—grant access only if you need personalized indicators."),
+                        title: "Custom Focus metadata",
+                        message: "Full Disk Access unlocks custom Focus icons, colors, and labels. Standard Focus detection still works without it—grant access only if you need personalized indicators.",
                         icon: "externaldrive.fill",
                         iconColor: .purple,
-                        requestButtonTitle: String(localized: "Request Full Disk Access"),
-                        openSettingsButtonTitle: String(localized: "Open Privacy & Security"),
+                        requestButtonTitle: "Request Full Disk Access",
+                        openSettingsButtonTitle: "Open Privacy & Security",
                         requestAction: { fullDiskAccessPermission.requestAccessPrompt() },
                         openSettingsAction: { fullDiskAccessPermission.openSystemSettings() }
                     )
                 }
 
-                Defaults.Toggle(String(localized: "Enable Focus Detection"), key: .enableDoNotDisturbDetection)
+                Defaults.Toggle("Enable Focus Detection", key: .enableDoNotDisturbDetection)
                     .settingsHighlight(id: highlightID("Enable Focus Detection"))
 
-                Defaults.Toggle(String(localized: "Show Focus Indicator"), key: .showDoNotDisturbIndicator)
+                Defaults.Toggle("Show Focus Indicator", key: .showDoNotDisturbIndicator)
                     .disabled(!enableDoNotDisturbDetection)
                     .settingsHighlight(id: highlightID("Show Focus Indicator"))
 
-                Defaults.Toggle(String(localized: "Show Focus Label"), key: .showDoNotDisturbLabel)
+                Defaults.Toggle("Show Focus Label", key: .showDoNotDisturbLabel)
                     .disabled(!enableDoNotDisturbDetection || focusIndicatorNonPersistent)
                     .help(focusIndicatorNonPersistent ? "Labels are forced to compact on/off text while brief toast mode is enabled." : "Show the active Focus name inside the indicator.")
                     .settingsHighlight(id: highlightID("Show Focus Label"))
 
-                Defaults.Toggle(String(localized: "Show Focus as brief toast"), key: .focusIndicatorNonPersistent)
+                Defaults.Toggle("Show Focus as brief toast", key: .focusIndicatorNonPersistent)
                     .disabled(!enableDoNotDisturbDetection)
                     .settingsHighlight(id: highlightID("Show Focus as brief toast"))
                     .help("When enabled, Focus appears briefly (on/off) and then collapses instead of staying visible.")
@@ -3389,10 +2914,10 @@ struct LiveActivitiesSettings: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized: "Show Caps Lock Indicator"), key: .enableCapsLockIndicator)
+                Defaults.Toggle("Show Caps Lock Indicator", key: .enableCapsLockIndicator)
                     .settingsHighlight(id: highlightID("Show Caps Lock Indicator"))
 
-                Defaults.Toggle(String(localized: "Show Caps Lock label"), key: .showCapsLockLabel)
+                Defaults.Toggle("Show Caps Lock label", key: .showCapsLockLabel)
                     .disabled(!Defaults[.enableCapsLockIndicator])
                     .settingsHighlight(id: highlightID("Show Caps Lock label"))
 
@@ -3411,9 +2936,9 @@ struct LiveActivitiesSettings: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized: "Enable Camera Detection"), key: .enableCameraDetection)
+                Defaults.Toggle("Enable Camera Detection", key: .enableCameraDetection)
                     .settingsHighlight(id: highlightID("Enable Camera Detection"))
-                Defaults.Toggle(String(localized: "Enable Microphone Detection"), key: .enableMicrophoneDetection)
+                Defaults.Toggle("Enable Microphone Detection", key: .enableMicrophoneDetection)
                     .settingsHighlight(id: highlightID("Enable Microphone Detection"))
 
                 if privacyManager.isMonitoring {
@@ -3470,7 +2995,7 @@ struct LiveActivitiesSettings: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized: "Enable reminder live activity"), key: .enableReminderLiveActivity)
+                Defaults.Toggle("Enable reminder live activity", key: .enableReminderLiveActivity)
                     .settingsHighlight(id: highlightID("Enable reminder live activity"))
             } header: {
                 Text("Reminder Live Activity")
@@ -3558,13 +3083,13 @@ struct Appearance: View {
         Form {
             Section {
                 Toggle("Always show tabs", isOn: $coordinator.alwaysShowTabs)
-                Defaults.Toggle(String(localized:"Settings icon in notch"), key: .settingsIconInNotch)
+                Defaults.Toggle("Settings icon in notch", key: .settingsIconInNotch)
                     .settingsHighlight(id: highlightID("Settings icon in notch"))
-                Defaults.Toggle(String(localized:"Enable window shadow"), key: .enableShadow)
+                Defaults.Toggle("Enable window shadow", key: .enableShadow)
                     .settingsHighlight(id: highlightID("Enable window shadow"))
-                Defaults.Toggle(String(localized:"Corner radius scaling"), key: .cornerRadiusScaling)
+                Defaults.Toggle("Corner radius scaling", key: .cornerRadiusScaling)
                     .settingsHighlight(id: highlightID("Corner radius scaling"))
-                Defaults.Toggle(String(localized:"Use simpler close animation"), key: .useModernCloseAnimation)
+                Defaults.Toggle("Use simpler close animation", key: .useModernCloseAnimation)
                     .settingsHighlight(id: highlightID("Use simpler close animation"))
             } header: {
                 Text("General")
@@ -3594,9 +3119,9 @@ struct Appearance: View {
                 }
 
                 if lockScreenGlassStyle == .liquid {
-                    Picker(String(localized: "Lock screen glass mode"), selection: $lockScreenGlassCustomizationMode) {
+                    Picker("Lock screen glass mode", selection: $lockScreenGlassCustomizationMode) {
                         ForEach(LockScreenGlassCustomizationMode.allCases) { mode in
-                            Text(mode.localizedName).tag(mode)
+                            Text(mode.rawValue).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -3647,15 +3172,15 @@ struct Appearance: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized:"Enable colored spectrograms"), key: .coloredSpectrogram)
+                Defaults.Toggle("Enable colored spectrograms", key: .coloredSpectrogram)
                     .settingsHighlight(id: highlightID("Enable colored spectrograms"))
-                Defaults.Toggle(String(localized:"Player tinting"), key: .playerColorTinting)
-                Defaults.Toggle(String(localized:"Enable blur effect behind album art"), key: .lightingEffect)
+                Defaults
+                    .Toggle("Player tinting", key: .playerColorTinting)
+                Defaults.Toggle("Enable blur effect behind album art", key: .lightingEffect)
                     .settingsHighlight(id: highlightID("Enable blur effect behind album art"))
-                Picker(String(localized: "Slider color"), selection: $sliderColor) {
+                Picker("Slider color", selection: $sliderColor) {
                     ForEach(SliderColorEnum.allCases, id: \.self) { option in
-                        
-                        Text(option.localizedName).tag(option)
+                        Text(option.rawValue)
                     }
                 }
                 .settingsHighlight(id: highlightID("Slider color"))
@@ -3695,7 +3220,7 @@ struct Appearance: View {
             } header: {
                 HStack {
                     Text("Custom music live activity animation")
-                    customBadge(text: String(localized: "Coming soon"))
+                    customBadge(text: "Coming soon")
                 }
             }
 
@@ -3832,7 +3357,7 @@ struct Appearance: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized:"Enable Dynamic mirror"), key: .showMirror)
+                Defaults.Toggle("Enable Dynamic mirror", key: .showMirror)
                     .disabled(!checkVideoInput())
                     .settingsHighlight(id: highlightID("Enable Dynamic mirror"))
                 Picker("Mirror shape", selection: $mirrorShape) {
@@ -3842,7 +3367,7 @@ struct Appearance: View {
                         .tag(MirrorShapeEnum.rectangle)
                 }
                 .settingsHighlight(id: highlightID("Mirror shape"))
-                Defaults.Toggle(String(localized:"Show cool face animation while inactivity"), key: .showNotHumanFace)
+                Defaults.Toggle("Show cool face animation while inactivity", key: .showNotHumanFace)
                     .settingsHighlight(id: highlightID("Show cool face animation while inactivity"))
             } header: {
                 HStack {
@@ -3858,7 +3383,7 @@ struct Appearance: View {
                     let columns = [GridItem(.adaptive(minimum: 90), spacing: 12)]
                     LazyVGrid(columns: columns, spacing: 12) {
                         appIconCard(
-                            title: String(localized:"Default"),
+                            title: "Default",
                             image: defaultAppIconImage(),
                             isSelected: selectedAppIconID == nil
                         ) {
@@ -4101,8 +3626,8 @@ struct Appearance: View {
                 }
 
                 let description = enableMinimalisticUI
-                ? String(localized:"Width adjustments apply only to the standard notch layout. Disable Minimalistic UI to edit this value.")
-                : String(localized:"Extend the notch span so the clipboard, colour picker, and other trailing icons remain visible on scaled displays (e.g. More Space).")
+                    ? "Width adjustments apply only to the standard notch layout. Disable Minimalistic UI to edit this value."
+                    : "Extend the notch span so the clipboard, colour picker, and other trailing icons remain visible on scaled displays (e.g. More Space)."
 
                 Text(description)
                     .font(.caption)
@@ -4127,6 +3652,7 @@ struct Appearance: View {
 }
 
 struct LockScreenSettings: View {
+    @ObservedObject private var calendarManager = CalendarManager.shared
     @Default(.lockScreenGlassStyle) private var lockScreenGlassStyle
     @Default(.lockScreenGlassCustomizationMode) private var lockScreenGlassCustomizationMode
     @Default(.lockScreenMusicLiquidGlassVariant) private var lockScreenMusicLiquidGlassVariant
@@ -4146,7 +3672,21 @@ struct LockScreenSettings: View {
     @Default(.lockScreenWeatherShowsAQI) private var lockScreenWeatherShowsAQI
     @Default(.lockScreenWeatherShowsSunrise) private var lockScreenWeatherShowsSunrise
     @Default(.lockScreenWeatherAQIScale) private var lockScreenWeatherAQIScale
+    @Default(.enableLockScreenReminderWidget) private var enableLockScreenReminderWidget
+    @Default(.lockScreenReminderChipStyle) private var lockScreenReminderChipStyle
+    @Default(.lockScreenReminderWidgetHorizontalAlignment) private var lockScreenReminderWidgetHorizontalAlignment
+    @Default(.lockScreenReminderWidgetVerticalOffset) private var lockScreenReminderWidgetVerticalOffset
     @Default(.showStandardMediaControls) private var showStandardMediaControls
+    @Default(.lockScreenShowCalendarCountdown) private var lockScreenShowCalendarCountdown
+    @Default(.lockScreenShowCalendarEvent) private var lockScreenShowCalendarEvent
+    @Default(.lockScreenShowCalendarEventEntireDuration) private var lockScreenShowCalendarEventEntireDuration
+    @Default(.lockScreenShowCalendarEventAfterStartWindow) private var lockScreenShowCalendarEventAfterStartWindow
+    @Default(.lockScreenShowCalendarTimeRemaining) private var lockScreenShowCalendarTimeRemaining
+    @Default(.lockScreenShowCalendarStartTimeAfterBegins) private var lockScreenShowCalendarStartTimeAfterBegins
+    @Default(.lockScreenCalendarEventLookaheadWindow) private var lockScreenCalendarEventLookaheadWindow
+    @Default(.lockScreenCalendarSelectionMode) private var lockScreenCalendarSelectionMode
+    @Default(.lockScreenSelectedCalendarIDs) private var lockScreenSelectedCalendarIDs
+    @Default(.lockScreenShowCalendarEventAfterStartEnabled) private var lockScreenShowCalendarEventAfterStartEnabled
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.lockScreen.highlightID(for: title)
@@ -4154,6 +3694,48 @@ struct LockScreenSettings: View {
 
     private var liquidVariantRange: ClosedRange<Double> {
         Double(LiquidGlassVariant.supportedRange.lowerBound)...Double(LiquidGlassVariant.supportedRange.upperBound)
+    }
+
+    private enum CalendarLookaheadOption: String, CaseIterable, Identifiable {
+        case mins15 = "15m"
+        case mins30 = "30m"
+        case hour1 = "1h"
+        case hours3 = "3h"
+        case hours6 = "6h"
+        case hours12 = "12h"
+        case restOfDay = "rest_of_day"
+        case allTime = "all_time"
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .mins15: return "15 mins"
+            case .mins30: return "30 mins"
+            case .hour1: return "1 hour"
+            case .hours3: return "3 hours"
+            case .hours6: return "6 hours"
+            case .hours12: return "12 hours"
+            case .restOfDay: return "Rest of the day"
+            case .allTime: return "All time"
+            }
+        }
+    }
+
+    private enum ReminderAlignmentOption: String, CaseIterable, Identifiable {
+        case leading
+        case center
+        case trailing
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .leading: return "Left"
+            case .center: return "Center"
+            case .trailing: return "Right"
+            }
+        }
     }
 
     private var musicVariantBinding: Binding<Double> {
@@ -4186,9 +3768,9 @@ struct LockScreenSettings: View {
     var body: some View {
         Form {
             Section {
-                Defaults.Toggle(String(localized: "Enable lock screen live activity"), key: .enableLockScreenLiveActivity)
+                Defaults.Toggle("Enable lock screen live activity", key: .enableLockScreenLiveActivity)
                     .settingsHighlight(id: highlightID("Enable lock screen live activity"))
-                Defaults.Toggle(String(localized: "Play lock/unlock sounds"), key: .enableLockSounds)
+                Defaults.Toggle("Play lock/unlock sounds", key: .enableLockSounds)
                     .settingsHighlight(id: highlightID("Play lock/unlock sounds"))
             } header: {
                 Text("Live Activity & Feedback")
@@ -4218,9 +3800,9 @@ struct LockScreenSettings: View {
                 }
 
                 if lockScreenGlassStyle == .liquid {
-                    Picker(String(localized: "Glass mode"), selection: $lockScreenGlassCustomizationMode) {
+                    Picker("Glass mode", selection: $lockScreenGlassCustomizationMode) {
                         ForEach(LockScreenGlassCustomizationMode.allCases) { mode in
-                            Text(mode.localizedName).tag(mode)
+                            Text(mode.rawValue).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -4243,12 +3825,12 @@ struct LockScreenSettings: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized: "Show lock screen media panel"), key: .enableLockScreenMediaWidget)
+                Defaults.Toggle("Show lock screen media panel", key: .enableLockScreenMediaWidget)
                     .settingsHighlight(id: highlightID("Show lock screen media panel"))
-                Defaults.Toggle(String(localized: "Show media app icon"), key: .lockScreenShowAppIcon)
+                Defaults.Toggle("Show media app icon", key: .lockScreenShowAppIcon)
                     .disabled(!enableLockScreenMediaWidget)
                     .settingsHighlight(id: highlightID("Show media app icon"))
-                Defaults.Toggle(String(localized: "Show panel border"), key: .lockScreenPanelShowsBorder)
+                Defaults.Toggle("Show panel border", key: .lockScreenPanelShowsBorder)
                     .disabled(!enableLockScreenMediaWidget)
                     .settingsHighlight(id: highlightID("Show panel border"))
                 if lockScreenGlassCustomizationMode == .customLiquid {
@@ -4284,11 +3866,11 @@ struct LockScreenSettings: View {
             .opacity(showStandardMediaControls ? 1 : 0.5)
 
             Section {
-                Defaults.Toggle(String(localized: "Show lock screen timer"), key: .enableLockScreenTimerWidget)
+                Defaults.Toggle("Show lock screen timer", key: .enableLockScreenTimerWidget)
                     .settingsHighlight(id: highlightID("Show lock screen timer"))
                 Picker("Timer surface", selection: timerSurfaceBinding) {
                     ForEach(LockScreenTimerSurfaceMode.allCases) { mode in
-                        Text(mode.localizedName).tag(mode)
+                        Text(mode.rawValue).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -4307,9 +3889,9 @@ struct LockScreenSettings: View {
                     .settingsHighlight(id: highlightID("Timer glass material"))
 
                     if lockScreenTimerGlassStyle == .liquid {
-                        Picker(String(localized: "Timer liquid mode"), selection: $lockScreenTimerGlassCustomizationMode) {
+                        Picker("Timer liquid mode", selection: $lockScreenTimerGlassCustomizationMode) {
                             ForEach(LockScreenGlassCustomizationMode.allCases) { mode in
-                                Text(mode.localizedName).tag(mode)
+                                Text(mode.rawValue).tag(mode)
                             }
                         }
                         .pickerStyle(.segmented)
@@ -4346,13 +3928,13 @@ struct LockScreenSettings: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized: "Show lock screen weather"), key: .enableLockScreenWeatherWidget)
+                Defaults.Toggle("Show lock screen weather", key: .enableLockScreenWeatherWidget)
                     .settingsHighlight(id: highlightID("Show lock screen weather"))
 
                 if enableLockScreenWeatherWidget {
                     Picker("Layout", selection: $lockScreenWeatherWidgetStyle) {
                         ForEach(LockScreenWeatherWidgetStyle.allCases) { style in
-                            Text(style.localizedName).tag(style)
+                            Text(style.rawValue).tag(style)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -4374,15 +3956,15 @@ struct LockScreenSettings: View {
                     .pickerStyle(.segmented)
                     .settingsHighlight(id: highlightID("Temperature unit"))
 
-                    Defaults.Toggle(String(localized: "Show location label"), key: .lockScreenWeatherShowsLocation)
+                    Defaults.Toggle("Show location label", key: .lockScreenWeatherShowsLocation)
                         .disabled(lockScreenWeatherWidgetStyle == .circular)
                         .settingsHighlight(id: highlightID("Show location label"))
 
-                    Defaults.Toggle(String(localized: "Show sunrise time"), key: .lockScreenWeatherShowsSunrise)
+                    Defaults.Toggle("Show sunrise time", key: .lockScreenWeatherShowsSunrise)
                         .disabled(lockScreenWeatherWidgetStyle != .inline)
                         .settingsHighlight(id: highlightID("Show sunrise time"))
 
-                    Defaults.Toggle(String(localized: "Show AQI widget"), key: .lockScreenWeatherShowsAQI)
+                    Defaults.Toggle("Show AQI widget", key: .lockScreenWeatherShowsAQI)
                         .disabled(!lockScreenWeatherProviderSource.supportsAirQuality)
                         .settingsHighlight(id: highlightID("Show AQI widget"))
 
@@ -4402,7 +3984,7 @@ struct LockScreenSettings: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Defaults.Toggle(String(localized: "Use colored gauges"), key: .lockScreenWeatherUsesGaugeTint)
+                    Defaults.Toggle("Use colored gauges", key: .lockScreenWeatherUsesGaugeTint)
                         .settingsHighlight(id: highlightID("Use colored gauges"))
                 }
             } header: {
@@ -4410,25 +3992,66 @@ struct LockScreenSettings: View {
             } footer: {
                 Text("Enable the weather capsule and configure its layout, provider, units, and optional battery/AQI indicators.")
             }
+
+            Section {
+                Defaults.Toggle("Show lock screen reminder", key: .enableLockScreenReminderWidget)
+                    .settingsHighlight(id: highlightID("Show lock screen reminder"))
+
+                Picker("Chip color", selection: $lockScreenReminderChipStyle) {
+                    ForEach(LockScreenReminderChipStyle.allCases) { style in
+                        Text(style.rawValue).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!enableLockScreenReminderWidget)
+                .settingsHighlight(id: highlightID("Chip color"))
+
+                Picker("Alignment", selection: $lockScreenReminderWidgetHorizontalAlignment) {
+                    ForEach(ReminderAlignmentOption.allCases) { option in
+                        Text(option.title).tag(option.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!enableLockScreenReminderWidget)
+                .settingsHighlight(id: highlightID("Reminder alignment"))
+
+                HStack {
+                    Text("Vertical offset")
+                    Slider(
+                        value: $lockScreenReminderWidgetVerticalOffset,
+                        in: -160...160,
+                        step: 2
+                    )
+                    .disabled(!enableLockScreenReminderWidget)
+                    Text("\(Int(lockScreenReminderWidgetVerticalOffset)) px")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 70, alignment: .trailing)
+                }
+                .settingsHighlight(id: highlightID("Reminder vertical offset"))
+            } header: {
+                Text("Reminder Widget")
+            } footer: {
+                Text("Controls the lock screen reminder chip and its positioning.")
+            }
             
             if BatteryActivityManager.shared.hasBattery() {
                 Section {
-                    Defaults.Toggle(String(localized: "Show battery indicator"), key: .lockScreenBatteryShowsBatteryGauge)
+                    Defaults.Toggle("Show battery indicator", key: .lockScreenBatteryShowsBatteryGauge)
                         .settingsHighlight(id: highlightID("Show battery indicator"))
                     
                     if lockScreenWeatherShowsBatteryGauge {
-                        Defaults.Toggle(String(localized: "Use MacBook icon when on battery"), key: .lockScreenBatteryUsesLaptopSymbol)
+                        Defaults.Toggle("Use MacBook icon when on battery", key: .lockScreenBatteryUsesLaptopSymbol)
                             .settingsHighlight(id: highlightID("Use MacBook icon when on battery"))
                         
-                        Defaults.Toggle(String(localized: "Show charging status"), key: .lockScreenBatteryShowsCharging)
+                        Defaults.Toggle("Show charging status", key: .lockScreenBatteryShowsCharging)
                             .settingsHighlight(id: highlightID("Show charging status"))
                         
                         if lockScreenWeatherShowsCharging {
-                            Defaults.Toggle(String(localized: "Show charging percentage"), key: .lockScreenBatteryShowsChargingPercentage)
+                            Defaults.Toggle("Show charging percentage", key: .lockScreenBatteryShowsChargingPercentage)
                                 .settingsHighlight(id: highlightID("Show charging percentage"))
                         }
                         
-                        Defaults.Toggle(String(localized: "Show Bluetooth battery"), key: .lockScreenBatteryShowsBluetooth)
+                        Defaults.Toggle("Show Bluetooth battery", key: .lockScreenBatteryShowsBluetooth)
                             .settingsHighlight(id: highlightID("Show Bluetooth battery"))
                     }
                 } header: {
@@ -4439,12 +4062,139 @@ struct LockScreenSettings: View {
             }
 
             Section {
-                Defaults.Toggle(String(localized: "Show focus widget"), key: .enableLockScreenFocusWidget)
+                Defaults.Toggle("Show focus widget", key: .enableLockScreenFocusWidget)
                     .settingsHighlight(id: highlightID("Show focus widget"))
             } header: {
                 Text("Focus Widget")
             } footer: {
                 Text("Displays the current Focus state above the weather capsule whenever Focus detection is enabled.")
+            }
+
+            Section {
+                Defaults.Toggle("Show next calendar event", key: .lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show next calendar event"))
+
+                LabeledContent("Show events within the next") {
+                    HStack {
+                        Spacer(minLength: 0)
+                        Picker("", selection: $lockScreenCalendarEventLookaheadWindow) {
+                            ForEach(CalendarLookaheadOption.allCases) { option in
+                                Text(option.title).tag(option.rawValue)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .disabled(!lockScreenShowCalendarEvent)
+                .settingsHighlight(id: highlightID("Show events within the next"))
+
+                Toggle("Show events from all calendars", isOn: Binding(
+                    get: { lockScreenCalendarSelectionMode == "all" },
+                    set: { useAll in
+                        if useAll {
+                            lockScreenCalendarSelectionMode = "all"
+                        } else {
+                            lockScreenCalendarSelectionMode = "selected"
+                            lockScreenSelectedCalendarIDs = Set(calendarManager.eventCalendars.map { $0.id })
+                        }
+                    }
+                ))
+                .disabled(!lockScreenShowCalendarEvent)
+                .settingsHighlight(id: highlightID("Show events from all calendars"))
+
+                if lockScreenCalendarSelectionMode != "all" {
+                    HStack {
+                        Spacer()
+                        Button("Deselect All") {
+                            lockScreenSelectedCalendarIDs = []
+                        }
+                        .buttonStyle(.link)
+                    }
+                    .padding(.top, 2)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(calendarManager.eventCalendars, id: \.id) { calendar in
+                            Toggle(isOn: Binding(
+                                get: { lockScreenSelectedCalendarIDs.contains(calendar.id) },
+                                set: { isOn in
+                                    if isOn {
+                                        lockScreenSelectedCalendarIDs.insert(calendar.id)
+                                    } else {
+                                        lockScreenSelectedCalendarIDs.remove(calendar.id)
+                                    }
+                                }
+                            )) {
+                                HStack(spacing: 8) {
+                                    Circle()
+                                        .fill(Color(calendar.color))
+                                        .frame(width: 8, height: 8)
+                                    Text(calendar.title)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.top, 4)
+                    .padding(.leading, 2)
+                    .disabled(!lockScreenShowCalendarEvent)
+                }
+
+                Defaults.Toggle("Show countdown", key: .lockScreenShowCalendarCountdown)
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show countdown"))
+
+                Defaults.Toggle("Show event for entire duration", key: .lockScreenShowCalendarEventEntireDuration)
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show event for entire duration"))
+                    .onChange(of: Defaults[.lockScreenShowCalendarEventEntireDuration]) { _, newValue in
+                        if newValue {
+                            Defaults[.lockScreenShowCalendarEventAfterStartEnabled] = false
+                        }
+                    }
+
+                Defaults.Toggle(
+                    "Hide active event and show next upcoming event",
+                    key: .lockScreenShowCalendarEventAfterStartEnabled
+                )
+                .disabled(!lockScreenShowCalendarEvent || lockScreenShowCalendarEventEntireDuration)
+                .settingsHighlight(id: highlightID("Hide active event and show next upcoming event"))
+
+                LabeledContent("Show event after it starts") {
+                    HStack {
+                        Spacer(minLength: 0)
+                        Picker("", selection: $lockScreenShowCalendarEventAfterStartWindow) {
+                            Text("1 min").tag("1m")
+                            Text("5 mins").tag("5m")
+                            Text("10 mins").tag("10m")
+                            Text("15 mins").tag("15m")
+                            Text("30 mins").tag("30m")
+                            Text("45 mins").tag("45m")
+                            Text("1 hour").tag("1h")
+                            Text("2 hours").tag("2h")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .disabled(!lockScreenShowCalendarEvent || lockScreenShowCalendarEventEntireDuration || !lockScreenShowCalendarEventAfterStartEnabled)
+
+                Text("Turn off 'Show event for entire duration' to use the post-start duration option.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Defaults.Toggle("Show time remaining", key: .lockScreenShowCalendarTimeRemaining)
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show time remaining"))
+
+                Defaults.Toggle("Show start time after event begins", key: .lockScreenShowCalendarStartTimeAfterBegins)
+                    .disabled(!lockScreenShowCalendarEvent)
+                    .settingsHighlight(id: highlightID("Show start time after event begins"))
+            } header: {
+                Text("Calendar Widget")
+            } footer: {
+                Text("Displays your next upcoming calendar event above or below the weather capsule. Calendar selection here is independent from the Dynamic Island calendar filter.")
             }
 
             LockScreenPositioningControls()
@@ -4590,9 +4340,9 @@ private struct LockScreenPositioningControls: View {
 
             HStack(alignment: .top, spacing: 24) {
                 offsetColumn(
-                    title: String(localized: "Weather"),
+                    title: "Weather",
                     value: weatherOffset,
-                    resetTitle: String(localized: "Reset Weather"),
+                    resetTitle: "Reset Weather",
                     resetAction: resetWeatherOffset
                 )
 
@@ -4600,9 +4350,9 @@ private struct LockScreenPositioningControls: View {
                     .frame(height: 64)
 
                 offsetColumn(
-                    title: String(localized: "Timer"),
+                    title: "Timer",
                     value: timerOffset,
-                    resetTitle: String(localized: "Reset Timer"),
+                    resetTitle: "Reset Timer",
                     resetAction: resetTimerOffset
                 )
 
@@ -4610,9 +4360,9 @@ private struct LockScreenPositioningControls: View {
                     .frame(height: 64)
 
                 offsetColumn(
-                    title: String(localized: "Music"),
+                    title: "Music",
                     value: musicOffset,
-                    resetTitle: String(localized: "Reset Music"),
+                    resetTitle: "Reset Music",
                     resetAction: resetMusicOffset
                 )
 
@@ -4624,21 +4374,21 @@ private struct LockScreenPositioningControls: View {
 
             VStack(alignment: .leading, spacing: 16) {
                 widthSlider(
-                    title: String(localized: "Media Panel Width"),
+                    title: "Media Panel Width",
                     value: musicWidthBinding,
                     range: musicWidthRange,
-                    resetTitle: String(localized: "Reset Media Width"),
+                    resetTitle: "Reset Media Width",
                     resetAction: resetMusicWidth,
-                    helpText: String(localized: "Shrinks the lock screen media panel while keeping the expanded view full width.")
+                    helpText: "Shrinks the lock screen media panel while keeping the expanded view full width."
                 )
 
                 widthSlider(
-                    title: String(localized: "Timer Widget Width"),
+                    title: "Timer Widget Width",
                     value: timerWidthBinding,
                     range: timerWidthRange,
-                    resetTitle: String(localized: "Reset Timer Width"),
+                    resetTitle: "Reset Timer Width",
                     resetAction: resetTimerWidth,
-                    helpText: String(localized: "Adjusts the lock screen timer widget width without affecting button sizing.")
+                    helpText: "Adjusts the lock screen timer widget width without affecting button sizing."
                 )
             }
         } header: {
@@ -5049,7 +4799,7 @@ struct Shortcuts: View {
     var body: some View {
         Form {
             Section {
-                Defaults.Toggle(String(localized: "Enable global keyboard shortcuts"), key: .enableShortcuts)
+                Defaults.Toggle("Enable global keyboard shortcuts", key: .enableShortcuts)
                     .settingsHighlight(id: highlightID("Enable global keyboard shortcuts"))
             } header: {
                 Text("General")
@@ -5319,7 +5069,7 @@ struct TimerSettings: View {
     @ViewBuilder
     private var timerFeatureSection: some View {
         Section {
-            Defaults.Toggle(String(localized: "Enable timer feature"), key: .enableTimerFeature)
+            Defaults.Toggle("Enable timer feature", key: .enableTimerFeature)
                 .settingsHighlight(id: highlightID("Enable timer feature"))
 
             if enableTimerFeature {
@@ -5374,11 +5124,11 @@ struct TimerSettings: View {
     @ViewBuilder
     private var lockScreenIntegrationSection: some View {
         Section {
-            Defaults.Toggle(String(localized:"Show lock screen timer widget"), key: .enableLockScreenTimerWidget)
+            Defaults.Toggle("Show lock screen timer widget", key: .enableLockScreenTimerWidget)
                 .settingsHighlight(id: highlightID("Show lock screen timer widget"))
             Picker("Timer surface", selection: timerSurfaceBinding) {
                 ForEach(LockScreenTimerSurfaceMode.allCases) { mode in
-                    Text(mode.localizedName).tag(mode)
+                    Text(mode.rawValue).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
@@ -5389,7 +5139,7 @@ struct TimerSettings: View {
             if timerGlassModeIsGlass {
                 Picker("Timer glass material", selection: $lockScreenTimerGlassStyle) {
                     ForEach(LockScreenGlassStyle.allCases) { style in
-                        Text(style.localizedName).tag(style)
+                        Text(style.rawValue).tag(style)
                     }
                 }
                 .disabled(!enableLockScreenTimerWidget)
@@ -5449,9 +5199,9 @@ struct TimerSettings: View {
                 Text("Default Custom Timer")
                     .font(.headline)
 
-                TimerDurationStepperRow(title: String(localized:"Hours"), value: $customHours, range: 0...23)
-                TimerDurationStepperRow(title: String(localized:"Minutes"), value: $customMinutes, range: 0...59)
-                TimerDurationStepperRow(title: String(localized:"Seconds"), value: $customSeconds, range: 0...59)
+                TimerDurationStepperRow(title: "Hours", value: $customHours, range: 0...23)
+                TimerDurationStepperRow(title: "Minutes", value: $customMinutes, range: 0...59)
+                TimerDurationStepperRow(title: "Seconds", value: $customSeconds, range: 0...59)
 
                 HStack {
                     Text("Current default:")
@@ -5501,7 +5251,7 @@ struct TimerSettings: View {
 
             Picker("Progress style", selection: $progressStyle) {
                 ForEach(TimerProgressStyle.allCases) { style in
-                    Text(style.localizedName).tag(style)
+                    Text(style.rawValue).tag(style)
                 }
             }
             .pickerStyle(.segmented)
@@ -5791,9 +5541,9 @@ private struct TimerPresetEditorRow: View {
             }
             
             HStack(spacing: 16) {
-                TimerPresetComponentControl(title: String(localized:"Hours"), value: hoursBinding, range: 0...23)
-                TimerPresetComponentControl(title: String(localized:"Minutes"), value: minutesBinding, range: 0...59)
-                TimerPresetComponentControl(title: String(localized:"Seconds"), value: secondsBinding, range: 0...59)
+                TimerPresetComponentControl(title: "Hours", value: hoursBinding, range: 0...23)
+                TimerPresetComponentControl(title: "Minutes", value: minutesBinding, range: 0...59)
+                TimerPresetComponentControl(title: "Seconds", value: secondsBinding, range: 0...59)
             }
             
             ColorPicker("Accent colour", selection: colorBinding, supportsOpacity: false)
@@ -5890,7 +5640,7 @@ struct StatsSettings: View {
     var body: some View {
         Form {
             Section {
-                Defaults.Toggle(String(localized: "Enable system stats monitoring"), key: .enableStatsFeature)
+                Defaults.Toggle("Enable system stats monitoring", key: .enableStatsFeature)
                     .settingsHighlight(id: highlightID("Enable system stats monitoring"))
                     .onChange(of: enableStatsFeature) { _, newValue in
                         if !newValue {
@@ -5910,7 +5660,7 @@ struct StatsSettings: View {
             
             if enableStatsFeature {
                 Section {
-                    Defaults.Toggle(String(localized: "Stop monitoring after closing the notch"), key: .statsStopWhenNotchCloses)
+                    Defaults.Toggle("Stop monitoring after closing the notch", key: .statsStopWhenNotchCloses)
                         .settingsHighlight(id: highlightID("Stop monitoring after closing the notch"))
                         .help("When enabled, stats monitoring stops a few seconds after the notch closes.")
 
@@ -5950,15 +5700,15 @@ struct StatsSettings: View {
                 }
 
                 Section {
-                    Defaults.Toggle(String(localized: "CPU Usage"), key: .showCpuGraph)
+                    Defaults.Toggle("CPU Usage", key: .showCpuGraph)
                         .settingsHighlight(id: highlightID("CPU Usage"))
-                    Defaults.Toggle(String(localized: "Memory Usage"), key: .showMemoryGraph)
+                    Defaults.Toggle("Memory Usage", key: .showMemoryGraph)
                         .settingsHighlight(id: highlightID("Memory Usage"))
-                    Defaults.Toggle(String(localized: "GPU Usage"), key: .showGpuGraph)
+                    Defaults.Toggle("GPU Usage", key: .showGpuGraph)
                         .settingsHighlight(id: highlightID("GPU Usage"))
-                    Defaults.Toggle(String(localized: "Network Activity"), key: .showNetworkGraph)
+                    Defaults.Toggle("Network Activity", key: .showNetworkGraph)
                         .settingsHighlight(id: highlightID("Network Activity"))
-                    Defaults.Toggle(String(localized: "Disk I/O"), key: .showDiskGraph)
+                    Defaults.Toggle("Disk I/O", key: .showDiskGraph)
                         .settingsHighlight(id: highlightID("Disk I/O"))
                 } header: {
                     Text("Graph Visibility")
@@ -5992,7 +5742,7 @@ struct StatsSettings: View {
                     if statsManager.isMonitoring {
                         if showCpuGraph {
                             HStack {
-                                Text(String(localized: "CPU Usage"))
+                                Text("CPU Usage")
                                 Spacer()
                                 Text(statsManager.cpuUsageString)
                                     .foregroundStyle(.secondary)
@@ -6001,7 +5751,7 @@ struct StatsSettings: View {
                         
                         if showMemoryGraph {
                             HStack {
-                                Text(String(localized: "Memory Usage"))
+                                Text("Memory Usage")
                                 Spacer()
                                 Text(statsManager.memoryUsageString)
                                     .foregroundStyle(.secondary)
@@ -6010,7 +5760,7 @@ struct StatsSettings: View {
                         
                         if showGpuGraph {
                             HStack {
-                                Text(String(localized: "GPU Usage"))
+                                Text("GPU Usage")
                                 Spacer()
                                 Text(statsManager.gpuUsageString)
                                     .foregroundStyle(.secondary)
@@ -6019,14 +5769,14 @@ struct StatsSettings: View {
                         
                         if showNetworkGraph {
                             HStack {
-                                Text(String(localized: "Network Download"))
+                                Text("Network Download")
                                 Spacer()
                                 Text(String(format: "%.1f MB/s", statsManager.networkDownload))
                                     .foregroundStyle(.secondary)
                             }
                             
                             HStack {
-                                Text(String(localized: "Network Upload"))
+                                Text("Network Upload")
                                 Spacer()
                                 Text(String(format: "%.1f MB/s", statsManager.networkUpload))
                                     .foregroundStyle(.secondary)
@@ -6035,14 +5785,14 @@ struct StatsSettings: View {
                         
                         if showDiskGraph {
                             HStack {
-                                Text(String(localized: "Disk Read"))
+                                Text("Disk Read")
                                 Spacer()
                                 Text(String(format: "%.1f MB/s", statsManager.diskRead))
                                     .foregroundStyle(.secondary)
                             }
                             
                             HStack {
-                                Text(String(localized: "Disk Write"))
+                                Text("Disk Write")
                                 Spacer()
                                 Text(String(format: "%.1f MB/s", statsManager.diskWrite))
                                     .foregroundStyle(.secondary)
@@ -6050,7 +5800,7 @@ struct StatsSettings: View {
                         }
                         
                         HStack {
-                            Text(String(localized: "Last Updated"))
+                            Text("Last Updated")
                             Spacer()
                             Text(statsManager.lastUpdated, style: .relative)
                                 .foregroundStyle(.secondary)
@@ -6103,7 +5853,7 @@ struct ClipboardSettings: View {
     var body: some View {
         Form {
             Section {
-                Defaults.Toggle(String(localized: "Enable Clipboard Manager"), key: .enableClipboardManager)
+                Defaults.Toggle("Enable Clipboard Manager", key: .enableClipboardManager)
                     .settingsHighlight(id: highlightID("Enable Clipboard Manager"))
                     .onChange(of: enableClipboardManager) { _, enabled in
                         if enabled {
@@ -6120,7 +5870,7 @@ struct ClipboardSettings: View {
             
             if enableClipboardManager {
                 Section {
-                    Defaults.Toggle(String(localized: "Show Clipboard Icon"), key: .showClipboardIcon)
+                    Defaults.Toggle("Show Clipboard Icon", key: .showClipboardIcon)
                         .settingsHighlight(id: highlightID("Show Clipboard Icon"))
                     
                     HStack {
@@ -6132,7 +5882,7 @@ struct ClipboardSettings: View {
                             }
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 200)
+                        .frame(width: 100)
                     }
                     .settingsHighlight(id: highlightID("Display Mode"))
                     
@@ -6146,7 +5896,7 @@ struct ClipboardSettings: View {
                             Text("10 items").tag(10)
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 200)
+                        .frame(width: 100)
                     }
                     .settingsHighlight(id: highlightID("History Size"))
                     
@@ -6243,16 +5993,16 @@ struct ClipboardSettings: View {
         let interval = Date().timeIntervalSince(date)
         
         if interval < 60 {
-            return String(localized: "Just now")
+            return "Just now"
         } else if interval < 3600 {
             let minutes = Int(interval / 60)
-            return String(localized: "\(minutes)m ago")
+            return "\(minutes)m ago"
         } else if interval < 86400 {
             let hours = Int(interval / 3600)
-            return String(localized: "\(hours)h ago")
+            return "\(hours)h ago"
         } else {
             let days = Int(interval / 86400)
-            return String(localized: "\(days)d ago")
+            return "\(days)d ago"
         }
     }
 }
@@ -6272,7 +6022,7 @@ struct ScreenAssistantSettings: View {
     var body: some View {
         Form {
             Section {
-                Defaults.Toggle(String(localized: "Enable Screen Assistant"), key: .enableScreenAssistant)
+                Defaults.Toggle("Enable Screen Assistant", key: .enableScreenAssistant)
                     .settingsHighlight(id: highlightID("Enable Screen Assistant"))
             } header: {
                 Text("AI Assistant")
@@ -6343,7 +6093,7 @@ struct ScreenAssistantSettings: View {
                             }
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 150)
+                        .frame(width: 100)
                     }
                     .settingsHighlight(id: highlightID("Display Mode"))
                     
@@ -6419,16 +6169,16 @@ struct ScreenAssistantSettings: View {
         let interval = Date().timeIntervalSince(date)
         
         if interval < 60 {
-            return String(localized: "Just now")
+            return "Just now"
         } else if interval < 3600 {
             let minutes = Int(interval / 60)
-            return String(localized: "\(minutes)m ago")
+            return "\(minutes)m ago"
         } else if interval < 86400 {
             let hours = Int(interval / 3600)
-            return String(localized: "\(hours)h ago")
+            return "\(hours)h ago"
         } else {
             let days = Int(interval / 86400)
-            return String(localized: "\(days)d ago")
+            return "\(days)d ago"
         }
     }
 }
@@ -6448,7 +6198,7 @@ struct ColorPickerSettings: View {
     var body: some View {
         Form {
             Section {
-                    Defaults.Toggle(String(localized: "Enable Color Picker"), key: .enableColorPickerFeature)
+                Defaults.Toggle("Enable Color Picker", key: .enableColorPickerFeature)
                     .settingsHighlight(id: highlightID("Enable Color Picker"))
             } header: {
                 Text("Color Picker")
@@ -6458,7 +6208,7 @@ struct ColorPickerSettings: View {
             
             if enableColorPickerFeature {
                 Section {
-                    Defaults.Toggle(String(localized: "Show Color Picker Icon"), key: .showColorPickerIcon)
+                    Defaults.Toggle("Show Color Picker Icon", key: .showColorPickerIcon)
                         .settingsHighlight(id: highlightID("Show Color Picker Icon"))
                     
                     HStack {
@@ -6470,7 +6220,7 @@ struct ColorPickerSettings: View {
                             }
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 150)
+                        .frame(width: 100)
                     }
                     .settingsHighlight(id: highlightID("Display Mode"))
                     
@@ -6484,11 +6234,11 @@ struct ColorPickerSettings: View {
                             Text("20 colors").tag(20)
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 150)
+                        .frame(width: 100)
                     }
                     .settingsHighlight(id: highlightID("History Size"))
                     
-                    Defaults.Toggle(String(localized: "Show All Color Formats"), key: .showColorFormats)
+                    Defaults.Toggle("Show All Color Formats", key: .showColorFormats)
                         .settingsHighlight(id: highlightID("Show All Color Formats"))
                     
                 } header: {
@@ -6708,12 +6458,12 @@ struct SettingsPermissionCallout: View {
     let openSettingsAction: () -> Void
 
     init(
-        title: String = String(localized: "Accessibility permission required"),
+        title: String = "Accessibility permission required",
         message: String,
         icon: String = "exclamationmark.triangle.fill",
         iconColor: Color = .orange,
-        requestButtonTitle: String = String(localized: "Request Access"),
-        openSettingsButtonTitle: String = String(localized: "Open Settings"),
+        requestButtonTitle: String = "Request Access",
+        openSettingsButtonTitle: String = "Open Settings",
         requestAction: @escaping () -> Void,
         openSettingsAction: @escaping () -> Void
     ) {
@@ -6772,13 +6522,13 @@ struct NotesSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Defaults.Toggle(String(localized: "Enable Notes"), key: .enableNotes)
+                Defaults.Toggle("Enable Notes", key: .enableNotes)
                 if Defaults[.enableNotes] {
-                    Defaults.Toggle(String(localized: "Enable Note Pinning"), key: .enableNotePinning)
-                    Defaults.Toggle(String(localized: "Enable Note Search"), key: .enableNoteSearch)
-                    Defaults.Toggle(String(localized: "Enable Color Filtering"), key: .enableNoteColorFiltering)
-                    Defaults.Toggle(String(localized: "Enable Create from Clipboard"), key: .enableCreateFromClipboard)
-                    Defaults.Toggle(String(localized: "Show Character Count"), key: .enableNoteCharCount)
+                    Defaults.Toggle("Enable Note Pinning", key: .enableNotePinning)
+                    Defaults.Toggle("Enable Note Search", key: .enableNoteSearch)
+                    Defaults.Toggle("Enable Color Filtering", key: .enableNoteColorFiltering)
+                    Defaults.Toggle("Enable Create from Clipboard", key: .enableCreateFromClipboard)
+                    Defaults.Toggle("Show Character Count", key: .enableNoteCharCount)
                 }
             } header: {
                 Text("General")
