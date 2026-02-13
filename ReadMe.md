@@ -3,6 +3,9 @@
 </p>
 <h1 align="center">Atoll</h1>
 <p align="center">
+<a href="https://trendshift.io/repositories/15291" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15291" alt="Ebullioscopic%2FAtoll | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+</p>
+<p align="center">
   <a href="https://github.com/Ebullioscopic/Atoll/stargazers">
     <img src="https://img.shields.io/github/stars/Ebullioscopic/Atoll?style=social" alt="GitHub stars"/>
   </a>
@@ -36,8 +39,10 @@
 Atoll turns the MacBook notch into a focused command surface for media, system insight, and quick utilities. It stays out of the way until needed, then expands with responsive, native SwiftUI animations.
 
 <p align="center">
-  <img src="https://private-user-images.githubusercontent.com/83903166/543312936-5c06c4ac-ef8a-4161-83fc-25bc591161b6.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3Njk5MzQzMzIsIm5iZiI6MTc2OTkzNDAzMiwicGF0aCI6Ii84MzkwMzE2Ni81NDMzMTI5MzYtNWMwNmM0YWMtZWY4YS00MTYxLTgzZmMtMjViYzU5MTE2MWI2LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjAyMDElMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwMjAxVDA4MjAzMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPWY1ODFiMzUzYjkyYzU2NTEwNzBkMjdlMTEzODAxNDdkMjU5MGI5NTVjNGI1NDc2ZmQ1NTA5ZjQ0ZTAyN2YzNjcmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.SOL3Tg6_KjzM1Dx4RliZhxkWRE1_dVGzyB9VSNm4f3w" alt="Atoll preview" width="920">
+  <img src="https://i.postimg.cc/HkLGn6yH/846F86A4_A2F9_4CD6_BC84_1D720D377728_1_201_a.jpg" alt="Atoll preview" width="920">
 </p>
+
+
 
 ## Highlights
 - Media controls for Apple Music, Spotify, and more with inline previews.
@@ -53,7 +58,7 @@ Atoll turns the MacBook notch into a focused command surface for media, system i
 - Lock screen appearance and positioning controls for panels and widgets.
 
 <p align="center">
-  <img src="https://private-user-images.githubusercontent.com/83903166/543312791-e9a351bf-ac52-4d7c-8ab2-a3fecd3177c6.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3Njk5MzQzMzIsIm5iZiI6MTc2OTkzNDAzMiwicGF0aCI6Ii84MzkwMzE2Ni81NDMzMTI3OTEtZTlhMzUxYmYtYWM1Mi00ZDdjLThhYjItYTNmZWNkMzE3N2M2LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjAyMDElMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwMjAxVDA4MjAzMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTFlNmQ2MDc4MDk4NmYzNDdhOTQ4NzU5Mzg0M2YxMzJiMWNmMTRjZDcyZjk0YTQ0ZDkyOThiZjczNGVjYmY5YzgmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.AEp0R8ZGI6tQ1T06aXAkJoCzbns1asZWbstjdwSiED8" alt="Atoll lock screen" width="920">
+  <img src="https://i.postimg.cc/jjLLH6Gs/3DAB6C3C-FEA1-4C90-ACEE-0BC4469B929C-1-201-a.jpg" alt="Atoll lock screen" width="920">
 </p>
 
 ## Requirements
