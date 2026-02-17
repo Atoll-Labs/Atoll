@@ -58,6 +58,7 @@ public struct LiquidGlassBackground<Content: View>: NSViewRepresentable {
     private let cornerRadius: CGFloat
     private let variant: LiquidGlassVariant
     private let trigger: Double
+    private let jitterEnabled: Bool
     /// Creates a new liquid‑glass container.
     /// - Parameters:
     ///   - variant: Any ``LiquidGlassVariant`` (0–19). Defaults to `.v11`, which is visually super pleasing
@@ -67,11 +68,13 @@ public struct LiquidGlassBackground<Content: View>: NSViewRepresentable {
         variant: LiquidGlassVariant = .defaultVariant,
         cornerRadius: CGFloat = 10,
         trigger: Double = 0,
+        jitterEnabled: Bool = true,
         @ViewBuilder content: () -> Content
     ) {
         self.variant      = variant
         self.cornerRadius = cornerRadius
         self.trigger = trigger
+        self.jitterEnabled = jitterEnabled
         self.content      = content()
     }
 
@@ -146,9 +149,13 @@ public struct LiquidGlassBackground<Content: View>: NSViewRepresentable {
         nsView.setValue(cornerRadius, forKey: "cornerRadius")
         callPrivateVariantSetter(on: nsView, value: variant.rawValue)
 
-        // Micro-jitter: imperceptibly adjust opacity so WindowServer re-samples the wallpaper every frame.
-        let jitter = sin(trigger * 100) * 0.000001
-        nsView.alphaValue = 1.0 - CGFloat(abs(jitter))
+        if jitterEnabled {
+            // Micro-jitter: imperceptibly adjust opacity so WindowServer re-samples the wallpaper every frame.
+            let jitter = sin(trigger * 100) * 0.000001
+            nsView.alphaValue = 1.0 - CGFloat(abs(jitter))
+        } else if nsView.alphaValue != 1.0 {
+            nsView.alphaValue = 1.0
+        }
 
         nsView.needsDisplay = true
     }
