@@ -4457,6 +4457,7 @@ private struct LockScreenGlassVariantPreviewCell: View {
     private let cornerRadius: CGFloat = 16
     private let previewCornerRadius: CGFloat = 14
     private let previewSize = CGSize(width: 190, height: 96)
+    @State private var previewToken: Double = 0
 
     var body: some View {
         ZStack {
@@ -4478,22 +4479,28 @@ private struct LockScreenGlassVariantPreviewCell: View {
         )
         .padding(.vertical, 6)
         .allowsHitTesting(false)
+        .onAppear {
+            Logger.log("Lock screen glass preview appeared (variant v\(variant.rawValue))", category: .performance)
+        }
+        .onDisappear {
+            Logger.log("Lock screen glass preview disappeared", category: .performance)
+        }
+        .onChange(of: variant) { _, newValue in
+            previewToken = Date().timeIntervalSinceReferenceDate
+            Logger.log("Lock screen glass preview variant changed to v\(newValue.rawValue)", category: .performance)
+        }
     }
 
     private var liquidGlassPreview: some View {
-        TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { context in
-            let phase = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.0)
-            let opacityJitter = phase < 0.5 ? 1.0 : 0.999999
-            LiquidGlassBackground(
-                variant: variant,
-                cornerRadius: previewCornerRadius,
-                trigger: context.date.timeIntervalSinceReferenceDate
-            ) {
-                Color.white.opacity(0.04)
-            }
-            .frame(width: previewSize.width, height: previewSize.height)
-            .opacity(opacityJitter)
+        LiquidGlassBackground(
+            variant: variant,
+            cornerRadius: previewCornerRadius,
+            trigger: previewToken,
+            jitterEnabled: false
+        ) {
+            Color.white.opacity(0.04)
         }
+        .frame(width: previewSize.width, height: previewSize.height)
         .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 6)
     }
 }
