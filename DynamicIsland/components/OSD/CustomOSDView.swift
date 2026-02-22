@@ -163,14 +163,11 @@ struct CustomOSDView: View {
         case .liquid:
             if #available(macOS 26.0, *) {
                 if osdLiquidGlassCustomizationMode == .customLiquid {
-                    TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { context in
-                        LiquidGlassBackground(
-                            variant: osdLiquidGlassVariant,
-                            cornerRadius: 18,
-                            trigger: context.date.timeIntervalSinceReferenceDate
-                        ) {
-                            Color.white.opacity(0.04)
-                        }
+                    LiquidGlassBackground(
+                        variant: osdLiquidGlassVariant,
+                        cornerRadius: 18
+                    ) {
+                        Color.white.opacity(0.04)
                     }
                 } else {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)

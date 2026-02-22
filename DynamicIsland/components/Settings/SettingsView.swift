@@ -4520,7 +4520,6 @@ private struct LockScreenGlassVariantPreviewCell: View {
     private let cornerRadius: CGFloat = 16
     private let previewCornerRadius: CGFloat = 14
     private let previewSize = CGSize(width: 190, height: 96)
-    @State private var previewToken: Double = 0
 
     var body: some View {
         ZStack {
@@ -4549,7 +4548,6 @@ private struct LockScreenGlassVariantPreviewCell: View {
             Logger.log("Lock screen glass preview disappeared", category: .performance)
         }
         .onChange(of: variant) { _, newValue in
-            previewToken = Date().timeIntervalSinceReferenceDate
             Logger.log("Lock screen glass preview variant changed to v\(newValue.rawValue)", category: .performance)
         }
     }
@@ -4557,9 +4555,7 @@ private struct LockScreenGlassVariantPreviewCell: View {
     private var liquidGlassPreview: some View {
         LiquidGlassBackground(
             variant: variant,
-            cornerRadius: previewCornerRadius,
-            trigger: previewToken,
-            jitterEnabled: false
+            cornerRadius: previewCornerRadius
         ) {
             Color.white.opacity(0.04)
         }

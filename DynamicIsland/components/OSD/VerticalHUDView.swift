@@ -265,14 +265,11 @@ struct VerticalHUDView: View {
         case .liquid:
             if #available(macOS 26.0, *) {
                 if verticalHUDLiquidGlassCustomizationMode == .customLiquid {
-                    TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { context in
-                        LiquidGlassBackground(
-                            variant: verticalHUDLiquidGlassVariant,
-                            cornerRadius: max(currentWidth, hudWidth),
-                            trigger: context.date.timeIntervalSinceReferenceDate
-                        ) {
-                            Color.white.opacity(0.04)
-                        }
+                    LiquidGlassBackground(
+                        variant: verticalHUDLiquidGlassVariant,
+                        cornerRadius: max(currentWidth, hudWidth)
+                    ) {
+                        Color.white.opacity(0.04)
                     }
                 } else {
                     Capsule()

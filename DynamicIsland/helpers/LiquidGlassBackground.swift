@@ -20,6 +20,98 @@ import SwiftUI
 import AppKit
 import Defaults
 
+private final class LiquidGlassContainerView: NSView {
+    weak var glassView: NSView?
+    var hostingView: NSHostingView<AnyView>?
+
+    private var observedBackdropLayers: [CALayer] = []
+    private var hasScheduledBackdropSetup = false
+
+    deinit {
+        removeBackdropObservers()
+    }
+
+    override func removeFromSuperview() {
+        removeBackdropObservers()
+        super.removeFromSuperview()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        scheduleBackdropSetup()
+    }
+
+    override func layout() {
+        super.layout()
+        scheduleBackdropSetup()
+    }
+
+    func scheduleBackdropSetup() {
+        guard !hasScheduledBackdropSetup else { return }
+        hasScheduledBackdropSetup = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let self else { return }
+            self.hasScheduledBackdropSetup = false
+            self.configureBackdropLayers()
+        }
+    }
+
+    private func configureBackdropLayers() {
+        guard let glassView else { return }
+        guard let rootLayer = glassView.layer else {
+            scheduleBackdropSetup()
+            return
+        }
+
+        setBackdropProperties(in: rootLayer)
+        let newBackdropLayers = collectBackdropLayers(in: rootLayer)
+
+        removeBackdropObservers()
+        observedBackdropLayers = newBackdropLayers
+        for backdrop in observedBackdropLayers {
+            backdrop.addObserver(self, forKeyPath: "windowServerAware", options: [.old, .new], context: nil)
+        }
+    }
+
+    private func setBackdropProperties(in layer: CALayer) {
+        if NSStringFromClass(type(of: layer)).contains("CABackdropLayer") {
+            layer.setValue(true, forKey: "windowServerAware")
+        }
+        layer.sublayers?.forEach { setBackdropProperties(in: $0) }
+    }
+
+    private func collectBackdropLayers(in layer: CALayer) -> [CALayer] {
+        var results: [CALayer] = []
+        if NSStringFromClass(type(of: layer)).contains("CABackdropLayer") {
+            results.append(layer)
+        }
+        layer.sublayers?.forEach { results.append(contentsOf: collectBackdropLayers(in: $0)) }
+        return results
+    }
+
+    override func observeValue(
+        forKeyPath keyPath: String?,
+        of object: Any?,
+        change: [NSKeyValueChangeKey: Any]?,
+        context: UnsafeMutableRawPointer?
+    ) {
+        if keyPath == "windowServerAware" {
+            if change?[.newKey] as? Bool == false {
+                configureBackdropLayers()
+            }
+        } else {
+            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
+        }
+    }
+
+    private func removeBackdropObservers() {
+        for layer in observedBackdropLayers {
+            layer.removeObserver(self, forKeyPath: "windowServerAware")
+        }
+        observedBackdropLayers.removeAll()
+    }
+}
+
 /// All 20 available liquid‑glass variants.
 /// Apple does not publicly describe how each value looks so experiment and pick the one you like!
 public enum LiquidGlassVariant: Int, CaseIterable, Identifiable, Defaults.Serializable, Sendable {
@@ -57,8 +149,6 @@ public struct LiquidGlassBackground<Content: View>: NSViewRepresentable {
     private let content: Content
     private let cornerRadius: CGFloat
     private let variant: LiquidGlassVariant
-    private let trigger: Double
-    private let jitterEnabled: Bool
     /// Creates a new liquid‑glass container.
     /// - Parameters:
     ///   - variant: Any ``LiquidGlassVariant`` (0–19). Defaults to `.v11`, which is visually super pleasing
@@ -67,14 +157,10 @@ public struct LiquidGlassBackground<Content: View>: NSViewRepresentable {
     public init(
         variant: LiquidGlassVariant = .defaultVariant,
         cornerRadius: CGFloat = 10,
-        trigger: Double = 0,
-        jitterEnabled: Bool = true,
         @ViewBuilder content: () -> Content
     ) {
         self.variant      = variant
         self.cornerRadius = cornerRadius
-        self.trigger = trigger
-        self.jitterEnabled = jitterEnabled
         self.content      = content()
     }
 
@@ -116,14 +202,30 @@ public struct LiquidGlassBackground<Content: View>: NSViewRepresentable {
     public func makeNSView(context: Context) -> NSView {
         // `NSGlassEffectView` is private. Look it up dynamically to avoid compile‑time coupling.
         if let glassType = NSClassFromString("NSGlassEffectView") as? NSView.Type {
+            let container = LiquidGlassContainerView(frame: .zero)
+            container.translatesAutoresizingMaskIntoConstraints = false
+
             let glass = glassType.init(frame: .zero)
+            glass.translatesAutoresizingMaskIntoConstraints = false
             glass.setValue(cornerRadius, forKey: "cornerRadius")
             callPrivateVariantSetter(on: glass, value: variant.rawValue)
 
-            let hosting = NSHostingView(rootView: content)
+            let hosting = NSHostingView(rootView: AnyView(content))
             hosting.translatesAutoresizingMaskIntoConstraints = false
             glass.setValue(hosting, forKey: "contentView")
-            return glass
+
+            container.addSubview(glass)
+            NSLayoutConstraint.activate([
+                glass.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                glass.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                glass.topAnchor.constraint(equalTo: container.topAnchor),
+                glass.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+            ])
+
+            container.glassView = glass
+            container.hostingView = hosting
+            container.scheduleBackdropSetup()
+            return container
         }
 
         // Fallback for earlier macOS – use an ordinary blur.
@@ -143,20 +245,17 @@ public struct LiquidGlassBackground<Content: View>: NSViewRepresentable {
     }
 
     public func updateNSView(_ nsView: NSView, context: Context) {
-        if let hosting = nsView.value(forKey: "contentView") as? NSHostingView<Content> {
+        if let container = nsView as? LiquidGlassContainerView,
+           let glass = container.glassView {
+            container.hostingView?.rootView = AnyView(content)
+            glass.setValue(cornerRadius, forKey: "cornerRadius")
+            callPrivateVariantSetter(on: glass, value: variant.rawValue)
+            container.scheduleBackdropSetup()
+            return
+        }
+
+        if let hosting = nsView.subviews.first as? NSHostingView<Content> {
             hosting.rootView = content
         }
-        nsView.setValue(cornerRadius, forKey: "cornerRadius")
-        callPrivateVariantSetter(on: nsView, value: variant.rawValue)
-
-        if jitterEnabled {
-            // Micro-jitter: imperceptibly adjust opacity so WindowServer re-samples the wallpaper every frame.
-            let jitter = sin(trigger * 100) * 0.000001
-            nsView.alphaValue = 1.0 - CGFloat(abs(jitter))
-        } else if nsView.alphaValue != 1.0 {
-            nsView.alphaValue = 1.0
-        }
-
-        nsView.needsDisplay = true
     }
 }

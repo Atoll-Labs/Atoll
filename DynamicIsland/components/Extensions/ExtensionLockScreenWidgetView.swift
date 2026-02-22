@@ -132,10 +132,8 @@ struct ExtensionLockScreenWidgetView: View {
 
     @ViewBuilder
     private func liquidGlassBackground(shape: RoundedRectangle) -> some View {
-        TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { context in
-            LiquidGlassBackground(variant: requestedLiquidGlassVariant, cornerRadius: descriptor.cornerRadius, trigger: context.date.timeIntervalSinceReferenceDate) {
-                Color.black.opacity(0.08)
-            }
+        LiquidGlassBackground(variant: requestedLiquidGlassVariant, cornerRadius: descriptor.cornerRadius) {
+            Color.black.opacity(0.08)
         }
         .overlay {
             tintOverlay(shape: shape)

@@ -59,9 +59,10 @@ class SettingsWindowController: NSWindowController {
         window.titleVisibility = .visible
         window.toolbarStyle = .unified
         window.isMovableByWindowBackground = true
+        window.level = .normal
         
         // Make it behave like a regular app window with proper Spaces support
-        window.collectionBehavior = [.managed, .participatesInCycle, .fullScreenAuxiliary]
+        window.collectionBehavior = [.managed, .participatesInCycle]
         
         // Ensure proper window behavior
         window.hidesOnDeactivate = false
@@ -85,6 +86,10 @@ class SettingsWindowController: NSWindowController {
     func showWindow() {
         // Ensure window exists
         _ = window
+
+        // Reassert regular window semantics in case any prior state mutated this window.
+        window?.level = .normal
+        window?.collectionBehavior = [.managed, .participatesInCycle]
         
         // If window is already visible, bring it to front properly
         if window?.isVisible == true {

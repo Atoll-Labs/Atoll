@@ -154,10 +154,8 @@ struct LockScreenTimerWidget: View {
     }
 
     private var customLiquidBackground: some View {
-        TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { context in
-            LiquidGlassBackground(variant: timerGlassVariant, cornerRadius: Self.cornerRadius, trigger: context.date.timeIntervalSinceReferenceDate) {
-                Color.black.opacity(0.12)
-            }
+        LiquidGlassBackground(variant: timerGlassVariant, cornerRadius: Self.cornerRadius) {
+            Color.black.opacity(0.12)
         }
     }
 
