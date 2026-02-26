@@ -355,13 +355,18 @@ struct LockScreenMusicPanel: View {
         collapseWorkItem?.cancel()
         collapseWorkItem = nil
     }
+
+    private var isProgressTimelinePaused: Bool {
+        !musicManager.isPlaying || musicManager.isLiveStream || musicManager.playbackRate <= 0
+    }
     
     // MARK: - Progress Bar
     
     private var progressBar: some View {
         TimelineView(
             .animation(
-                minimumInterval: (!musicManager.isLiveStream && musicManager.playbackRate > 0) ? 0.1 : nil
+                minimumInterval: 0.1,
+                paused: isProgressTimelinePaused
             )
         ) { timeline in
             MusicSliderView(
