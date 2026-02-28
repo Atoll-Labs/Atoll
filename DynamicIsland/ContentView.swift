@@ -774,7 +774,6 @@ struct ContentView: View {
                       .transition(tabSwitchTransition)
                   }
               }
-              .clipped()
               .zIndex(1)
               .allowsHitTesting(vm.notchState == .open)
               .blur(radius: abs(gestureProgress) > 0.3 ? min(abs(gestureProgress), 8) : 0)
