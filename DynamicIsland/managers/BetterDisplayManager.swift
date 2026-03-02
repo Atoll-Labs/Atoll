@@ -205,40 +205,44 @@ final class BetterDisplayManager: ObservableObject {
     private func routeOSDToHUD(_ osd: BetterDisplayOSDNotification) {
         let category = classifyControlTarget(osd.controlTarget, systemIconID: osd.systemIconID)
         let normalizedValue = normalizeValue(osd.value, maxValue: osd.maxValue)
+        let targetScreen = resolveScreen(for: osd.displayID)
+        let isExternalDisplay = isExternal(displayID: osd.displayID)
 
         switch category {
         case .brightness:
             guard Defaults[.enableBrightnessHUD] else { return }
-            dispatchBrightnessHUD(value: normalizedValue)
+            let icon = isExternalDisplay ? "display" : nil
+            dispatchBrightnessHUD(value: normalizedValue, customSymbol: icon, onScreen: targetScreen)
 
         case .volume:
             guard Defaults[.enableVolumeHUD] else { return }
             let isMuted = osd.controlTarget == "mute" || osd.systemIconID == 4
-            dispatchVolumeHUD(value: normalizedValue, isMuted: isMuted)
+            dispatchVolumeHUD(value: normalizedValue, isMuted: isMuted, onScreen: targetScreen)
 
         case .other:
             // For unsupported control targets (contrast, gamma, temperature, etc.),
             // show a generic brightness-style HUD if the user has brightness HUD enabled
             guard Defaults[.enableBrightnessHUD] else { return }
-            dispatchBrightnessHUD(value: normalizedValue, customSymbol: osd.customSymbol)
+            let icon = isExternalDisplay ? "display" : osd.customSymbol
+            dispatchBrightnessHUD(value: normalizedValue, customSymbol: icon, onScreen: targetScreen)
         }
     }
 
     // MARK: - HUD Dispatch (mirrors SystemChangesObserver logic)
 
-    private func dispatchVolumeHUD(value: CGFloat, isMuted: Bool) {
+    private func dispatchVolumeHUD(value: CGFloat, isMuted: Bool, onScreen targetScreen: NSScreen? = nil) {
         if HUDSuppressionCoordinator.shared.shouldSuppressVolumeHUD { return }
 
         if Defaults[.enableCircularHUD] {
-            CircularHUDWindowManager.shared.show(type: .volume, value: value)
+            CircularHUDWindowManager.shared.show(type: .volume, value: value, onScreen: targetScreen)
             return
         }
         if Defaults[.enableVerticalHUD] {
-            VerticalHUDWindowManager.shared.show(type: .volume, value: value, icon: "")
+            VerticalHUDWindowManager.shared.show(type: .volume, value: value, icon: "", onScreen: targetScreen)
             return
         }
         if Defaults[.enableCustomOSD] && Defaults[.enableOSDVolume] {
-            CustomOSDWindowManager.shared.showVolume(value: value)
+            CustomOSDWindowManager.shared.showVolume(value: value, onScreen: targetScreen)
         }
         if Defaults[.enableSystemHUD] && !Defaults[.enableCustomOSD] && !Defaults[.enableVerticalHUD] && !Defaults[.enableCircularHUD] {
             coordinator?.toggleSneakPeek(
@@ -250,29 +254,48 @@ final class BetterDisplayManager: ObservableObject {
         }
     }
 
-    private func dispatchBrightnessHUD(value: CGFloat, customSymbol: String? = nil) {
+    private func dispatchBrightnessHUD(value: CGFloat, customSymbol: String? = nil, onScreen targetScreen: NSScreen? = nil) {
+        let icon = customSymbol ?? ""
         if Defaults[.enableCircularHUD] {
-            CircularHUDWindowManager.shared.show(type: .brightness, value: value)
+            CircularHUDWindowManager.shared.show(type: .brightness, value: value, icon: icon, onScreen: targetScreen)
             return
         }
         if Defaults[.enableVerticalHUD] {
-            VerticalHUDWindowManager.shared.show(type: .brightness, value: value)
+            VerticalHUDWindowManager.shared.show(type: .brightness, value: value, icon: icon, onScreen: targetScreen)
             return
         }
         if Defaults[.enableCustomOSD] && Defaults[.enableOSDBrightness] {
-            CustomOSDWindowManager.shared.showBrightness(value: value)
+            CustomOSDWindowManager.shared.showBrightness(value: value, icon: icon, onScreen: targetScreen)
         }
         if Defaults[.enableSystemHUD] && !Defaults[.enableCustomOSD] && !Defaults[.enableVerticalHUD] && !Defaults[.enableCircularHUD] {
             coordinator?.toggleSneakPeek(
                 status: true,
                 type: .brightness,
                 value: value,
-                icon: ""
+                icon: icon
             )
         }
     }
 
     // MARK: - Helpers
+
+    /// Resolve a BetterDisplay `displayID` (CGDirectDisplayID) to the matching NSScreen, if any.
+    private func resolveScreen(for displayID: Int?) -> NSScreen? {
+        guard let displayID else { return nil }
+        let target = UInt32(displayID)
+        return NSScreen.screens.first { screen in
+            guard let screenNumber = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+                return false
+            }
+            return screenNumber.uint32Value == target
+        }
+    }
+
+    /// Whether the given displayID refers to an external (non-built-in) display.
+    private func isExternal(displayID: Int?) -> Bool {
+        guard let displayID else { return false }
+        return CGDisplayIsBuiltin(UInt32(displayID)) == 0
+    }
 
     private func classifyControlTarget(_ target: String?, systemIconID: Int?) -> BetterDisplayControlCategory {
         if let target {

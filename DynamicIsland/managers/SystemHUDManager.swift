@@ -174,6 +174,14 @@ class SystemHUDManager {
                 keyboardBacklightEnabled: change.newValue
             )
         }.store(in: &cancellables)
+
+        // When BetterDisplay integration toggled, restart observer to update Cmd+Brightness key interception
+        Defaults.publisher(.enableBetterDisplayIntegration, options: []).sink { [weak self] _ in
+            guard let self = self, self.isSetupComplete else { return }
+            Task { @MainActor in
+                await self.startSystemObserver()
+            }
+        }.store(in: &cancellables)
     }
     
     private var cancellables = Set<AnyCancellable>()
@@ -218,7 +226,7 @@ class SystemHUDManager {
         // Determine which controls to enable based on HUD or OSD mode
         let volumeEnabled: Bool
         let brightnessEnabled: Bool
-        let keyboardBacklightEnabled: Bool
+        var keyboardBacklightEnabled: Bool
         
         if Defaults[.enableCircularHUD] || Defaults[.enableVerticalHUD] {
             // Respect per-control toggles so the system HUD can handle disabled events
@@ -233,6 +241,12 @@ class SystemHUDManager {
             volumeEnabled = Defaults[.enableVolumeHUD]
             brightnessEnabled = Defaults[.enableBrightnessHUD]
             keyboardBacklightEnabled = Defaults[.enableKeyboardBacklightHUD]
+        }
+
+        // When BetterDisplay integration is on, disable Cmd+Brightness key interception
+        // because BetterDisplay uses Cmd+F1/F2 for its own display controls.
+        if Defaults[.enableBetterDisplayIntegration] {
+            keyboardBacklightEnabled = false
         }
         
         changesObserver?.startObserving(

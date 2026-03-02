@@ -249,8 +249,9 @@ struct ContentView: View {
     }
 
     /// Whether the notch/island should hide off-screen when closed on a non-notch display.
+    /// Temporarily reveals the notch when a sneakPeek HUD (volume, brightness, music, etc.) is active.
     private var shouldHideUntilHover: Bool {
-        hideNonNotchUntilHover && isNonNotchScreen && vm.notchState == .closed
+        hideNonNotchUntilHover && isNonNotchScreen && vm.notchState == .closed && !coordinator.sneakPeek.show
     }
 
     /// Pill shape for Dynamic Island mode with animated corner radius transitions.

@@ -212,7 +212,7 @@ struct InlineHUD: View {
                                     .frame(width: 20, height: 15, alignment: .leading)
                             }
                         case .brightness:
-                            Image(systemName: BrightnessSymbol(value))
+                            Image(systemName: !icon.isEmpty ? icon : BrightnessSymbol(value))
                                 .contentTransition(.interpolate)
                                 .frame(width: 20, height: 15, alignment: .center)
                         case .backlight:
