@@ -108,70 +108,76 @@ class SystemHUDManager {
         }.store(in: &cancellables)
         
         // Observe individual HUD toggles
-        Defaults.publisher(.enableVolumeHUD, options: []).sink { [weak self] change in
+        Defaults.publisher(.enableVolumeHUD, options: []).sink { [weak self] _ in
             guard let self = self, self.isSetupComplete, self.requiresSystemToggleHandling else {
                 return
             }
+            let flags = self.resolvedControlFlags()
             self.changesObserver?.update(
-                volumeEnabled: change.newValue,
-                brightnessEnabled: Defaults[.enableBrightnessHUD],
-                keyboardBacklightEnabled: Defaults[.enableKeyboardBacklightHUD]
+                volumeEnabled: flags.volume,
+                brightnessEnabled: flags.brightness,
+                keyboardBacklightEnabled: flags.backlight
             )
         }.store(in: &cancellables)
         
-        Defaults.publisher(.enableBrightnessHUD, options: []).sink { [weak self] change in
+        Defaults.publisher(.enableBrightnessHUD, options: []).sink { [weak self] _ in
             guard let self = self, self.isSetupComplete, self.requiresSystemToggleHandling else {
                 return
             }
+            let flags = self.resolvedControlFlags()
             self.changesObserver?.update(
-                volumeEnabled: Defaults[.enableVolumeHUD],
-                brightnessEnabled: change.newValue,
-                keyboardBacklightEnabled: Defaults[.enableKeyboardBacklightHUD]
+                volumeEnabled: flags.volume,
+                brightnessEnabled: flags.brightness,
+                keyboardBacklightEnabled: flags.backlight
             )
         }.store(in: &cancellables)
 
-        Defaults.publisher(.enableKeyboardBacklightHUD, options: []).sink { [weak self] change in
+        Defaults.publisher(.enableKeyboardBacklightHUD, options: []).sink { [weak self] _ in
             guard let self = self, self.isSetupComplete, self.requiresSystemToggleHandling else {
                 return
             }
+            let flags = self.resolvedControlFlags()
             self.changesObserver?.update(
-                volumeEnabled: Defaults[.enableVolumeHUD],
-                brightnessEnabled: Defaults[.enableBrightnessHUD],
-                keyboardBacklightEnabled: change.newValue
+                volumeEnabled: flags.volume,
+                brightnessEnabled: flags.brightness,
+                keyboardBacklightEnabled: flags.backlight
             )
         }.store(in: &cancellables)
         
         // Observe individual OSD toggles
-        Defaults.publisher(.enableOSDVolume, options: []).sink { [weak self] change in
+        Defaults.publisher(.enableOSDVolume, options: []).sink { [weak self] _ in
             guard let self = self, self.isSetupComplete, Defaults[.enableCustomOSD] else {
                 return
             }
+            let flags = self.resolvedControlFlags()
             self.changesObserver?.update(
-                volumeEnabled: change.newValue,
-                brightnessEnabled: Defaults[.enableOSDBrightness],
-                keyboardBacklightEnabled: Defaults[.enableOSDKeyboardBacklight]
+                volumeEnabled: flags.volume,
+                brightnessEnabled: flags.brightness,
+                keyboardBacklightEnabled: flags.backlight
             )
         }.store(in: &cancellables)
         
-        Defaults.publisher(.enableOSDBrightness, options: []).sink { [weak self] change in
+        Defaults.publisher(.enableOSDBrightness, options: []).sink { [weak self] _ in
             guard let self = self, self.isSetupComplete, Defaults[.enableCustomOSD] else {
                 return
             }
+            let flags = self.resolvedControlFlags()
             self.changesObserver?.update(
-                volumeEnabled: Defaults[.enableOSDVolume],
-                brightnessEnabled: change.newValue,
-                keyboardBacklightEnabled: Defaults[.enableOSDKeyboardBacklight]
+                volumeEnabled: flags.volume,
+                brightnessEnabled: flags.brightness,
+                keyboardBacklightEnabled: flags.backlight
             )
         }.store(in: &cancellables)
         
-        Defaults.publisher(.enableOSDKeyboardBacklight, options: []).sink { [weak self] change in
+        Defaults.publisher(.enableOSDKeyboardBacklight, options: []).sink { [weak self] _ in
             guard let self = self, self.isSetupComplete, Defaults[.enableCustomOSD] else {
                 return
             }
+            let flags = self.resolvedControlFlags()
             self.changesObserver?.update(
-                volumeEnabled: Defaults[.enableOSDVolume],
-                brightnessEnabled: Defaults[.enableOSDBrightness],
-                keyboardBacklightEnabled: change.newValue
+                volumeEnabled: flags.volume,
+                brightnessEnabled: flags.brightness,
+                keyboardBacklightEnabled: flags.backlight
             )
         }.store(in: &cancellables)
 
@@ -214,22 +220,13 @@ class SystemHUDManager {
         }
     }
     
-    @MainActor
-    private func startSystemObserver() async {
-        guard let coordinator = coordinator, !isSystemOperationInProgress else { return }
-        
-        isSystemOperationInProgress = true
-        await stopSystemObserver() // Stop any existing observer
-        
-        changesObserver = SystemChangesObserver(coordinator: coordinator)
-        
-        // Determine which controls to enable based on HUD or OSD mode
-        let volumeEnabled: Bool
-        let brightnessEnabled: Bool
+    /// Resolves the effective control flags, applying BetterDisplay overrides.
+    private func resolvedControlFlags() -> (volume: Bool, brightness: Bool, backlight: Bool) {
+        var volumeEnabled: Bool
+        var brightnessEnabled: Bool
         var keyboardBacklightEnabled: Bool
-        
+
         if Defaults[.enableCircularHUD] || Defaults[.enableVerticalHUD] {
-            // Respect per-control toggles so the system HUD can handle disabled events
             volumeEnabled = Defaults[.enableVolumeHUD]
             brightnessEnabled = Defaults[.enableBrightnessHUD]
             keyboardBacklightEnabled = Defaults[.enableKeyboardBacklightHUD]
@@ -243,22 +240,40 @@ class SystemHUDManager {
             keyboardBacklightEnabled = Defaults[.enableKeyboardBacklightHUD]
         }
 
-        // When BetterDisplay integration is on, disable Cmd+Brightness key interception
-        // because BetterDisplay uses Cmd+F1/F2 for its own display controls.
+        // When BetterDisplay integration is on, stop intercepting brightness and
+        // Cmd+Brightness keys so BetterDisplay receives them and sends OSD notifications.
         if Defaults[.enableBetterDisplayIntegration] {
+            brightnessEnabled = false
             keyboardBacklightEnabled = false
         }
+
+        return (volumeEnabled, brightnessEnabled, keyboardBacklightEnabled)
+    }
+
+    @MainActor
+    private func startSystemObserver() async {
+        guard let coordinator = coordinator, !isSystemOperationInProgress else { return }
         
+        isSystemOperationInProgress = true
+
+        // Stop any existing observer directly (cannot call stopSystemObserver()
+        // because isSystemOperationInProgress is already true).
+        changesObserver?.stopObserving()
+        changesObserver = nil
+        
+        changesObserver = SystemChangesObserver(coordinator: coordinator)
+
+        let flags = resolvedControlFlags()
         changesObserver?.startObserving(
-            volumeEnabled: volumeEnabled,
-            brightnessEnabled: brightnessEnabled,
-            keyboardBacklightEnabled: keyboardBacklightEnabled
+            volumeEnabled: flags.volume,
+            brightnessEnabled: flags.brightness,
+            keyboardBacklightEnabled: flags.backlight
         )
         
         // Force disable system HUD to ensure no duplicates
         SystemOSDManager.disableSystemHUD()
         
-        print("System observer started (HUD: \(Defaults[.enableSystemHUD]), OSD: \(Defaults[.enableCustomOSD]), Vertical: \(Defaults[.enableVerticalHUD]))")
+        print("System observer started (HUD: \(Defaults[.enableSystemHUD]), OSD: \(Defaults[.enableCustomOSD]), Vertical: \(Defaults[.enableVerticalHUD]), BD: \(Defaults[.enableBetterDisplayIntegration]))")
         isSystemOperationInProgress = false
     }
     

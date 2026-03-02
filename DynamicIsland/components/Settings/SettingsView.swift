@@ -1384,8 +1384,7 @@ private struct HUDAndOSDSettingsView: View {
     @Default(.enableVolumeHUD) var enableVolumeHUD
     @Default(.enableBrightnessHUD) var enableBrightnessHUD
     @Default(.enableKeyboardBacklightHUD) var enableKeyboardBacklightHUD
-    
-    // Vertical HUD Props
+    @Default(.enableBetterDisplayIntegration) var enableBetterDisplayIntegration
     @Default(.verticalHUDShowValue) var verticalHUDShowValue
     @Default(.verticalHUDInteractive) var verticalHUDInteractive
     @Default(.verticalHUDHeight) var verticalHUDHeight
@@ -1621,7 +1620,7 @@ private struct HUDAndOSDSettingsView: View {
                 }
             case .vertical:
                 Form {
-                    if !accessibilityPermission.isAuthorized {
+                    if !accessibilityPermission.isAuthorized && !enableBetterDisplayIntegration {
                         Section {
                             SettingsPermissionCallout(
                                 message: "Accessibility permission is needed to intercept system controls for the Vertical HUD.",
@@ -1637,11 +1636,13 @@ private struct HUDAndOSDSettingsView: View {
                         }
                     }
 
-                    if accessibilityPermission.isAuthorized {
+                    if accessibilityPermission.isAuthorized || enableBetterDisplayIntegration {
                         Section {
                             Toggle("Volume HUD", isOn: $enableVolumeHUD)
                             Toggle("Brightness HUD", isOn: $enableBrightnessHUD)
                             Toggle("Keyboard Backlight HUD", isOn: $enableKeyboardBacklightHUD)
+                                .disabled(enableBetterDisplayIntegration)
+                                .help(enableBetterDisplayIntegration ? "Disabled while BetterDisplay integration is active — BetterDisplay uses Cmd+Brightness keys for its own controls." : "")
                         } header: {
                             Text("Controls")
                         } footer: {
@@ -1736,7 +1737,7 @@ private struct HUDAndOSDSettingsView: View {
 
             case .circular:
                 Form {
-                    if !accessibilityPermission.isAuthorized {
+                    if !accessibilityPermission.isAuthorized && !enableBetterDisplayIntegration {
                         Section {
                             SettingsPermissionCallout(
                                 message: "Accessibility permission is needed to intercept system controls for the Circular HUD.",
@@ -1752,11 +1753,13 @@ private struct HUDAndOSDSettingsView: View {
                         }
                     }
 
-                    if accessibilityPermission.isAuthorized {
+                    if accessibilityPermission.isAuthorized || enableBetterDisplayIntegration {
                         Section {
                             Toggle("Volume HUD", isOn: $enableVolumeHUD)
                             Toggle("Brightness HUD", isOn: $enableBrightnessHUD)
                             Toggle("Keyboard Backlight HUD", isOn: $enableKeyboardBacklightHUD)
+                                .disabled(enableBetterDisplayIntegration)
+                                .help(enableBetterDisplayIntegration ? "Disabled while BetterDisplay integration is active — BetterDisplay uses Cmd+Brightness keys for its own controls." : "")
                         } header: {
                             Text("Controls")
                         } footer: {
@@ -2020,6 +2023,7 @@ struct HUD: View {
     @Default(.enableVolumeHUD) var enableVolumeHUD
     @Default(.enableBrightnessHUD) var enableBrightnessHUD
     @Default(.enableKeyboardBacklightHUD) var enableKeyboardBacklightHUD
+    @Default(.enableBetterDisplayIntegration) var enableBetterDisplayIntegration
     @Default(.systemHUDSensitivity) var systemHUDSensitivity
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject private var accessibilityPermission = AccessibilityPermissionStore.shared
@@ -2038,7 +2042,7 @@ struct HUD: View {
     
     var body: some View {
         Form {
-            if !hasAccessibilityPermission {
+            if !hasAccessibilityPermission && !enableBetterDisplayIntegration {
                 Section {
                     SettingsPermissionCallout(
                         message: "Accessibility permission lets Dynamic Island replace the native volume, brightness, and keyboard HUDs.",
@@ -2052,11 +2056,13 @@ struct HUD: View {
 
 
             
-            if enableSystemHUD && !Defaults[.enableCustomOSD] && hasAccessibilityPermission {
+            if enableSystemHUD && !Defaults[.enableCustomOSD] && (hasAccessibilityPermission || enableBetterDisplayIntegration) {
                 Section {
                     Toggle("Volume HUD", isOn: $enableVolumeHUD)
                     Toggle("Brightness HUD", isOn: $enableBrightnessHUD)
                     Toggle("Keyboard Backlight HUD", isOn: $enableKeyboardBacklightHUD)
+                        .disabled(enableBetterDisplayIntegration)
+                        .help(enableBetterDisplayIntegration ? "Disabled while BetterDisplay integration is active \u{2014} BetterDisplay uses Cmd+Brightness keys for its own controls." : "")
                 } header: {
                     Text("Controls")
                 } footer: {
@@ -6702,6 +6708,7 @@ struct CustomOSDSettings: View {
     @Default(.enableOSDVolume) var enableOSDVolume
     @Default(.enableOSDBrightness) var enableOSDBrightness
     @Default(.enableOSDKeyboardBacklight) var enableOSDKeyboardBacklight
+    @Default(.enableBetterDisplayIntegration) var enableBetterDisplayIntegration
     @Default(.osdMaterial) var osdMaterial
     @Default(.osdLiquidGlassCustomizationMode) var osdLiquidGlassCustomizationMode
     @Default(.osdLiquidGlassVariant) var osdLiquidGlassVariant
@@ -6744,7 +6751,7 @@ struct CustomOSDSettings: View {
     
     var body: some View {
         Form {
-            if !hasAccessibilityPermission {
+            if !hasAccessibilityPermission && !enableBetterDisplayIntegration {
                 Section {
                     SettingsPermissionCallout(
                         message: "Accessibility permission is needed to intercept system controls for the Custom OSD.",
@@ -6756,7 +6763,7 @@ struct CustomOSDSettings: View {
                 }
             }
 
-            if hasAccessibilityPermission {
+            if hasAccessibilityPermission || enableBetterDisplayIntegration {
                 Section {
                     Toggle("Volume OSD", isOn: $enableOSDVolume)
                         .settingsHighlight(id: highlightID("Volume OSD"))
@@ -6764,6 +6771,8 @@ struct CustomOSDSettings: View {
                         .settingsHighlight(id: highlightID("Brightness OSD"))
                     Toggle("Keyboard Backlight OSD", isOn: $enableOSDKeyboardBacklight)
                         .settingsHighlight(id: highlightID("Keyboard Backlight OSD"))
+                        .disabled(enableBetterDisplayIntegration)
+                        .help(enableBetterDisplayIntegration ? "Disabled while BetterDisplay integration is active \u{2014} BetterDisplay uses Cmd+Brightness keys for its own controls." : "")
                 } header: {
                     Text("Controls")
                 } footer: {

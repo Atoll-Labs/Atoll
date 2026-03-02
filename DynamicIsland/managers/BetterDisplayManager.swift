@@ -190,6 +190,8 @@ final class BetterDisplayManager: ObservableObject {
             return
         }
 
+        NSLog("📺 BetterDisplay OSD raw payload: \(notificationString)")
+
         do {
             let osd = try JSONDecoder().decode(
                 BetterDisplayOSDNotification.self,
@@ -208,21 +210,20 @@ final class BetterDisplayManager: ObservableObject {
         let targetScreen = resolveScreen(for: osd.displayID)
         let isExternalDisplay = isExternal(displayID: osd.displayID)
 
+        NSLog("📺 BetterDisplay OSD: target=\(osd.controlTarget ?? "nil") displayID=\(osd.displayID.map(String.init) ?? "nil") resolvedScreen=\(targetScreen?.localizedName ?? "nil") isExternal=\(isExternalDisplay) value=\(osd.value ?? -1)")
+
         switch category {
         case .brightness:
-            guard Defaults[.enableBrightnessHUD] else { return }
             let icon = isExternalDisplay ? "display" : nil
             dispatchBrightnessHUD(value: normalizedValue, customSymbol: icon, onScreen: targetScreen)
 
         case .volume:
-            guard Defaults[.enableVolumeHUD] else { return }
             let isMuted = osd.controlTarget == "mute" || osd.systemIconID == 4
             dispatchVolumeHUD(value: normalizedValue, isMuted: isMuted, onScreen: targetScreen)
 
         case .other:
             // For unsupported control targets (contrast, gamma, temperature, etc.),
             // show a generic brightness-style HUD if the user has brightness HUD enabled
-            guard Defaults[.enableBrightnessHUD] else { return }
             let icon = isExternalDisplay ? "display" : osd.customSymbol
             dispatchBrightnessHUD(value: normalizedValue, customSymbol: icon, onScreen: targetScreen)
         }
@@ -281,14 +282,26 @@ final class BetterDisplayManager: ObservableObject {
 
     /// Resolve a BetterDisplay `displayID` (CGDirectDisplayID) to the matching NSScreen, if any.
     private func resolveScreen(for displayID: Int?) -> NSScreen? {
-        guard let displayID else { return nil }
+        guard let displayID else {
+            NSLog("📺 BetterDisplay resolveScreen: displayID is nil, falling back to all screens")
+            return nil
+        }
         let target = UInt32(displayID)
-        return NSScreen.screens.first { screen in
+        let availableScreens = NSScreen.screens.map { screen -> (String, UInt32) in
+            let num = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value ?? 0
+            return (screen.localizedName, num)
+        }
+        NSLog("📺 BetterDisplay resolveScreen: looking for displayID=\(displayID) (UInt32=\(target)) among screens: \(availableScreens)")
+        let matched = NSScreen.screens.first { screen in
             guard let screenNumber = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
                 return false
             }
             return screenNumber.uint32Value == target
         }
+        if matched == nil {
+            NSLog("📺 BetterDisplay resolveScreen: no match found for displayID=\(displayID), HUD will show on all screens")
+        }
+        return matched
     }
 
     /// Whether the given displayID refers to an external (non-built-in) display.
