@@ -36,6 +36,7 @@ struct NotchNotesView: View {
     @State private var editorImageData: Data? = nil
     @State private var editorColorIndex: Int = 0
     @State private var editorNoteId: UUID?
+    @State private var autoSaveTask: Task<Void, Never>?
 
     @Default(.enableNotes) var enableNotes
     
@@ -121,6 +122,15 @@ struct NotchNotesView: View {
         }
         .onChange(of: enableNotes) { _, _ in
             updateLayoutState()
+        }
+        .onChange(of: editorContent) { _, _ in
+            scheduleAutoSave()
+        }
+        .onChange(of: editorTitle) { _, _ in
+            scheduleAutoSave()
+        }
+        .onChange(of: editorColorIndex) { _, _ in
+            scheduleAutoSave()
         }
     }
     
@@ -247,6 +257,19 @@ struct NotchNotesView: View {
         savedNotes = notes
     }
 
+    private func scheduleAutoSave() {
+        guard isEditingNewNote || selectedNoteId != nil else { return }
+
+        autoSaveTask?.cancel()
+        autoSaveTask = Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                persistNote()
+            }
+        }
+    }
+
     private func saveNote() {
         persistNote()
         closeEditor()
@@ -338,6 +361,8 @@ struct NotchNotesView: View {
     }
     
     private func closeEditor() {
+        autoSaveTask?.cancel()
+        autoSaveTask = nil
         isEditingNewNote = false
         selectedNoteId = nil
         // Tiny delay to clear state after animation
