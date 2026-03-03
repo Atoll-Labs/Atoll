@@ -311,6 +311,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
             let preferredHeight = coordinator.notesLayoutState.preferredHeight
             baseSize.height = max(baseSize.height, preferredHeight)
+        } else if coordinator.currentView == .terminal {
+            let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
+            let maxFraction = Defaults[.terminalMaxHeightFraction]
+            baseSize.height = min(screenHeight * maxFraction, max(300, screenHeight * maxFraction))
         }
         
         let adjustedContentSize = statsAdjustedNotchSize(
@@ -423,8 +427,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         PrivacyIndicatorManager.shared.startMonitoring()
         
         // Observe tab changes - use immediate resize to keep the notch pinned
+        // Deferred to next run loop tick because @Published fires on willSet,
+        // so coordinator.currentView still holds the OLD value at emission time.
         coordinator.$currentView.sink { [weak self] _ in
-            self?.updateWindowSizeForTabSwitch()
+            DispatchQueue.main.async {
+                self?.updateWindowSizeForTabSwitch()
+            }
         }.store(in: &cancellables)
 
         coordinator.$notesLayoutState
@@ -460,6 +468,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }.store(in: &cancellables)
 
         Defaults.publisher(.openNotchWidth, options: []).sink { [weak self] _ in
+            self?.debouncedUpdateWindowSize()
+        }.store(in: &cancellables)
+
+        // Observe terminal settings changes
+        Defaults.publisher(.enableTerminalFeature, options: []).sink { [weak self] _ in
+            self?.debouncedUpdateWindowSize()
+        }.store(in: &cancellables)
+
+        Defaults.publisher(.terminalMaxHeightFraction, options: []).sink { [weak self] _ in
             self?.debouncedUpdateWindowSize()
         }.store(in: &cancellables)
 

@@ -37,6 +37,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case shelf
     case shortcuts
     case notes
+    case terminal
     case about
 
     var id: String { rawValue }
@@ -62,6 +63,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .shelf: return "Shelf"
         case .shortcuts: return "Shortcuts"
         case .notes: return "Notes"
+        case .terminal: return "Terminal"
         case .about: return "About"
         }
     }
@@ -87,6 +89,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .shelf: return "books.vertical"
         case .shortcuts: return "keyboard"
         case .notes: return "note.text"
+        case .terminal: return "apple.terminal"
         case .about: return "info.circle"
         }
     }
@@ -112,6 +115,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .shelf: return .brown
         case .shortcuts: return .orange
         case .notes: return Color(red: 0.979, green: 0.716, blue: 0.153, opacity: 1.000)
+        case .terminal: return Color(red: 0.2, green: 0.8, blue: 0.4)
         case .about: return .secondary
         }
     }
@@ -421,6 +425,7 @@ struct SettingsView: View {
             .downloads,
             .shelf,
             .shortcuts,
+            .terminal,
             .extensions,
             .about
         ]
@@ -781,13 +786,20 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .colorPicker, title: "Show Color Picker Icon", keywords: ["color icon", "toolbar"], highlightID: SettingsTab.colorPicker.highlightID(for: "Show Color Picker Icon")),
             SettingsSearchEntry(tab: .colorPicker, title: "Display Mode", keywords: ["color", "list"], highlightID: SettingsTab.colorPicker.highlightID(for: "Display Mode")),
             SettingsSearchEntry(tab: .colorPicker, title: "History Size", keywords: ["color history"], highlightID: SettingsTab.colorPicker.highlightID(for: "History Size")),
-            SettingsSearchEntry(tab: .colorPicker, title: "Show All Color Formats", keywords: ["hex", "hsl", "color formats"], highlightID: SettingsTab.colorPicker.highlightID(for: "Show All Color Formats"))
+            SettingsSearchEntry(tab: .colorPicker, title: "Show All Color Formats", keywords: ["hex", "hsl", "color formats"], highlightID: SettingsTab.colorPicker.highlightID(for: "Show All Color Formats")),
+
+            // Terminal
+            SettingsSearchEntry(tab: .terminal, title: "Enable terminal", keywords: ["terminal", "guake", "shell"], highlightID: SettingsTab.terminal.highlightID(for: "Enable terminal")),
+            SettingsSearchEntry(tab: .terminal, title: "Shell path", keywords: ["shell", "zsh", "bash", "terminal"], highlightID: SettingsTab.terminal.highlightID(for: "Shell path")),
+            SettingsSearchEntry(tab: .terminal, title: "Font size", keywords: ["terminal", "font", "text size"], highlightID: SettingsTab.terminal.highlightID(for: "Font size")),
+            SettingsSearchEntry(tab: .terminal, title: "Terminal opacity", keywords: ["terminal", "opacity", "transparency"], highlightID: SettingsTab.terminal.highlightID(for: "Terminal opacity")),
+            SettingsSearchEntry(tab: .terminal, title: "Maximum height", keywords: ["terminal", "height", "size"], highlightID: SettingsTab.terminal.highlightID(for: "Maximum height")),
         ]
     }
 
     private func isTabVisible(_ tab: SettingsTab) -> Bool {
         switch tab {
-        case .timer, .stats, .clipboard, .screenAssistant, .colorPicker, .shelf, .notes:
+        case .timer, .stats, .clipboard, .screenAssistant, .colorPicker, .shelf, .notes, .terminal:
             return !enableMinimalisticUI
         default:
             return true
@@ -872,6 +884,10 @@ struct SettingsView: View {
         case .notes:
             SettingsForm(tab: .notes) {
                 NotesSettingsView()
+            }
+        case .terminal:
+            SettingsForm(tab: .terminal) {
+                TerminalSettings()
             }
         case .about:
             if let controller = updaterController {
@@ -6988,5 +7004,111 @@ struct NotesSettingsView: View {
             }
         }
         .navigationTitle("Notes")
+    }
+}
+
+// MARK: - Terminal Settings
+
+struct TerminalSettings: View {
+    @ObservedObject var terminalManager = TerminalManager.shared
+    @Default(.enableTerminalFeature) var enableTerminalFeature
+    @Default(.terminalShellPath) var terminalShellPath
+    @Default(.terminalFontSize) var terminalFontSize
+    @Default(.terminalOpacity) var terminalOpacity
+    @Default(.terminalMaxHeightFraction) var terminalMaxHeightFraction
+
+    private func highlightID(_ title: String) -> String {
+        SettingsTab.terminal.highlightID(for: title)
+    }
+
+    private var formattedMaxHeight: String {
+        "\(Int(terminalMaxHeightFraction * 100))% of screen"
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle("Enable terminal", key: .enableTerminalFeature)
+                    .settingsHighlight(id: highlightID("Enable terminal"))
+            } header: {
+                Text("General")
+            } footer: {
+                Text("Adds a Guake-style dropdown terminal tab. The terminal runs a shell session that persists while the notch is open.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if enableTerminalFeature {
+                Section {
+                    HStack {
+                        Text("Shell path")
+                        Spacer()
+                        TextField("", text: $terminalShellPath)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 200)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .settingsHighlight(id: highlightID("Shell path"))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Font size")
+                            Spacer()
+                            Text("\(Int(terminalFontSize)) pt")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                        Slider(value: $terminalFontSize, in: 8...24, step: 1)
+                            .onChange(of: terminalFontSize) { _, newValue in
+                                terminalManager.applyFontSize(newValue)
+                            }
+                    }
+                    .settingsHighlight(id: highlightID("Font size"))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Terminal opacity")
+                            Spacer()
+                            Text("\(Int(terminalOpacity * 100))%")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                        Slider(value: $terminalOpacity, in: 0.3...1.0, step: 0.05)
+                            .onChange(of: terminalOpacity) { _, newValue in
+                                terminalManager.applyOpacity(newValue)
+                            }
+                    }
+                    .settingsHighlight(id: highlightID("Terminal opacity"))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Maximum height")
+                            Spacer()
+                            Text(formattedMaxHeight)
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                        Slider(value: $terminalMaxHeightFraction, in: 0.2...0.5, step: 0.05)
+                    }
+                    .settingsHighlight(id: highlightID("Maximum height"))
+                } header: {
+                    Text("Appearance")
+                }
+
+                Section {
+                    Button("Restart Shell") {
+                        terminalManager.restartShell()
+                    }
+                    .disabled(!terminalManager.isProcessRunning)
+                } header: {
+                    Text("Actions")
+                } footer: {
+                    Text("Restarts the shell process. Any unsaved work in the terminal will be lost.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .navigationTitle("Terminal")
     }
 }

@@ -83,6 +83,9 @@ struct TabSelectionView: View {
             let icon = Defaults[.enableNotes] ? "note.text" : "doc.on.clipboard"
             tabsArray.append(TabModel(label: label, icon: icon, view: .notes))
         }
+        if Defaults[.enableTerminalFeature] {
+            tabsArray.append(TabModel(label: "Terminal", icon: "apple.terminal", view: .terminal))
+        }
         if extensionTabsEnabled {
             for payload in extensionTabPayloads {
                 guard let tab = payload.descriptor.tab else { continue }

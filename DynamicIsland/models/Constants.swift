@@ -911,6 +911,13 @@ extension Defaults.Keys {
     static let showNetworkGraph = Key<Bool>("showNetworkGraph", default: false)
     static let showDiskGraph = Key<Bool>("showDiskGraph", default: false)
     
+    // MARK: Terminal Feature
+    static let enableTerminalFeature = Key<Bool>("enableTerminalFeature", default: false)
+    static let terminalShellPath = Key<String>("terminalShellPath", default: "/bin/zsh")
+    static let terminalFontSize = Key<Double>("terminalFontSize", default: 12.0)
+    static let terminalOpacity = Key<Double>("terminalOpacity", default: 1.0)
+    static let terminalMaxHeightFraction = Key<Double>("terminalMaxHeightFraction", default: 0.4)
+    
     // MARK: Timer Feature
     static let enableTimerFeature = Key<Bool>("enableTimerFeature", default: true)
     static let timerDisplayMode = Key<TimerDisplayMode>("timerDisplayMode", default: .tab)

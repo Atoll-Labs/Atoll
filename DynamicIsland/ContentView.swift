@@ -109,6 +109,14 @@ struct ContentView: View {
             return CGSize(width: baseSize.width, height: resolvedHeight)
         }
 
+        if coordinator.currentView == .terminal {
+            // Dynamic height: up to terminalMaxHeightFraction of screen, min 300pt
+            let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
+            let maxFraction = Defaults[.terminalMaxHeightFraction]
+            let terminalHeight = min(screenHeight * maxFraction, max(300, screenHeight * maxFraction))
+            return CGSize(width: baseSize.width, height: terminalHeight)
+        }
+
         if coordinator.currentView == .extensionExperience {
             if let preferredHeight = extensionTabPreferredHeight(baseSize: baseSize) {
                 return CGSize(width: baseSize.width, height: preferredHeight)
@@ -832,6 +840,8 @@ struct ContentView: View {
                                 NotchNotesView()
                             case .clipboard:
                                 NotchNotesView()
+                            case .terminal:
+                                NotchTerminalView()
                             case .extensionExperience:
                                 if let payload = currentExtensionTabPayload() {
                                     ExtensionNotchExperienceTabView(payload: payload)
