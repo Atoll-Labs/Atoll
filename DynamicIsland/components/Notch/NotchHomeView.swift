@@ -521,8 +521,14 @@ struct NotchHomeView: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject private var extensionNotchExperienceManager = ExtensionNotchExperienceManager.shared
+    @ObservedObject private var musicManager = MusicManager.shared
     @Default(.showStandardMediaControls) private var showStandardMediaControls
     let albumArtNamespace: Namespace.ID
+
+    /// Whether the music player should actively display (enabled AND has real content).
+    private var shouldShowMusicPlayer: Bool {
+        showStandardMediaControls && musicManager.hasActiveSession
+    }
     
     var body: some View {
         Group {
@@ -546,14 +552,14 @@ struct NotchHomeView: View {
                 }
             } else {
                 // Normal mode: Show full music player with optional calendar and webcam
-                if showStandardMediaControls {
+                if shouldShowMusicPlayer {
                     MusicPlayerView(albumArtNamespace: albumArtNamespace)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 
                 if Defaults[.showCalendar] {
                     Group {
-                        if showStandardMediaControls {
+                        if shouldShowMusicPlayer {
                             CalendarView()
                         } else {
                             StandaloneCalendarView()

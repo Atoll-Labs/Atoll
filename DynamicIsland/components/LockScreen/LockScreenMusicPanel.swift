@@ -111,7 +111,7 @@ struct LockScreenMusicPanel: View {
     }
     
     var body: some View {
-        if isActive {
+        if isActive && musicManager.hasActiveSession {
             panelContent
         } else {
             Color.clear
