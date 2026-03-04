@@ -17,6 +17,34 @@ import SwiftUI
 import SwiftUIIntrospect
 import UniformTypeIdentifiers
 
+/// Groups for organizing settings tabs in the sidebar.
+private enum SettingsTabGroup: String, CaseIterable, Identifiable {
+    case core
+    case mediaAndDisplay
+    case system
+    case productivity
+    case utilities
+    case developer
+    case integrations
+    case info
+
+    var id: String { rawValue }
+
+    /// Display title for the section header.  `nil` means no visible header.
+    var title: String? {
+        switch self {
+        case .core:             return nil
+        case .mediaAndDisplay:  return "Media & Display"
+        case .system:           return "System"
+        case .productivity:     return "Productivity"
+        case .utilities:        return "Utilities"
+        case .developer:        return "Developer"
+        case .integrations:     return "Integrations"
+        case .info:             return nil
+        }
+    }
+}
+
 private enum SettingsTab: String, CaseIterable, Identifiable {
     case general
     case liveActivities
@@ -41,6 +69,21 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case about
 
     var id: String { rawValue }
+
+    /// Which sidebar group this tab belongs to.
+    var group: SettingsTabGroup {
+        switch self {
+        case .general, .appearance:                                          return .core
+        case .media, .liveActivities, .lockScreen, .devices:                 return .mediaAndDisplay
+        case .hudAndOSD, .battery:                                           return .system
+        case .timer, .calendar, .notes:                                      return .productivity
+        case .clipboard, .screenAssistant, .colorPicker, .shelf,
+             .downloads, .shortcuts:                                         return .utilities
+        case .stats, .terminal:                                              return .developer
+        case .extensions:                                                    return .integrations
+        case .about:                                                         return .info
+        }
+    }
 
     var title: String {
         switch self {
@@ -275,36 +318,19 @@ struct SettingsView: View {
                 Divider()
                     .padding(.horizontal, 12)
 
-                List(filteredTabs, selection: selectionBinding) { tab in
-                    NavigationLink(value: tab) {
-                        HStack(spacing: 10) {
-                            sidebarIcon(for: tab)
-                            Text(tab.title)
-                            if tab == .downloads || tab == .hudAndOSD {
-                                Spacer()
-                                Text("BETA")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.blue)
-                                    )
-                            } else if tab == .extensions {
-                                Spacer()
-                                Text("ALPHA")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.orange)
-                                    )
+                List(selection: selectionBinding) {
+                    ForEach(groupedFilteredTabs, id: \.group) { section in
+                        Section {
+                            ForEach(section.tabs) { tab in
+                                NavigationLink(value: tab) {
+                                    sidebarRow(for: tab)
+                                }
+                            }
+                        } header: {
+                            if let title = section.group.title {
+                                Text(title)
                             }
                         }
-                        .padding(.vertical, 4)
                     }
                 }
                 .listStyle(SidebarListStyle())
@@ -405,32 +431,90 @@ struct SettingsView: View {
             }
     }
 
+    @ViewBuilder
+    private func sidebarRow(for tab: SettingsTab) -> some View {
+        HStack(spacing: 10) {
+            sidebarIcon(for: tab)
+            Text(tab.title)
+            if tab == .downloads || tab == .hudAndOSD {
+                Spacer()
+                Text("BETA")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.blue)
+                    )
+            } else if tab == .extensions {
+                Spacer()
+                Text("ALPHA")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.orange)
+                    )
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
     private var availableTabs: [SettingsTab] {
+        // Ordered to match group layout: core → media & display → system →
+        // productivity → utilities → developer → integrations → info.
         let ordered: [SettingsTab] = [
+            // Core
             .general,
-            .liveActivities,
             .appearance,
-            .lockScreen,
+            // Media & Display
             .media,
+            .liveActivities,
+            .lockScreen,
             .devices,
-            .timer,
-            .calendar,
+            // System
             .hudAndOSD,
             .battery,
-            .stats,
+            // Productivity
+            .timer,
+            .calendar,
             .notes,
+            // Utilities
             .clipboard,
             .screenAssistant,
             .colorPicker,
-            .downloads,
             .shelf,
+            .downloads,
             .shortcuts,
+            // Developer
+            .stats,
             .terminal,
+            // Integrations
             .extensions,
+            // Info
             .about
         ]
 
         return ordered.filter { isTabVisible($0) }
+    }
+
+    /// Groups the filtered tabs into sidebar sections, preserving both
+    /// the group order and the per-group tab order from `availableTabs`.
+    private var groupedFilteredTabs: [(group: SettingsTabGroup, tabs: [SettingsTab])] {
+        let visible = filteredTabs
+        var result: [(group: SettingsTabGroup, tabs: [SettingsTab])] = []
+
+        for group in SettingsTabGroup.allCases {
+            let tabs = visible.filter { $0.group == group }
+            if !tabs.isEmpty {
+                result.append((group: group, tabs: tabs))
+            }
+        }
+
+        return result
     }
 
     private func tabsMatchingSearch(_ query: String) -> [SettingsTab] {
