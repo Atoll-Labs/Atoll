@@ -654,10 +654,16 @@ private struct MinimalisticReminderDetailsView: View {
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
     
+    /// Whether the progress timeline should be paused (no ticks).
+    private var isProgressTimelinePaused: Bool {
+        !musicManager.isPlaying || musicManager.isLiveStream || musicManager.playbackRate <= 0
+    }
+
     private var progressBar: some View {
         TimelineView(
             .animation(
-                minimumInterval: (!musicManager.isLiveStream && musicManager.playbackRate > 0) ? 0.1 : nil
+                minimumInterval: 1.0,
+                paused: isProgressTimelinePaused
             )
         ) { timeline in
             MusicSliderView(

@@ -215,8 +215,13 @@ struct MusicControlsView: View {
         }
     }
 
+    /// Whether the progress timeline should be paused (no ticks).
+    private var isProgressTimelinePaused: Bool {
+        !musicManager.isPlaying || musicManager.isLiveStream || musicManager.playbackRate <= 0
+    }
+
     private var musicSlider: some View {
-        TimelineView(.animation(minimumInterval: musicManager.playbackRate > 0 ? 0.1 : nil)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0, paused: isProgressTimelinePaused)) { timeline in
             MusicSliderView(
                 sliderValue: $sliderValue,
                 duration: $musicManager.songDuration,
@@ -639,6 +644,13 @@ struct MusicSliderView: View {
             guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
             sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: newDate)
         }
+        .onChange(of: isPlaying) { _, playing in
+            // Snap slider to the exact position when music pauses so
+            // the in-flight animation doesn't coast past the true value.
+            if !playing {
+                sliderValue = MusicManager.shared.estimatedPlaybackPosition()
+            }
+        }
         .onChange(of: isLiveStream) { isLive in
             if isLive {
                 sliderValue = 0
@@ -710,6 +722,15 @@ struct MusicSliderView: View {
             onValueChange: onValueChange,
             restingTrackHeight: restingTrackHeight,
             draggingTrackHeight: draggingTrackHeight
+        )
+        // Smoothly interpolate the filled track between 1-second ticks using
+        // Core Animation — runs on the GPU with zero CPU polling cost.
+        // Disabled while dragging or paused so the bar responds instantly.
+        .animation(
+            !dragging && isPlaying && !isLiveStream
+                ? .linear(duration: 1.0)
+                : nil,
+            value: sliderValue
         )
     }
 
