@@ -337,12 +337,6 @@ struct ContentView: View {
                 // is not clipped by the outer frame constraint
                 .padding(.horizontal, isIslandMode ? dynamicIslandShadowInset : 0)
                 .padding(.top, pillTopOffset)
-                .padding(.bottom, notchBottomPadding)
-                // Hide off-screen when non-notch hide-until-hover is active
-                .offset(y: shouldHideUntilHover && !isHovering
-                    ? -(vm.closedNotchSize.height + pillTopOffset + currentShadowPadding + 10)
-                    : 0
-                )
 
             mainLayout
                 .conditionalModifier(!useModernCloseAnimation) { view in
@@ -395,6 +389,14 @@ struct ContentView: View {
                             handleUpGesture(translation: translation, phase: phase)
                         }
                 }
+                // Shadow bottom padding and hide-until-hover offset applied AFTER
+                // interaction modifiers so .contentShape / .onHover only covers
+                // the actual notch content, not the shadow clearance below it.
+                .padding(.bottom, notchBottomPadding)
+                .offset(y: shouldHideUntilHover && !isHovering
+                    ? -(vm.closedNotchSize.height + pillTopOffset + currentShadowPadding + 10)
+                    : 0
+                )
                 .onAppear(perform: {
                     if coordinator.firstLaunch {
                         // Single open during first launch; closeHello() handles the timed close.
