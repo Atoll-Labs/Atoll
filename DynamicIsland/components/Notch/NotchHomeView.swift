@@ -32,7 +32,8 @@ struct MusicPlayerView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 5)
+            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace)
+                .padding(.all, 5)
             MusicControlsView()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .drawingGroup()

@@ -53,10 +53,11 @@ struct DynamicIslandHeader: View {
             }
 
             if vm.notchState == .open && !Defaults[.enableMinimalisticUI] {
+                let spacerWidth = min(vm.closedNotchSize.width, 300)
                 Rectangle()
                     .fill(NSScreen.screens
                         .first(where: { $0.localizedName == coordinator.selectedScreen })?.safeAreaInsets.top ?? 0 > 0 ? .black : .clear)
-                    .frame(width: vm.closedNotchSize.width)
+                    .frame(width: spacerWidth)
                     .mask {
                         NotchShape()
                     }

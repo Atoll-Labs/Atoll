@@ -30,8 +30,29 @@ let batterySneakSize: CGSize = .init(width: 160, height: 1)
 var openNotchSize: CGSize {
     let storedWidth = Defaults[.openNotchWidth]
     let minWidth = currentRecommendedMinimumNotchWidth()
-    let width = max(storedWidth, minWidth)
+    let maxWidth = maxAllowedNotchWidth()
+    let width = min(max(storedWidth, minWidth), maxWidth)
     return .init(width: width, height: 200)
+}
+
+/// Maximum notch width based on the current screen's point width.
+/// Prevents the notch from extending beyond the screen on scaled displays.
+func maxAllowedNotchWidth(for screenName: String? = nil) -> CGFloat {
+    let screen: NSScreen?
+    if let screenName {
+        screen = NSScreen.screens.first { $0.localizedName == screenName }
+    } else {
+        screen = NSScreen.main
+    }
+    guard let screenWidth = screen?.frame.width, screenWidth > 0 else {
+        return 900
+    }
+    return max(screenWidth - 60, 400)
+}
+
+/// Convenience for the main screen.
+func maxAllowedNotchWidth() -> CGFloat {
+    maxAllowedNotchWidth(for: nil)
 }
 
 // MARK: - Tab-Based Notch Width
@@ -87,12 +108,17 @@ func currentRecommendedMinimumNotchWidth() -> CGFloat {
 }
 
 /// Enforces the minimum notch width based on current tab count.
+/// Also clamps to screen width so the notch never exceeds the display.
 /// Only adjusts when not in minimalistic mode.
 func enforceMinimumNotchWidth() {
     guard !Defaults[.enableMinimalisticUI] else { return }
     let minWidth = currentRecommendedMinimumNotchWidth()
-    if Defaults[.openNotchWidth] < minWidth {
-        Defaults[.openNotchWidth] = minWidth
+    let maxWidth = maxAllowedNotchWidth()
+    var width = Defaults[.openNotchWidth]
+    if width < minWidth { width = minWidth }
+    if width > maxWidth { width = maxWidth }
+    if Defaults[.openNotchWidth] != width {
+        Defaults[.openNotchWidth] = width
     }
 }
 private let minimalisticBaseOpenNotchSize: CGSize = .init(width: 420, height: 180)

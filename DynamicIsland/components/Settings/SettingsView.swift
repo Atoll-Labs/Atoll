@@ -3469,7 +3469,9 @@ struct Appearance: View {
     @State private var speed: CGFloat = 1.0
 
     private var notchWidthRange: ClosedRange<Double> {
-        Double(currentRecommendedMinimumNotchWidth())...900
+        let minW = Double(currentRecommendedMinimumNotchWidth())
+        let maxW = min(900, Double(maxAllowedNotchWidth()))
+        return minW...max(minW, maxW)
     }
     private var defaultOpenNotchWidth: CGFloat {
         currentRecommendedMinimumNotchWidth()

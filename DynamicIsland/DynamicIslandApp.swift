@@ -369,10 +369,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func resizeWindow(_ window: NSWindow, on screen: NSScreen, to size: CGSize, animated: Bool) {
         let screenFrame = screen.frame
+        // Clamp width to screen width so the notch never extends beyond screen edges on scaled displays
+        let clampedWidth = min(size.width, screenFrame.width)
+        let clampedHeight = min(size.height, screenFrame.height)
         let centerX = screenFrame.midX
-        let newX = centerX - (size.width / 2)
-        let newY = screenFrame.origin.y + screenFrame.height - size.height
-        let targetFrame = NSRect(x: newX, y: newY, width: size.width, height: size.height)
+        let newX = centerX - (clampedWidth / 2)
+        let newY = screenFrame.origin.y + screenFrame.height - clampedHeight
+        let targetFrame = NSRect(x: newX, y: newY, width: clampedWidth, height: clampedHeight)
 
         window.setFrame(targetFrame, display: true)
     }
