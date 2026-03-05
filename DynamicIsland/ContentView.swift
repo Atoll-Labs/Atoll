@@ -149,6 +149,7 @@ struct ContentView: View {
     @State private var isHovering: Bool = false
     @State private var lastHapticTime: Date = Date()
     @State private var hoverClickMonitor: Any?
+    @State private var hoverClickLocalMonitor: Any?
 
     @State private var gestureProgress: CGFloat = .zero
     @State private var skipGestureActiveDirection: MusicManager.SkipDirection?
@@ -1544,16 +1545,33 @@ struct ContentView: View {
 
     private func startHoverClickMonitor() {
         guard hoverClickMonitor == nil else { return }
-        hoverClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { _ in
+
+        let handleClick: @Sendable () -> Void = { [weak vm, weak lockScreenManager] in
             Task { @MainActor in
+                guard let vm, let lockScreenManager else { return }
                 guard !lockScreenManager.isLocked else { return }
                 guard vm.notchState == .closed else { return }
-                guard isHovering else { return }
+                guard self.isHovering else { return }
                 if Defaults[.enableHaptics] {
-                    triggerHapticIfAllowed()
+                    self.triggerHapticIfAllowed()
                 }
-                openNotch()
+                self.openNotch()
             }
+        }
+
+        // Global monitor catches clicks outside the app window (e.g. when
+        // the cursor is at the very top screen edge and the click goes to
+        // the system rather than our panel).
+        hoverClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { _ in
+            handleClick()
+        }
+
+        // Local monitor catches clicks that DO hit our window — at the
+        // screen edge SwiftUI's .onTapGesture may not fire reliably, but
+        // the NSEvent local monitor will.
+        hoverClickLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { event in
+            handleClick()
+            return event
         }
     }
 
@@ -1561,6 +1579,10 @@ struct ContentView: View {
         if let hoverClickMonitor {
             NSEvent.removeMonitor(hoverClickMonitor)
             self.hoverClickMonitor = nil
+        }
+        if let hoverClickLocalMonitor {
+            NSEvent.removeMonitor(hoverClickLocalMonitor)
+            self.hoverClickLocalMonitor = nil
         }
     }
 
