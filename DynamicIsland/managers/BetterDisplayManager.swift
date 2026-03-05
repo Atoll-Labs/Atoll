@@ -93,23 +93,33 @@ final class BetterDisplayManager: ObservableObject {
     private static let osdNotificationName = NSNotification.Name("com.betterdisplay.BetterDisplay.osd")
     private static let requestNotificationName = NSNotification.Name("com.betterdisplay.BetterDisplay.request")
     private static let responseNotificationName = NSNotification.Name("com.betterdisplay.BetterDisplay.response")
+    private static let launchedNotificationName = NSNotification.Name("pro.betterdisplay.BetterDisplay.launched")
+    private static let terminatedNotificationName = NSNotification.Name("pro.betterdisplay.BetterDisplay.terminated")
 
     // MARK: Published state
 
-    /// Whether BetterDisplay is currently detected on this machine.
+    /// Whether BetterDisplay is currently detected (installed) on this machine.
     @Published private(set) var isDetected: Bool = false
+
+    /// Whether BetterDisplay is currently running and ready for communication.
+    @Published private(set) var isRunning: Bool = false
 
     // MARK: Private
 
     private var osdObserver: NSObjectProtocol?
     private var responseObserver: NSObjectProtocol?
     private var workspaceObserver: NSObjectProtocol?
+    private var workspaceTermObserver: NSObjectProtocol?
+    private var launchedObserver: NSObjectProtocol?
+    private var terminatedObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
     private weak var coordinator: DynamicIslandViewCoordinator?
 
     private init() {
         isDetected = Self.checkInstallation()
+        isRunning = Self.checkRunning()
         setupWorkspaceObserver()
+        setupLifecycleObservers()
         setupSettingsObserver()
     }
 
@@ -119,8 +129,8 @@ final class BetterDisplayManager: ObservableObject {
     func configure(coordinator: DynamicIslandViewCoordinator) {
         self.coordinator = coordinator
 
-        // Start listening if integration is enabled and BetterDisplay is detected
-        if Defaults[.enableBetterDisplayIntegration] && isDetected {
+        // Start listening if integration is enabled and BetterDisplay is running
+        if Defaults[.enableBetterDisplayIntegration] && isRunning {
             startListening()
         }
     }
@@ -128,18 +138,19 @@ final class BetterDisplayManager: ObservableObject {
     /// Refresh detection status (e.g. after app install/uninstall).
     func refreshDetectionStatus() {
         let wasDetected = isDetected
+        let wasRunning = isRunning
         isDetected = Self.checkInstallation()
-        if wasDetected && !isDetected {
+        isRunning = Self.checkRunning()
+        if wasRunning && !isRunning {
             stopListening()
-        } else if !wasDetected && isDetected && Defaults[.enableBetterDisplayIntegration] {
+        } else if !wasRunning && isRunning && Defaults[.enableBetterDisplayIntegration] {
             startListening()
         }
     }
 
     // MARK: - Detection
 
-    /// Check if BetterDisplay is installed by looking for its bundle ID in running apps
-    /// and falling back to NSWorkspace URL lookup.
+    /// Check if BetterDisplay is installed by looking for its bundle ID.
     static func checkInstallation() -> Bool {
         // Check running apps first (fast path)
         if NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleID }) {
@@ -152,6 +163,11 @@ final class BetterDisplayManager: ObservableObject {
         }
 
         return false
+    }
+
+    /// Check if BetterDisplay is currently running.
+    static func checkRunning() -> Bool {
+        NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleID })
     }
 
     // MARK: - OSD Listening
@@ -183,7 +199,7 @@ final class BetterDisplayManager: ObservableObject {
     // MARK: - OSD Handling
 
     private func handleOSDNotification(_ notification: Notification) {
-        guard Defaults[.enableBetterDisplayIntegration] else { return }
+        guard Defaults[.enableBetterDisplayIntegration], isRunning else { return }
 
         guard let notificationString = notification.object as? String else {
             NSLog("⚠️ BetterDisplay OSD: unexpected notification format")
@@ -345,6 +361,12 @@ final class BetterDisplayManager: ObservableObject {
         parameters: [String: String?],
         completion: (@MainActor @Sendable (BetterDisplayResponseData?) -> Void)? = nil
     ) {
+        guard isRunning else {
+            NSLog("⚠️ BetterDisplay sendRequest skipped — app is not running")
+            completion?(nil)
+            return
+        }
+
         let uuid = UUID().uuidString
         let request = BetterDisplayRequestData(uuid: uuid, commands: commands, parameters: parameters)
 
@@ -429,16 +451,54 @@ final class BetterDisplayManager: ObservableObject {
             }
         }
 
-        // Also observe app termination
-        NSWorkspace.shared.notificationCenter.addObserver(
+        // Also observe app termination — handles crashes and force-quits
+        // (orderly quits are caught by the lifecycle observer below)
+        workspaceTermObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didTerminateApplicationNotification,
             object: nil,
             queue: .main
-        ) { notification in
+        ) { [weak self] notification in
             guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                   app.bundleIdentifier == betterDisplayBundleID
             else { return }
-            // Don't clear isDetected on termination — app is still installed, just not running.
+            Task { @MainActor in
+                NSLog("🔴 BetterDisplay terminated (workspace notification)")
+                self?.isRunning = false
+                self?.stopListening()
+            }
+        }
+    }
+
+    // MARK: - Lifecycle Observers (BetterDisplay launched/terminated notifications)
+
+    /// Listen for distributed notifications sent by BetterDisplay itself
+    /// to know when it becomes ready and when it shuts down cleanly.
+    private func setupLifecycleObservers() {
+        launchedObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Self.launchedNotificationName,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                NSLog("🟢 BetterDisplay launched notification received")
+                self?.isDetected = true
+                self?.isRunning = true
+                if Defaults[.enableBetterDisplayIntegration] {
+                    self?.startListening()
+                }
+            }
+        }
+
+        terminatedObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Self.terminatedNotificationName,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                NSLog("🔴 BetterDisplay terminated notification received")
+                self?.isRunning = false
+                self?.stopListening()
+            }
         }
     }
 
@@ -449,7 +509,7 @@ final class BetterDisplayManager: ObservableObject {
             .sink { [weak self] change in
                 Task { @MainActor in
                     guard let self else { return }
-                    if change.newValue && self.isDetected {
+                    if change.newValue && self.isRunning {
                         self.startListening()
                     } else {
                         self.stopListening()
@@ -463,8 +523,17 @@ final class BetterDisplayManager: ObservableObject {
         if let osdObserver {
             DistributedNotificationCenter.default().removeObserver(osdObserver)
         }
+        if let launchedObserver {
+            DistributedNotificationCenter.default().removeObserver(launchedObserver)
+        }
+        if let terminatedObserver {
+            DistributedNotificationCenter.default().removeObserver(terminatedObserver)
+        }
         if let workspaceObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver)
+        }
+        if let workspaceTermObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(workspaceTermObserver)
         }
         cancellables.removeAll()
     }

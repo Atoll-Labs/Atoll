@@ -1934,6 +1934,26 @@ private struct BetterDisplayIntegrationSection: View {
         SettingsTab.hudAndOSD.highlightID(for: title)
     }
 
+    private var statusText: String {
+        if betterDisplayManager.isRunning {
+            return "Running"
+        } else if betterDisplayManager.isDetected {
+            return "Not running"
+        } else {
+            return "Not detected"
+        }
+    }
+
+    private var statusColor: Color {
+        if betterDisplayManager.isRunning {
+            return .green
+        } else if betterDisplayManager.isDetected {
+            return .orange
+        } else {
+            return .secondary
+        }
+    }
+
     var body: some View {
         Form {
             Section {
@@ -1941,9 +1961,9 @@ private struct BetterDisplayIntegrationSection: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("BetterDisplay")
                             .font(.system(size: 13, weight: .medium))
-                        Text(betterDisplayManager.isDetected ? "Detected" : "Not detected")
+                        Text(statusText)
                             .font(.caption)
-                            .foregroundStyle(betterDisplayManager.isDetected ? .green : .secondary)
+                            .foregroundStyle(statusColor)
                     }
 
                     Spacer()
@@ -1957,6 +1977,10 @@ private struct BetterDisplayIntegrationSection: View {
 
                 if !betterDisplayManager.isDetected {
                     Text("Install [BetterDisplay](https://betterdisplay.pro) to control external display brightness and volume through Atoll's HUD.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if !betterDisplayManager.isRunning {
+                    Text("BetterDisplay is installed but not currently running. Launch BetterDisplay to enable integration.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else if enableBetterDisplayIntegration {
