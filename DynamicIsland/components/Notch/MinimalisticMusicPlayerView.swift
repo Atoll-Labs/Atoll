@@ -650,7 +650,7 @@ private struct MinimalisticReminderDetailsView: View {
     // MARK: - Progress Bar (Full Width)
     
     @ObservedObject var musicManager = MusicManager.shared
-    @State private var sliderValue: Double = 0
+    @State private var sliderValue: Double = MusicManager.shared.estimatedPlaybackPosition()
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
     

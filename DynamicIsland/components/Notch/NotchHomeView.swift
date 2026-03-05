@@ -133,7 +133,7 @@ struct MusicControlsView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
-    @State private var sliderValue: Double = 0
+    @State private var sliderValue: Double = MusicManager.shared.estimatedPlaybackPosition()
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
     @State private var hudValue: Double = 0
