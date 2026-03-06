@@ -212,7 +212,7 @@ struct InlineHUD: View {
                                     .frame(width: 20, height: 15, alignment: .leading)
                             }
                         case .brightness:
-                            Image(systemName: BrightnessSymbol(value))
+                            Image(systemName: !icon.isEmpty ? icon : BrightnessSymbol(value))
                                 .contentTransition(.interpolate)
                                 .frame(width: 20, height: 15, alignment: .center)
                         case .backlight:
@@ -237,7 +237,7 @@ struct InlineHUD: View {
                                 LoopingVideoIcon(url: url, size: CGSize(width: 20, height: 20))
                                     .frame(width: 20, height: 20, alignment: .center)
                             } else {
-                                Image(systemName: icon.isEmpty ? "bluetooth" : icon)
+                                Image(systemName: icon.isEmpty ? "dot.radiowaves.left.and.right" : icon)
                                     .symbolRenderingMode(.hierarchical)
                                     .contentTransition(.interpolate)
                                     .frame(width: 20, height: 15, alignment: .center)

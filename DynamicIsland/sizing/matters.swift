@@ -28,8 +28,98 @@ let downloadSneakSize: CGSize = .init(width: 65, height: 1)
 let batterySneakSize: CGSize = .init(width: 160, height: 1)
 
 var openNotchSize: CGSize {
-    let width = Defaults[.openNotchWidth]
-    return .init(width: width, height: 200) // Adjusted to a better middle ground
+    let storedWidth = Defaults[.openNotchWidth]
+    let minWidth = currentRecommendedMinimumNotchWidth()
+    let maxWidth = maxAllowedNotchWidth()
+    let width = min(max(storedWidth, minWidth), maxWidth)
+    return .init(width: width, height: 200)
+}
+
+/// Maximum notch width based on the current screen's point width.
+/// Prevents the notch from extending beyond the screen on scaled displays.
+func maxAllowedNotchWidth(for screenName: String? = nil) -> CGFloat {
+    let screen: NSScreen?
+    if let screenName {
+        screen = NSScreen.screens.first { $0.localizedName == screenName }
+    } else {
+        screen = NSScreen.main
+    }
+    guard let screenWidth = screen?.frame.width, screenWidth > 0 else {
+        return 900
+    }
+    return max(screenWidth - 60, 400)
+}
+
+/// Convenience for the main screen.
+func maxAllowedNotchWidth() -> CGFloat {
+    maxAllowedNotchWidth(for: nil)
+}
+
+// MARK: - Tab-Based Notch Width
+
+/// Counts the number of currently enabled standard notch tabs.
+/// Mirrors the tab-building logic in ``TabSelectionView``.
+func enabledStandardTabCount() -> Int {
+    var count = 0
+
+    // Home tab
+    if Defaults[.showStandardMediaControls] || Defaults[.showCalendar] || Defaults[.showMirror] {
+        count += 1
+    }
+
+    // Shelf tab
+    if Defaults[.dynamicShelf] {
+        count += 1
+    }
+
+    // Timer tab (only in .tab display mode)
+    if Defaults[.enableTimerFeature] && Defaults[.timerDisplayMode] == .tab {
+        count += 1
+    }
+
+    // Stats tab
+    if Defaults[.enableStatsFeature] {
+        count += 1
+    }
+
+    // Notes / Clipboard tab
+    if Defaults[.enableNotes] || (Defaults[.enableClipboardManager] && Defaults[.clipboardDisplayMode] == .separateTab) {
+        count += 1
+    }
+
+    // Terminal tab
+    if Defaults[.enableTerminalFeature] {
+        count += 1
+    }
+
+    return count
+}
+
+/// Returns the recommended minimum notch width for the given tab count.
+func recommendedMinimumNotchWidth(forTabCount count: Int) -> CGFloat {
+    if count >= 6 { return 770 }
+    if count >= 5 { return 690 }
+    return 640
+}
+
+/// Returns the recommended minimum notch width for the current tab configuration.
+func currentRecommendedMinimumNotchWidth() -> CGFloat {
+    recommendedMinimumNotchWidth(forTabCount: enabledStandardTabCount())
+}
+
+/// Enforces the minimum notch width based on current tab count.
+/// Also clamps to screen width so the notch never exceeds the display.
+/// Only adjusts when not in minimalistic mode.
+func enforceMinimumNotchWidth() {
+    guard !Defaults[.enableMinimalisticUI] else { return }
+    let minWidth = currentRecommendedMinimumNotchWidth()
+    let maxWidth = maxAllowedNotchWidth()
+    var width = Defaults[.openNotchWidth]
+    if width < minWidth { width = minWidth }
+    if width > maxWidth { width = maxWidth }
+    if Defaults[.openNotchWidth] != width {
+        Defaults[.openNotchWidth] = width
+    }
 }
 private let minimalisticBaseOpenNotchSize: CGSize = .init(width: 420, height: 180)
 private let minimalisticLyricsExtraHeight: CGFloat = 40
@@ -103,6 +193,51 @@ func notchShadowPaddingValue(isMinimalistic: Bool) -> CGFloat {
 func addShadowPadding(to size: CGSize, isMinimalistic: Bool) -> CGSize {
     CGSize(width: size.width, height: size.height + notchShadowPaddingValue(isMinimalistic: isMinimalistic))
 }
+
+/// Determines whether a specific screen should render the Dynamic Island pill
+/// shape instead of the standard notch shape.
+///
+/// Returns `true` only when ALL of these conditions are met:
+/// 1. The user has selected `.dynamicIsland` in `externalDisplayStyle`
+/// 2. The screen does NOT have a physical notch (safeAreaInsets.top == 0)
+///
+/// Screens with a physical notch always use the standard notch shape.
+func shouldUseDynamicIslandMode(for screenName: String?) -> Bool {
+    guard Defaults[.externalDisplayStyle] == .dynamicIsland else {
+        return false
+    }
+
+    var selectedScreen: NSScreen? = NSScreen.main
+    if let screenName {
+        selectedScreen = NSScreen.screens.first(where: { $0.localizedName == screenName })
+    }
+
+    guard let screen = selectedScreen else {
+        // No screen found — fallback to standard notch
+        return false
+    }
+
+    // Physical notch screens always use standard notch shape
+    return screen.safeAreaInsets.top <= 0
+}
+
+/// Corner radius insets for the Dynamic Island pill shape.
+/// - closed: half the closed notch height for a true capsule look
+/// - opened: generous radius for smooth expanded pill
+let dynamicIslandPillCornerRadiusInsets: (opened: CGFloat, closed: (standard: CGFloat, minimalistic: CGFloat)) = (
+    opened: 24,
+    closed: (standard: 16, minimalistic: 16)
+)
+
+/// Vertical offset from the top screen edge for the Dynamic Island pill.
+/// Creates a visual gap so the pill floats below the menu bar, mimicking
+/// the iPhone's Dynamic Island detachment from the physical screen edge.
+let dynamicIslandTopOffset: CGFloat = 6
+
+/// Extra horizontal padding applied OUTSIDE the pill clip shape in Dynamic
+/// Island mode so the drop shadow has room to render without being clipped
+/// by the outer frame constraint.
+let dynamicIslandShadowInset: CGFloat = 14
 
 enum MusicPlayerImageSizes {
     static let cornerRadiusInset: (opened: CGFloat, closed: CGFloat) = (opened: 13.0, closed: 4.0)

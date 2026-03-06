@@ -29,6 +29,36 @@ public enum Style {
     case floating
 }
 
+/// Controls how Atoll renders on external and non-notched displays.
+/// - `notch`: Standard notch shape (concave top corners blending into the screen edge).
+/// - `dynamicIsland`: Pill-shaped island with continuously rounded corners,
+///   inspired by DynamicNotchKit's floating style. Only applies to screens
+///   that do NOT have a physical notch.
+enum ExternalDisplayStyle: String, CaseIterable, Defaults.Serializable, Identifiable {
+    case notch = "Standard Notch"
+    case dynamicIsland = "Dynamic Island"
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .notch:
+            return String(localized: "Standard Notch")
+        case .dynamicIsland:
+            return String(localized: "Dynamic Island")
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .notch:
+            return String(localized: "Classic notch shape that blends into the top screen edge")
+        case .dynamicIsland:
+            return String(localized: "Pill-shaped island with rounded corners, similar to iPhone's Dynamic Island")
+        }
+    }
+}
+
 public enum ContentType: Int, Codable, Hashable, Equatable {
     case normal
     case menu
@@ -48,6 +78,7 @@ public enum NotchViews {
     case colorPicker
     case notes
     case clipboard
+    case terminal
     case extensionExperience
 }
 

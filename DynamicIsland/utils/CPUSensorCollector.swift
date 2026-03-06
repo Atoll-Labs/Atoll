@@ -30,6 +30,11 @@ struct CPUFrequencyMetrics: Equatable {
 
 struct CPUTemperatureMetrics: Equatable {
     let celsius: Double?
+
+    var fahrenheit: Double? {
+        guard let celsius else { return nil }
+        return celsius * 9.0 / 5.0 + 32.0
+    }
 }
 
 final class CPUSensorCollector {

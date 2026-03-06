@@ -55,6 +55,7 @@ struct DoNotDisturbLiveActivity: View {
         .accessibilityLabel(accessibilityDescription)
         .onAppear(perform: handleInitialState)
         .onChange(of: manager.isDoNotDisturbActive, handleFocusStateChange)
+        .onChange(of: manager.focusToastTrigger, handleFocusModeSwitchToast)
         .onDisappear(perform: cancelPendingTasks)
     }
 
@@ -333,19 +334,57 @@ struct DoNotDisturbLiveActivity: View {
 
     private func handleFocusStateChange(_ oldValue: Bool, _ isActive: Bool) {
         cancelPendingTasks()
+
         if isActive {
-            withAnimation(.smooth(duration: 0.2)) {
+            // Force a clean collapsed baseline before animating ON.
+            // This avoids cases where prior OFF state leaves the view mid-transition.
+            withAnimation(.none) {
                 showInactiveIcon = false
+                isExpanded = false
+                iconScale = 1.0
             }
+
+            // Run the expansion on the next runloop tick so the reset takes effect first.
+            DispatchQueue.main.async {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    iconScale = 1.0
+                    isExpanded = true
+                }
+                if focusToastMode {
+                    scheduleTransientCollapse()
+                }
+            }
+        } else {
+            triggerInactiveAnimation()
+        }
+    }
+
+    private func handleFocusModeSwitchToast(_ oldValue: UUID, _ newValue: UUID) {
+        // Only show a toast when Focus is currently active.
+        guard manager.isDoNotDisturbActive else { return }
+
+        // Only relevant for the non-persistent (brief toast) mode.
+        guard focusToastMode else { return }
+
+        // Cancel any pending collapse so the new mode can animate in cleanly.
+        cancelPendingTasks()
+
+        // Force a clean collapsed baseline before animating ON for the *new* mode.
+        // Without this, a mode switch can appear to start then cancel.
+        withAnimation(.none) {
+            showInactiveIcon = false
+            isExpanded = false
+            iconScale = 1.0
+        }
+
+        // Run the expansion on the next runloop tick so the reset takes effect first.
+        DispatchQueue.main.async {
+            guard manager.isDoNotDisturbActive else { return }
             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                 iconScale = 1.0
                 isExpanded = true
             }
-            if focusToastMode {
-                scheduleTransientCollapse()
-            }
-        } else {
-            triggerInactiveAnimation()
+            scheduleTransientCollapse()
         }
     }
 

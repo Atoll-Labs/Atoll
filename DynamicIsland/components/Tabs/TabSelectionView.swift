@@ -83,6 +83,9 @@ struct TabSelectionView: View {
             let icon = Defaults[.enableNotes] ? "note.text" : "doc.on.clipboard"
             tabsArray.append(TabModel(label: label, icon: icon, view: .notes))
         }
+        if Defaults[.enableTerminalFeature] {
+            tabsArray.append(TabModel(label: "Terminal", icon: "apple.terminal", view: .terminal))
+        }
         if extensionTabsEnabled {
             for payload in extensionTabPayloads {
                 guard let tab = payload.descriptor.tab else { continue }
@@ -107,12 +110,10 @@ struct TabSelectionView: View {
                 let isSelected = isSelected(tab)
                 let activeAccent = tab.accentColor ?? .white
                 TabButton(label: tab.label, icon: tab.icon, selected: isSelected) {
-                    withAnimation(.smooth(duration: 0.3)) {
-                        if tab.view == .extensionExperience {
-                            coordinator.selectedExtensionExperienceID = tab.experienceID
-                        }
-                        coordinator.currentView = tab.view
+                    if tab.view == .extensionExperience {
+                        coordinator.selectedExtensionExperienceID = tab.experienceID
                     }
+                    coordinator.currentView = tab.view
                 }
                 .frame(height: 26)
                 .foregroundStyle(isSelected ? activeAccent : .gray)
@@ -131,6 +132,7 @@ struct TabSelectionView: View {
                 }
             }
         }
+        .animation(.smooth(duration: 0.3), value: coordinator.currentView)
         .clipShape(Capsule())
         .onAppear {
             ensureValidSelection(with: tabs)

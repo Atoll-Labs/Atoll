@@ -78,6 +78,28 @@ class MusicManager: ObservableObject {
     @Published var isPlaying = false
     @Published var album: String = "Self Love"
     @Published var isPlayerIdle: Bool = true
+
+    /// Whether there is an active music session with real metadata.
+    /// Returns `false` only when the metadata is still placeholder/fallback defaults
+    /// (i.e. nothing has been played since app launch, or the controller returned
+    /// unknown/not-playing placeholders). Paused music with real metadata is still
+    /// considered an active session.
+    private static let placeholderTitles: Set<String> = [
+        "i'm handsome", "unknown", "not playing"
+    ]
+    private static let placeholderArtists: Set<String> = [
+        "me", "unknown"
+    ]
+
+    var hasActiveSession: Bool {
+        if isPlaying { return true }
+        let trimmedTitle = songTitle.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let trimmedArtist = artistName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let hasRealTitle = !trimmedTitle.isEmpty && !Self.placeholderTitles.contains(trimmedTitle)
+        let hasRealArtist = !trimmedArtist.isEmpty && !Self.placeholderArtists.contains(trimmedArtist)
+        return hasRealTitle || hasRealArtist
+    }
+
     @Published var animations: DynamicIslandAnimations = .init()
     @Published var avgColor: NSColor = .white
     @Published var bundleIdentifier: String? = nil

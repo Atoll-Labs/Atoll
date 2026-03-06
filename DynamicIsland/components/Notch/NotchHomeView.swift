@@ -32,7 +32,8 @@ struct MusicPlayerView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 5)
+            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace)
+                .padding(.all, 5)
             MusicControlsView()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .drawingGroup()
@@ -132,7 +133,7 @@ struct MusicControlsView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
-    @State private var sliderValue: Double = 0
+    @State private var sliderValue: Double = MusicManager.shared.estimatedPlaybackPosition()
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
     @State private var hudValue: Double = 0
@@ -215,8 +216,13 @@ struct MusicControlsView: View {
         }
     }
 
+    /// Whether the progress timeline should be paused (no ticks).
+    private var isProgressTimelinePaused: Bool {
+        !musicManager.isPlaying || musicManager.isLiveStream || musicManager.playbackRate <= 0
+    }
+
     private var musicSlider: some View {
-        TimelineView(.animation(minimumInterval: musicManager.playbackRate > 0 ? 0.1 : nil)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0, paused: isProgressTimelinePaused)) { timeline in
             MusicSliderView(
                 sliderValue: $sliderValue,
                 duration: $musicManager.songDuration,
@@ -521,8 +527,14 @@ struct NotchHomeView: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject private var extensionNotchExperienceManager = ExtensionNotchExperienceManager.shared
+    @ObservedObject private var musicManager = MusicManager.shared
     @Default(.showStandardMediaControls) private var showStandardMediaControls
     let albumArtNamespace: Namespace.ID
+
+    /// Whether the music player should actively display (enabled AND has real content).
+    private var shouldShowMusicPlayer: Bool {
+        showStandardMediaControls && musicManager.hasActiveSession
+    }
     
     var body: some View {
         Group {
@@ -546,14 +558,14 @@ struct NotchHomeView: View {
                 }
             } else {
                 // Normal mode: Show full music player with optional calendar and webcam
-                if showStandardMediaControls {
+                if shouldShowMusicPlayer {
                     MusicPlayerView(albumArtNamespace: albumArtNamespace)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 
                 if Defaults[.showCalendar] {
                     Group {
-                        if showStandardMediaControls {
+                        if shouldShowMusicPlayer {
                             CalendarView()
                         } else {
                             StandaloneCalendarView()
@@ -633,6 +645,13 @@ struct MusicSliderView: View {
             guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
             sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: newDate)
         }
+        .onChange(of: isPlaying) { _, playing in
+            // Snap slider to the exact position when music pauses so
+            // the in-flight animation doesn't coast past the true value.
+            if !playing {
+                sliderValue = MusicManager.shared.estimatedPlaybackPosition()
+            }
+        }
         .onChange(of: isLiveStream) { isLive in
             if isLive {
                 sliderValue = 0
@@ -704,6 +723,15 @@ struct MusicSliderView: View {
             onValueChange: onValueChange,
             restingTrackHeight: restingTrackHeight,
             draggingTrackHeight: draggingTrackHeight
+        )
+        // Smoothly interpolate the filled track between 1-second ticks using
+        // Core Animation — runs on the GPU with zero CPU polling cost.
+        // Disabled while dragging or paused so the bar responds instantly.
+        .animation(
+            !dragging && isPlaying && !isLiveStream
+                ? .linear(duration: 1.0)
+                : nil,
+            value: sliderValue
         )
     }
 

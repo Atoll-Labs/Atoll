@@ -16,6 +16,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import Defaults
 import SwiftUI
 
 struct StatsCard<Content: View>: View {
@@ -163,7 +164,10 @@ private struct CPUTemperatureGauge: View {
     let tint: Color
     var size: CGFloat = 84
     var lineWidth: CGFloat = 9
-    private let maxTemperature: Double = 110
+    @Default(.cpuTemperatureUnit) private var temperatureUnit
+    private var maxTemperature: Double {
+        temperatureUnit == .celsius ? 110 : 230
+    }
 
     var body: some View {
         CircularGaugeView(
@@ -177,14 +181,19 @@ private struct CPUTemperatureGauge: View {
         )
     }
 
+    private var displayTemperature: Double? {
+        guard let temperature else { return nil }
+        return temperatureUnit == .celsius ? temperature : temperature * 9.0 / 5.0 + 32.0
+    }
+
     private var normalizedValue: Double {
-        guard let temperature, maxTemperature > 0 else { return 0 }
-        return min(max(temperature / maxTemperature, 0), 1)
+        guard let displayTemperature, maxTemperature > 0 else { return 0 }
+        return min(max(displayTemperature / maxTemperature, 0), 1)
     }
 
     private var centerPrimary: String {
-        guard let temperature else { return "—" }
-        return String(format: "%.0f°", temperature)
+        guard let displayTemperature else { return "—" }
+        return String(format: "%.0f%@", displayTemperature, temperatureUnit.symbol)
     }
 }
 

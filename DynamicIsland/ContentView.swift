@@ -80,10 +80,24 @@ struct ContentView: View {
     @Default(.enableCapsLockIndicator) var enableCapsLockIndicator
     @Default(.enableExtensionLiveActivities) var enableExtensionLiveActivities
     @Default(.showStandardMediaControls) var showStandardMediaControls
+    @Default(.externalDisplayStyle) var externalDisplayStyle
+    @Default(.hideNonNotchUntilHover) var hideNonNotchUntilHover
     
     // Dynamic sizing based on view type and graph count with smooth transitions
     var dynamicNotchSize: CGSize {
         let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
+        
+        // When inline sneak peek is active in closed notch, use the wider inline width
+        // so the outer maxWidth frame doesn't clip the expanded content
+        let inlineSneakPeekActive = vm.notchState == .closed
+            && coordinator.expandingView.show
+            && (coordinator.expandingView.type == .music || coordinator.expandingView.type == .timer)
+            && Defaults[.enableSneakPeek]
+            && Defaults[.sneakPeekStyles] == .inline
+        if inlineSneakPeekActive {
+            let inlineWidth: CGFloat = 460
+            return CGSize(width: max(baseSize.width, inlineWidth), height: baseSize.height)
+        }
         
         if coordinator.currentView == .timer {
             return CGSize(width: baseSize.width, height: 250) // Extra height for timer presets
@@ -93,6 +107,14 @@ struct ContentView: View {
             let preferredHeight = coordinator.notesLayoutState.preferredHeight
             let resolvedHeight = max(baseSize.height, preferredHeight)
             return CGSize(width: baseSize.width, height: resolvedHeight)
+        }
+
+        if coordinator.currentView == .terminal {
+            // Dynamic height: up to terminalMaxHeightFraction of screen, min 300pt
+            let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
+            let maxFraction = Defaults[.terminalMaxHeightFraction]
+            let terminalHeight = min(screenHeight * maxFraction, max(300, screenHeight * maxFraction))
+            return CGSize(width: baseSize.width, height: terminalHeight)
         }
 
         if coordinator.currentView == .extensionExperience {
@@ -127,6 +149,7 @@ struct ContentView: View {
     @State private var isHovering: Bool = false
     @State private var lastHapticTime: Date = Date()
     @State private var hoverClickMonitor: Any?
+    @State private var hoverClickLocalMonitor: Any?
 
     @State private var gestureProgress: CGFloat = .zero
     @State private var skipGestureActiveDirection: MusicManager.SkipDirection?
@@ -231,8 +254,53 @@ struct ContentView: View {
         return NotchShape(topCornerRadius: topRadius, bottomCornerRadius: bottomRadius)
     }
 
+    /// Whether the current screen should render as a Dynamic Island pill
+    /// rather than the standard notch shape. Always false on physical notch screens.
+    private var isDynamicIslandMode: Bool {
+        shouldUseDynamicIslandMode(for: vm.screen ?? coordinator.selectedScreen)
+    }
+
+    /// Whether the current screen lacks a physical notch.
+    private var isNonNotchScreen: Bool {
+        let screenName = vm.screen ?? coordinator.selectedScreen
+        guard let screen = NSScreen.screens.first(where: { $0.localizedName == screenName }) else {
+            return true
+        }
+        return screen.safeAreaInsets.top <= 0
+    }
+
+    /// Whether the notch/island should hide off-screen when closed on a non-notch display.
+    /// Temporarily reveals the notch when a sneakPeek HUD (volume, brightness, music, etc.) is active.
+    private var shouldHideUntilHover: Bool {
+        hideNonNotchUntilHover && isNonNotchScreen && vm.notchState == .closed && !coordinator.sneakPeek.show
+    }
+
+    /// Pill shape for Dynamic Island mode with animated corner radius transitions.
+    private var currentPillShape: DynamicIslandPillShape {
+        let radius: CGFloat
+        if vm.notchState == .open {
+            radius = enableMinimalisticUI
+                ? minimalisticCornerRadiusInsets.opened.top
+                : dynamicIslandPillCornerRadiusInsets.opened
+        } else {
+            // Use half the closed height for a true capsule shape
+            radius = max(vm.closedNotchSize.height / 2, dynamicIslandPillCornerRadiusInsets.closed.standard)
+        }
+        return DynamicIslandPillShape(cornerRadius: radius)
+    }
+
+    /// Resolves the clip/content shape per-screen: pill on non-notch screens
+    /// when dynamic island mode is active, standard notch shape otherwise.
+    private var resolvedClipShape: AnyShape {
+        if isDynamicIslandMode {
+            return AnyShape(currentPillShape)
+        }
+        return AnyShape(currentNotchShape)
+    }
+
     var body: some View {
         let interactionsEnabled = !lockScreenManager.isLocked
+        let isIslandMode = isDynamicIslandMode
         let notchHorizontalPadding: CGFloat = {
             guard vm.notchState == .open else {
                 return activeCornerRadiusInsets.closed.bottom
@@ -249,6 +317,8 @@ struct ContentView: View {
             return vm.effectiveClosedNotchHeight == 0 ? zeroHeightHoverPadding : 0
         }()
         let notchBottomPadding = currentShadowPadding + hoverAreaPadding
+        // Extra top padding to detach pill from screen edge in Dynamic Island mode
+        let pillTopOffset: CGFloat = isIslandMode ? dynamicIslandTopOffset : 0
 
         ZStack(alignment: .top) {
             let mainLayout = NotchLayout()
@@ -256,7 +326,7 @@ struct ContentView: View {
                 .padding(.horizontal, notchHorizontalPadding)
                 .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
                 .background(.black)
-                .clipShape(currentNotchShape)
+                .clipShape(resolvedClipShape)
                 .compositingGroup()
                 .shadow(
                     color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
@@ -264,7 +334,10 @@ struct ContentView: View {
                         : .clear,
                     radius: Defaults[.cornerRadiusScaling] ? 10 : 5
                 )
-                .padding(.bottom, notchBottomPadding)
+                // Extra horizontal inset for Dynamic Island mode so the shadow
+                // is not clipped by the outer frame constraint
+                .padding(.horizontal, isIslandMode ? dynamicIslandShadowInset : 0)
+                .padding(.top, pillTopOffset)
 
             mainLayout
                 .conditionalModifier(!useModernCloseAnimation) { view in
@@ -288,7 +361,7 @@ struct ContentView: View {
                 }
                 .conditionalModifier(interactionsEnabled) { view in
                     view
-                        .contentShape(currentNotchShape)
+                        .contentShape(resolvedClipShape)
                         .onHover { hovering in
                             handleHover(hovering)
                         }
@@ -317,10 +390,19 @@ struct ContentView: View {
                             handleUpGesture(translation: translation, phase: phase)
                         }
                 }
+                // Shadow bottom padding and hide-until-hover offset applied AFTER
+                // interaction modifiers so .contentShape / .onHover only covers
+                // the actual notch content, not the shadow clearance below it.
+                .padding(.bottom, notchBottomPadding)
+                .offset(y: shouldHideUntilHover && !isHovering
+                    ? -(vm.closedNotchSize.height + pillTopOffset + currentShadowPadding + 10)
+                    : 0
+                )
                 .onAppear(perform: {
-                    runAfter(1) {
-                        withAnimation(vm.animation) {
-                            if coordinator.firstLaunch {
+                    if coordinator.firstLaunch {
+                        // Single open during first launch; closeHello() handles the timed close.
+                        runAfter(1) {
+                            withAnimation(vm.animation) {
                                 openNotch()
                             }
                         }
@@ -410,8 +492,8 @@ struct ContentView: View {
 
         }
         .frame(
-            maxWidth: dynamicNotchSize.width,
-            maxHeight: dynamicNotchSize.height + currentShadowPadding,
+            maxWidth: dynamicNotchSize.width + (isDynamicIslandMode ? dynamicIslandShadowInset * 2 : 0),
+            maxHeight: dynamicNotchSize.height + currentShadowPadding + (isDynamicIslandMode ? dynamicIslandTopOffset : 0),
             alignment: .top
         )
         .frame(maxHeight: .infinity, alignment: .top)
@@ -762,6 +844,8 @@ struct ContentView: View {
                                 NotchNotesView()
                             case .clipboard:
                                 NotchNotesView()
+                            case .terminal:
+                                NotchTerminalView()
                             case .extensionExperience:
                                 if let payload = currentExtensionTabPayload() {
                                     ExtensionNotchExperienceTabView(payload: payload)
@@ -774,7 +858,6 @@ struct ContentView: View {
                       .transition(tabSwitchTransition)
                   }
               }
-              .clipped()
               .zIndex(1)
               .allowsHitTesting(vm.notchState == .open)
               .blur(radius: abs(gestureProgress) > 0.3 ? min(abs(gestureProgress), 8) : 0)
@@ -895,37 +978,42 @@ struct ContentView: View {
                 .fill(.black)
                 .frame(width: effectiveCenterWidth, height: notchContentHeight)
                 .overlay(
-                    HStack(alignment: .top){
+                    HStack(alignment: .top) {
                         if(coordinator.expandingView.show && coordinator.expandingView.type == .music) {
                             MarqueeText(
                                 .constant(musicManager.songTitle),
                                 textColor: Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor) : Color.gray,
                                 minDuration: 0.4,
-                                frameWidth: 100
+                                frameWidth: max(0, (effectiveCenterWidth - vm.closedNotchSize.width) / 2 - 12)
                             )
+                            .padding(.leading, 8)
                             .opacity((coordinator.expandingView.show && Defaults[.enableSneakPeek] && Defaults[.sneakPeekStyles] == .inline) ? 1 : 0)
                             Spacer(minLength: vm.closedNotchSize.width)
                             Text(musicManager.artistName)
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                                 .foregroundStyle(Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor) : Color.gray)
+                                .padding(.trailing, 8)
                                 .opacity((coordinator.expandingView.show && coordinator.expandingView.type == .music && Defaults[.enableSneakPeek] && Defaults[.sneakPeekStyles] == .inline) ? 1 : 0)
                         } else if(coordinator.expandingView.show && coordinator.expandingView.type == .timer) {
                             MarqueeText(
                                 .constant(timerManager.timerName),
                                 textColor: timerManager.timerColor,
                                 minDuration: 0.4,
-                                frameWidth: 100
+                                frameWidth: max(0, (effectiveCenterWidth - vm.closedNotchSize.width) / 2 - 12)
                             )
+                            .padding(.leading, 8)
                             .opacity((coordinator.expandingView.show && Defaults[.enableSneakPeek] && Defaults[.sneakPeekStyles] == .inline) ? 1 : 0)
                             Spacer(minLength: vm.closedNotchSize.width)
                             Text(timerManager.formattedRemainingTime())
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                                 .foregroundStyle(timerManager.timerColor)
+                                .padding(.trailing, 8)
                                 .opacity((coordinator.expandingView.show && coordinator.expandingView.type == .timer && Defaults[.enableSneakPeek] && Defaults[.sneakPeekStyles] == .inline) ? 1 : 0)
                         }
                     }
+                    .clipped()
                 )
 
             musicRightWing(for: secondary, notchHeight: notchContentHeight, trailingWidth: rightWingWidth)
@@ -1457,16 +1545,33 @@ struct ContentView: View {
 
     private func startHoverClickMonitor() {
         guard hoverClickMonitor == nil else { return }
-        hoverClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { _ in
+
+        let handleClick: @Sendable () -> Void = { [weak vm, weak lockScreenManager] in
             Task { @MainActor in
+                guard let vm, let lockScreenManager else { return }
                 guard !lockScreenManager.isLocked else { return }
                 guard vm.notchState == .closed else { return }
-                guard isHovering else { return }
+                guard self.isHovering else { return }
                 if Defaults[.enableHaptics] {
-                    triggerHapticIfAllowed()
+                    self.triggerHapticIfAllowed()
                 }
-                openNotch()
+                self.openNotch()
             }
+        }
+
+        // Global monitor catches clicks outside the app window (e.g. when
+        // the cursor is at the very top screen edge and the click goes to
+        // the system rather than our panel).
+        hoverClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { _ in
+            handleClick()
+        }
+
+        // Local monitor catches clicks that DO hit our window — at the
+        // screen edge SwiftUI's .onTapGesture may not fire reliably, but
+        // the NSEvent local monitor will.
+        hoverClickLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { event in
+            handleClick()
+            return event
         }
     }
 
@@ -1474,6 +1579,10 @@ struct ContentView: View {
         if let hoverClickMonitor {
             NSEvent.removeMonitor(hoverClickMonitor)
             self.hoverClickMonitor = nil
+        }
+        if let hoverClickLocalMonitor {
+            NSEvent.removeMonitor(hoverClickLocalMonitor)
+            self.hoverClickLocalMonitor = nil
         }
     }
 
@@ -1551,7 +1660,7 @@ struct ContentView: View {
     }
 
     private func shouldPreventAutoClose() -> Bool {
-        hasAnyActivePopovers() || vm.isAutoCloseSuppressed || SharingStateManager.shared.preventNotchClose
+        coordinator.firstLaunch || hasAnyActivePopovers() || vm.isAutoCloseSuppressed || SharingStateManager.shared.preventNotchClose
     }
     
     // Helper to prevent rapid haptic feedback

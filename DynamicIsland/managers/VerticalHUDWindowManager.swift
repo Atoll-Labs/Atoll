@@ -136,13 +136,13 @@ final class VerticalHUDWindowManager {
         windows.removeAll()
     }
     
-    func show(type: SneakContentType, value: CGFloat, icon: String = "") {
+    func show(type: SneakContentType, value: CGFloat, icon: String = "", onScreen targetScreen: NSScreen? = nil) {
         guard Defaults[.enableVerticalHUD] else { return }
         
-        let screens = NSScreen.screens
+        let screens = targetScreen.map { [$0] } ?? NSScreen.screens
         guard !screens.isEmpty else { return }
         
-        // Show on all screens
+        // Show on target screen(s)
         for screen in screens {
             let windowContext = ensureWindow(for: type, screen: screen)
             updateContent(window: windowContext, type: type, value: value, icon: icon)

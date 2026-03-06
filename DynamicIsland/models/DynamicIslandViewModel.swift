@@ -395,11 +395,16 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
         }
     }
 
+    private var helloCloseScheduled = false
+
     func closeHello() {
+        guard !helloCloseScheduled else { return }
+        helloCloseScheduled = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { [weak self] in
-            self?.coordinator.firstLaunch = false
-            withAnimation(self?.animationLibrary.animation) {
-                self?.close()
+            guard let self else { return }
+            self.coordinator.firstLaunch = false
+            withAnimation(self.animationLibrary.animation) {
+                self.close()
             }
         }
     }

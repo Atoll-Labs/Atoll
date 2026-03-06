@@ -209,6 +209,7 @@ func applyProfileSettings(_ profiles: Set<String>) {
     if isDeveloper {
         Defaults[.enableColorPickerFeature] = true
         Defaults[.enableStatsFeature] = true
+        Defaults[.enableTerminalFeature] = true
         Defaults[.enableTimerFeature] = true
         Defaults[.enableScreenAssistant] = true
         Defaults[.showMirror] = false
@@ -262,7 +263,33 @@ func applyProfileSettings(_ profiles: Set<String>) {
     Defaults[.menubarIcon] = true
     Defaults[.enableHaptics] = true
     
+    // Lyrics disabled by default for all profiles
+    Defaults[.enableLyrics] = false
+    
+    // Weather widget defaults to inline style
+    Defaults[.lockScreenWeatherWidgetStyle] = .inline
+    
+    // Auto-detect notch: Dynamic Island for non-notch Macs, standard notch otherwise
+    if mainScreenHasNotch() {
+        Defaults[.externalDisplayStyle] = .notch
+    } else {
+        Defaults[.externalDisplayStyle] = .dynamicIsland
+    }
+    
+    // Lock screen glass: custom liquid glass v11 on macOS 26+
+    if #available(macOS 26.0, *) {
+        Defaults[.lockScreenGlassStyle] = .liquid
+        Defaults[.lockScreenGlassCustomizationMode] = .customLiquid
+        Defaults[.lockScreenMusicLiquidGlassVariant] = .v11
+    }
+    
     print("✅ Applied profile settings for: \(profiles.joined(separator: ", "))")
+}
+
+/// Returns `true` when the main screen has a physical notch (safe area insets > 0).
+private func mainScreenHasNotch() -> Bool {
+    guard let screen = NSScreen.main else { return false }
+    return screen.safeAreaInsets.top > 0
 }
 
 #Preview {

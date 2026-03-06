@@ -224,7 +224,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         -> NSWindow
     {
         // Use the current required size instead of always using openNotchSize
-        let requiredSize = calculateRequiredNotchSize()
+        let baseSize = calculateRequiredNotchSize()
+        let requiredSize = adjustedSizeForScreen(baseSize, screen: screen)
         
         let window = DynamicIslandWindow(
             contentRect: NSRect(
@@ -296,8 +297,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // If inline sneak peek is active, use a wider width to accommodate the expanded content
         if isInlineSneakPeekActive {
             // Calculate required width for inline sneak peek:
-            // Album art (~32) + Middle section (380) + Visualizer (~32) + padding = ~450
-            let inlineSneakPeekWidth: CGFloat = 450
+            // Album art (~32) + Middle section (380) + Visualizer (~32) + horizontal padding (28) + clip shape margin (12)
+            let inlineSneakPeekWidth: CGFloat = 460
             return CGSize(width: inlineSneakPeekWidth, height: vm.effectiveClosedNotchHeight)
         }
         
@@ -310,6 +311,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else if coordinator.currentView == .notes || coordinator.currentView == .clipboard {
             let preferredHeight = coordinator.notesLayoutState.preferredHeight
             baseSize.height = max(baseSize.height, preferredHeight)
+        } else if coordinator.currentView == .terminal {
+            let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
+            let maxFraction = Defaults[.terminalMaxHeightFraction]
+            baseSize.height = min(screenHeight * maxFraction, max(300, screenHeight * maxFraction))
         }
         
         let adjustedContentSize = statsAdjustedNotchSize(
@@ -317,10 +322,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             isStatsTabActive: coordinator.currentView == .stats,
             secondRowProgress: coordinator.statsSecondRowExpansion
         )
-        return addShadowPadding(
+        var result = addShadowPadding(
             to: adjustedContentSize,
             isMinimalistic: Defaults[.enableMinimalisticUI]
         )
+
+        return result
+    }
+
+    /// Adjusts a base notch size for a specific screen by adding Dynamic Island
+    /// shadow insets and top-offset only when the screen lacks a physical notch
+    /// and the user has chosen the Dynamic Island style.
+    private func adjustedSizeForScreen(_ baseSize: CGSize, screen: NSScreen) -> CGSize {
+        guard shouldUseDynamicIslandMode(for: screen.localizedName) else {
+            return baseSize
+        }
+        var adjusted = baseSize
+        adjusted.width += dynamicIslandShadowInset * 2
+        adjusted.height += dynamicIslandTopOffset
+        return adjusted
     }
 
     func ensureWindowSize(_ size: CGSize, animated: Bool, force: Bool = false) {
@@ -332,25 +352,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if Defaults[.showOnAllDisplays] {
             for (screen, window) in windows {
-                if force || window.frame.size != size {
-                    resizeWindow(window, on: screen, to: size, animated: animated)
+                let screenSize = adjustedSizeForScreen(size, screen: screen)
+                if force || window.frame.size != screenSize {
+                    resizeWindow(window, on: screen, to: screenSize, animated: animated)
                 }
             }
         } else if let window {
             let screen = window.screen ?? NSScreen.screens.first { $0.frame.intersects(window.frame) } ?? NSScreen.main ?? NSScreen.screens.first
             guard let screen else { return }
-            if force || window.frame.size != size {
-                resizeWindow(window, on: screen, to: size, animated: animated)
+            let screenSize = adjustedSizeForScreen(size, screen: screen)
+            if force || window.frame.size != screenSize {
+                resizeWindow(window, on: screen, to: screenSize, animated: animated)
             }
         }
     }
 
     private func resizeWindow(_ window: NSWindow, on screen: NSScreen, to size: CGSize, animated: Bool) {
         let screenFrame = screen.frame
+        // Clamp width to screen width so the notch never extends beyond screen edges on scaled displays
+        let clampedWidth = min(size.width, screenFrame.width)
+        let clampedHeight = min(size.height, screenFrame.height)
         let centerX = screenFrame.midX
-        let newX = centerX - (size.width / 2)
-        let newY = screenFrame.origin.y + screenFrame.height - size.height
-        let targetFrame = NSRect(x: newX, y: newY, width: size.width, height: size.height)
+        let newX = centerX - (clampedWidth / 2)
+        let newY = screenFrame.origin.y + screenFrame.height - clampedHeight
+        let targetFrame = NSRect(x: newX, y: newY, width: clampedWidth, height: clampedHeight)
 
         window.setFrame(targetFrame, display: true)
     }
@@ -387,6 +412,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Setup SystemHUD Manager
         SystemHUDManager.shared.setup(coordinator: coordinator)
+
+        // Setup BetterDisplay integration
+        BetterDisplayManager.shared.configure(coordinator: coordinator)
         
         // Setup ScreenRecording Manager
         if Defaults[.enableScreenRecordingDetection] {
@@ -402,8 +430,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         PrivacyIndicatorManager.shared.startMonitoring()
         
         // Observe tab changes - use immediate resize to keep the notch pinned
+        // Deferred to next run loop tick because @Published fires on willSet,
+        // so coordinator.currentView still holds the OLD value at emission time.
         coordinator.$currentView.sink { [weak self] _ in
-            self?.updateWindowSizeForTabSwitch()
+            DispatchQueue.main.async {
+                self?.updateWindowSizeForTabSwitch()
+            }
         }.store(in: &cancellables)
 
         coordinator.$notesLayoutState
@@ -439,6 +471,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }.store(in: &cancellables)
 
         Defaults.publisher(.openNotchWidth, options: []).sink { [weak self] _ in
+            self?.debouncedUpdateWindowSize()
+        }.store(in: &cancellables)
+
+        // Observe terminal settings changes
+        Defaults.publisher(.enableTerminalFeature, options: []).sink { [weak self] _ in
+            self?.debouncedUpdateWindowSize()
+        }.store(in: &cancellables)
+
+        Defaults.publisher(.terminalMaxHeightFraction, options: []).sink { [weak self] _ in
             self?.debouncedUpdateWindowSize()
         }.store(in: &cancellables)
 
@@ -492,11 +533,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }.store(in: &cancellables)
         
         // Observe minimalistic UI setting changes - trigger window resize
-        Defaults.publisher(.enableMinimalisticUI, options: []).sink { [weak self] change in
-            // Force sneak peek to standard mode when minimalistic UI is enabled
-            if change.newValue == true && Defaults[.sneakPeekStyles] != .standard {
-                Defaults[.sneakPeekStyles] = .standard
-            }
+        Defaults.publisher(.enableMinimalisticUI, options: []).sink { [weak self] _ in
             // Update window size IMMEDIATELY (no debouncing) to prevent position shift
             self?.updateWindowSizeIfNeeded()
         }.store(in: &cancellables)

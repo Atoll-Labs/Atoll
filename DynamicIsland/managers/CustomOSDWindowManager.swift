@@ -46,14 +46,14 @@ final class CustomOSDWindowManager {
     
     // MARK: - Public API
     
-    func showVolume(value: CGFloat, isMuted: Bool = false, icon: String = "") {
+    func showVolume(value: CGFloat, isMuted: Bool = false, icon: String = "", onScreen targetScreen: NSScreen? = nil) {
         guard Defaults[.enableCustomOSD], isInitialized else { return }
-        show(type: .volume, value: value, icon: icon)
+        show(type: .volume, value: value, icon: icon, onScreen: targetScreen)
     }
     
-    func showBrightness(value: CGFloat) {
+    func showBrightness(value: CGFloat, icon: String = "", onScreen targetScreen: NSScreen? = nil) {
         guard Defaults[.enableCustomOSD], isInitialized else { return }
-        show(type: .brightness, value: value, icon: "")
+        show(type: .brightness, value: value, icon: icon, onScreen: targetScreen)
     }
     
     func showBacklight(value: CGFloat) {
@@ -67,14 +67,14 @@ final class CustomOSDWindowManager {
     
     // MARK: - Private Implementation
     
-    private func show(type: SneakContentType, value: CGFloat, icon: String) {
-        let screens = NSScreen.screens
+    private func show(type: SneakContentType, value: CGFloat, icon: String, onScreen targetScreen: NSScreen? = nil) {
+        let screens = targetScreen.map { [$0] } ?? NSScreen.screens
         guard !screens.isEmpty else { return }
         
         // Close other windows first
         hideAllWindowsExcept(type: type)
         
-        // Show on all screens
+        // Show on target screen(s)
         for screen in screens {
             let window = ensureWindow(for: type, screen: screen)
             updateContent(window: window, type: type, value: value, icon: icon)

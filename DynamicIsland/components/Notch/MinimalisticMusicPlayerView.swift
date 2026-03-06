@@ -45,72 +45,98 @@ struct MinimalisticMusicPlayerView: View {
     private let skipMagnitude: CGFloat = 8
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header area with album art (matching DynamicIslandHeader height of 24pt)
-            GeometryReader { headerGeo in
-                let albumArtWidth: CGFloat = 50
-                let spacing: CGFloat = 10
-                let visualizerWidth: CGFloat = useMusicVisualizer ? 24 : 0
-                let textWidth = max(0, headerGeo.size.width - albumArtWidth - spacing - (useMusicVisualizer ? (visualizerWidth + spacing) : 0))
-                HStack(alignment: .center, spacing: spacing) {
-                    MinimalisticAlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace)
-                        .frame(width: albumArtWidth, height: albumArtWidth)
+        if !musicManager.hasActiveSession {
+            // Nothing playing state
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
 
-                    VStack(alignment: .leading, spacing: 1) {
-                        if !musicManager.songTitle.isEmpty {
-                            MarqueeText(
-                                $musicManager.songTitle,
-                                font: .system(size: 12, weight: .semibold),
-                                nsFont: .subheadline,
-                                textColor: .white,
-                                frameWidth: textWidth
-                            )
+                VStack(spacing: 8) {
+                    Image(systemName: "music.note.slash")
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundColor(.gray)
+                    Text("Nothing Playing")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.gray)
+                }
+
+                Spacer(minLength: 0)
+
+                timerCountdownSection
+
+                reminderList
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity)
+            .frame(height: calculateDynamicHeight())
+            .animation(.smooth(duration: 0.3), value: dynamicHeightSignature)
+        } else {
+            VStack(spacing: 0) {
+                // Header area with album art (matching DynamicIslandHeader height of 24pt)
+                GeometryReader { headerGeo in
+                    let albumArtWidth: CGFloat = 50
+                    let spacing: CGFloat = 10
+                    let visualizerWidth: CGFloat = useMusicVisualizer ? 24 : 0
+                    let textWidth = max(0, headerGeo.size.width - albumArtWidth - spacing - (useMusicVisualizer ? (visualizerWidth + spacing) : 0))
+                    HStack(alignment: .center, spacing: spacing) {
+                        MinimalisticAlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace)
+                            .frame(width: albumArtWidth, height: albumArtWidth)
+
+                        VStack(alignment: .leading, spacing: 1) {
+                            if !musicManager.songTitle.isEmpty {
+                                MarqueeText(
+                                    $musicManager.songTitle,
+                                    font: .system(size: 12, weight: .semibold),
+                                    nsFont: .subheadline,
+                                    textColor: .white,
+                                    frameWidth: textWidth
+                                )
+                            }
+
+                            Text(musicManager.artistName)
+                                .font(.system(size: 10, weight: .regular))
+                                .foregroundColor(Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray)
+                                .lineLimit(1)
+
                         }
+                        .frame(width: textWidth, alignment: .leading)
 
-                        Text(musicManager.artistName)
-                            .font(.system(size: 10, weight: .regular))
-                            .foregroundColor(Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray)
-                            .lineLimit(1)
-
-                    }
-                    .frame(width: textWidth, alignment: .leading)
-
-                    if useMusicVisualizer {
-                        visualizer
-                            .frame(width: visualizerWidth)
+                        if useMusicVisualizer {
+                            visualizer
+                                .frame(width: visualizerWidth)
+                        }
                     }
                 }
-            }
-            .frame(height: 50)
-            
-            // Compact progress bar
-            progressBar
-                .padding(.top, 6)
-            
-            // Compact playback controls
-            if shouldShowControlHUDRow {
-                controlHUDRow
-                    .padding(.top, 4)
-            } else {
-                playbackControls
-                    .padding(.top, 4)
-            }
+                .frame(height: 50)
+                
+                // Compact progress bar
+                progressBar
+                    .padding(.top, 6)
+                
+                // Compact playback controls
+                if shouldShowControlHUDRow {
+                    controlHUDRow
+                        .padding(.top, 4)
+                } else {
+                    playbackControls
+                        .padding(.top, 4)
+                }
 
-            if enableLyrics {
-                lyricsView
-                    .padding(.top, 10)
+                if enableLyrics {
+                    lyricsView
+                        .padding(.top, 10)
+                }
+
+                timerCountdownSection
+
+                reminderList
             }
-
-            timerCountdownSection
-
-            reminderList
+            .padding(.horizontal, 12)
+            .padding(.top, -15)
+            .padding(.bottom, ReminderLiveActivityManager.baselineMinimalisticBottomPadding)
+            .frame(maxWidth: .infinity)
+            .frame(height: calculateDynamicHeight(), alignment: .top)
+            .animation(.smooth(duration: 0.3), value: dynamicHeightSignature)
         }
-        .padding(.horizontal, 12)
-        .padding(.top, -15)
-        .padding(.bottom, ReminderLiveActivityManager.baselineMinimalisticBottomPadding)
-        .frame(maxWidth: .infinity)
-        .frame(height: calculateDynamicHeight(), alignment: .top)
-        .animation(.smooth(duration: 0.3), value: dynamicHeightSignature)
     }
 
     // MARK: - TypingLyricView
@@ -624,14 +650,20 @@ private struct MinimalisticReminderDetailsView: View {
     // MARK: - Progress Bar (Full Width)
     
     @ObservedObject var musicManager = MusicManager.shared
-    @State private var sliderValue: Double = 0
+    @State private var sliderValue: Double = MusicManager.shared.estimatedPlaybackPosition()
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
     
+    /// Whether the progress timeline should be paused (no ticks).
+    private var isProgressTimelinePaused: Bool {
+        !musicManager.isPlaying || musicManager.isLiveStream || musicManager.playbackRate <= 0
+    }
+
     private var progressBar: some View {
         TimelineView(
             .animation(
-                minimumInterval: (!musicManager.isLiveStream && musicManager.playbackRate > 0) ? 0.1 : nil
+                minimumInterval: 1.0,
+                paused: isProgressTimelinePaused
             )
         ) { timeline in
             MusicSliderView(

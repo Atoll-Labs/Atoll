@@ -30,6 +30,9 @@ final class DoNotDisturbManager: ObservableObject {
     @Published var currentFocusModeName: String = ""
     @Published var currentFocusModeIdentifier: String = ""
 
+    // Used by the brief-toast UI to show an ON toast when the active mode switches while Focus stays enabled.
+    @Published var focusToastTrigger: UUID = UUID()
+
     private let notificationCenter = DistributedNotificationCenter.default()
     private let metadataExtractionQueue = DispatchQueue(label: "com.dynamicisland.focus.metadata", qos: .userInitiated)
     private let pollingQueue = DispatchQueue(label: "com.dynamicisland.focus.polling", qos: .utility)
@@ -82,9 +85,8 @@ final class DoNotDisturbManager: ObservableObject {
             suspensionBehavior: .deliverImmediately
         )
 
-        startAssertionsPolling()
-        applyMonitoringModeChange(Defaults[.focusMonitoringMode])
         isMonitoring = true
+        applyMonitoringModeChange(Defaults[.focusMonitoringMode])
     }
 
     func stopMonitoring() {
@@ -128,29 +130,68 @@ final class DoNotDisturbManager: ObservableObject {
             let trimmedIdentifier = identifier?.trimmingCharacters(in: .whitespacesAndNewlines)
             let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            let resolvedMode = FocusModeType.resolve(identifier: trimmedIdentifier, name: trimmedName)
-
-            let finalIdentifier: String
-            if let identifier = trimmedIdentifier, !identifier.isEmpty {
-                finalIdentifier = identifier
-            } else {
-                finalIdentifier = resolvedMode.rawValue
-            }
-
-            let finalName: String
-            if let name = trimmedName, !name.isEmpty {
-                finalName = name
-            } else if !resolvedMode.displayName.isEmpty {
-                finalName = resolvedMode.displayName
-            } else if let identifier = trimmedIdentifier, !identifier.isEmpty {
-                finalName = identifier
-            } else {
-                finalName = "Focus"
-            }
+            let isGenericFocusIdentifier = (trimmedIdentifier?.lowercased() == "com.apple.focus")
+            let usableIdentifier = (trimmedIdentifier?.isEmpty == false && !isGenericFocusIdentifier) ? trimmedIdentifier : nil
+            let usableName = (trimmedName?.isEmpty == false) ? trimmedName : nil
 
             let previousIdentifier = self.currentFocusModeIdentifier
             let previousName = self.currentFocusModeName
             let previousActive = self.isDoNotDisturbActive
+
+            // When neither identifier nor name is available, only update the active
+            // state without overwriting existing mode metadata. This prevents the
+            // assertions-poll (which often lacks metadata) from reverting a correct
+            // mode set by the log-stream or notification handler.
+            if usableIdentifier == nil && usableName == nil {
+                if let isActive = isActive, isActive != previousActive {
+                    withAnimation(.smooth(duration: 0.25)) {
+                        self.isDoNotDisturbActive = isActive
+                    }
+                    // First activation with no prior mode: default to DND.
+                    if isActive && previousIdentifier.isEmpty {
+                        self.currentFocusModeIdentifier = FocusModeType.doNotDisturb.rawValue
+                        self.currentFocusModeName = FocusModeType.doNotDisturb.displayName
+                    }
+                    debugPrint("[DoNotDisturbManager] Focus active-only update -> source: \(source) | isActive: \(isActive)")
+                }
+                return
+            }
+
+            let resolvedMode = FocusModeType.resolve(identifier: usableIdentifier, name: usableName)
+
+            let finalIdentifier: String = usableIdentifier ?? resolvedMode.rawValue
+
+            // Compute display name
+            let finalName: String
+            if resolvedMode == .custom, !FullDiskAccessAuthorization.hasPermission() {
+                finalName = "Focus"
+            } else if resolvedMode == .custom, FullDiskAccessAuthorization.hasPermission() {
+                // With FDA, prefer the real name from ModeConfigurations.json (fixes slug names like graduationcap.fill).
+                let lookedUp = FocusMetadataReader.shared.getDisplayName(for: trimmedName ?? "", identifier: finalIdentifier)
+                finalName = lookedUp.isEmpty ? "Focus" : lookedUp
+            } else if let name = trimmedName, !name.isEmpty {
+                let lower = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                switch lower {
+                case "work":
+                    finalName = "Work"
+                case "personal", "personal-time":
+                    finalName = "Personal"
+                case "reduce-interruptions":
+                    finalName = "Reduce Interruptions"
+                case "sleep", "sleep-mode":
+                    finalName = "Sleep"
+                case "driving":
+                    finalName = "Driving"
+                case "default", "dnd", "do-not-disturb", "do not disturb", "donotdisturb":
+                    finalName = "Do Not Disturb"
+                default:
+                    finalName = name
+                }
+            } else if !resolvedMode.displayName.isEmpty {
+                finalName = resolvedMode.displayName
+            } else {
+                finalName = "Focus"
+            }
 
             let identifierChanged = finalIdentifier != previousIdentifier
             let nameChanged = finalName != previousName
@@ -161,10 +202,12 @@ final class DoNotDisturbManager: ObservableObject {
             }
 
             if nameChanged {
-                self.currentFocusModeName = finalName
-                    .localizedCaseInsensitiveContains(
-                        "Reduce Interruptions"
-                    ) ? "Reduce Interr." : finalName
+                self.currentFocusModeName = finalName.localizedCaseInsensitiveContains("Reduce Interruptions") ? "Reduce Interr." : finalName
+            }
+
+            // If Focus remains active and the mode switches (e.g., DND -> Sleep), trigger an ON toast for the new mode.
+            if isActive == nil, previousActive == true, identifierChanged {
+                self.focusToastTrigger = UUID()
             }
 
             if identifierChanged || nameChanged || shouldToggleActive {
@@ -176,12 +219,16 @@ final class DoNotDisturbManager: ObservableObject {
             withAnimation(.smooth(duration: 0.25)) {
                 self.isDoNotDisturbActive = isActive
             }
+
+            // If Focus turned OFF, clear cached mode metadata after the OFF toast can use it.
+            if isActive == false {
+                self.currentFocusModeIdentifier = previousIdentifier
+                self.currentFocusModeName = previousName
+            }
         }
     }
 
     private func handleLogMetadataUpdate(identifier: String?, name: String?) {
-        guard Defaults[.focusMonitoringMode] == .useDevTools else { return }
-
         metadataExtractionQueue.async { [weak self] in
             guard let self = self else { return }
             let trimmedIdentifier = identifier?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -336,9 +383,11 @@ private extension DoNotDisturbManager {
         guard isMonitoring else { return }
 
         if mode == .useDevTools {
+            stopAssertionsPolling()
             focusLogStream.start()
         } else {
             focusLogStream.stop()
+            startAssertionsPolling()
         }
     }
 
@@ -541,11 +590,24 @@ extension FocusModeType {
             return
         }
 
+        // 1. Exact rawValue match (e.g., "com.apple.focus.work", "com.apple.donotdisturb.mode").
         if let direct = FocusModeType(rawValue: normalized) ?? FocusModeType(rawValue: normalizedLowercased) {
             self = direct
             return
         }
 
+        // 2. macOS 26.3 custom Focus modes use `com.apple.donotdisturb.mode.<symbol>`.
+        //    Must be checked BEFORE the generic prefix match, otherwise the prefix
+        //    `com.apple.donotdisturb.mode` would incorrectly resolve to .doNotDisturb.
+        if normalizedLowercased.hasPrefix("com.apple.donotdisturb.mode.") {
+            let suffix = String(normalizedLowercased.dropFirst("com.apple.donotdisturb.mode.".count))
+            if !suffix.isEmpty && suffix != "default" {
+                self = .custom
+                return
+            }
+        }
+
+        // 3. Prefix match for known built-in modes (e.g., com.apple.focus.personal-time -> .personal).
         if let resolved = FocusModeType.allCases.first(where: {
             guard !$0.rawValue.isEmpty else { return false }
             return normalized.hasPrefix($0.rawValue) || normalizedLowercased.hasPrefix($0.rawValue)
@@ -554,6 +616,7 @@ extension FocusModeType {
             return
         }
 
+        // 4. Anything else under com.apple.focus is custom.
         if normalizedLowercased.hasPrefix("com.apple.focus") {
             self = .custom
             return
@@ -570,6 +633,22 @@ extension FocusModeType {
             }) {
                 return match
             }
+
+            // Also try matching the name against known raw identifiers (e.g., a log line may emit "work" or "sleep" as the name).
+            let lower = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            switch lower {
+            case "work": return .work
+            case "personal", "personal-time": return .personal
+            case "sleep", "sleep-mode": return .sleep
+            case "driving": return .driving
+            case "fitness": return .fitness
+            case "gaming": return .gaming
+            case "mindfulness": return .mindfulness
+            case "reading": return .reading
+            case "reduce-interruptions", "reduce interruptions": return .reduceInterruptions
+            case "do not disturb", "dnd", "donotdisturb", "do-not-disturb", "default": return .doNotDisturb
+            default: break
+            }
         }
 
         if let identifier, !identifier.isEmpty {
@@ -580,13 +659,17 @@ extension FocusModeType {
     }
     
     func getCustomIconFromFile() -> String {
-        return FocusMetadataReader.shared
-            .getIcon(for: DoNotDisturbManager.shared.currentFocusModeName)
+        return FocusMetadataReader.shared.getIcon(
+            for: DoNotDisturbManager.shared.currentFocusModeName,
+            identifier: DoNotDisturbManager.shared.currentFocusModeIdentifier
+        )
     }
     
     func getCustomAccentColorFromFile() -> Color {
-        return FocusMetadataReader.shared
-            .getAccentColor(for: DoNotDisturbManager.shared.currentFocusModeName)
+        return FocusMetadataReader.shared.getAccentColor(
+            for: DoNotDisturbManager.shared.currentFocusModeName,
+            identifier: DoNotDisturbManager.shared.currentFocusModeIdentifier
+        )
     }
 }
 
@@ -815,6 +898,7 @@ private final class FocusLogStream {
     private var pipe: Pipe?
     private var buffer = Data()
     private var isRunning = false
+    private var didTerminate = false
 
     private let metadataLock = NSLock()
     private var lastIdentifier: String?
@@ -831,12 +915,13 @@ private final class FocusLogStream {
             process.executableURL = URL(fileURLWithPath: "/usr/bin/log")
             process.arguments = [
                 "stream",
+                "--no-backtrace",
                 "--style",
                 "compact",
                 "--level",
                 "info",
                 "--predicate",
-                "subsystem == \"com.apple.focus\""
+                "process == \"duetexpertd\" AND eventMessage CONTAINS \"semanticModeIdentifier\""
             ]
 
             let pipe = Pipe()
@@ -870,7 +955,8 @@ private final class FocusLogStream {
                 self.process = process
                 self.pipe = pipe
                 self.isRunning = true
-                debugPrint("[FocusLogStream] Started unified log tail for com.apple.focus")
+                self.didTerminate = false
+                debugPrint("[FocusLogStream] Started unified log tail for duetexpertd/donotdisturbd Focus metadata")
             } catch {
                 debugPrint("[FocusLogStream] Failed to start log stream: \(error)")
                 pipe.fileHandleForReading.readabilityHandler = nil
@@ -937,7 +1023,12 @@ private final class FocusLogStream {
             return
         }
 
-        if trimmed.contains("active mode assertion: (null)") || trimmed.contains("active activity: (null)") {
+        if trimmed.lowercased().contains("error") && trimmed.lowercased().contains("predicate") {
+            debugPrint("[FocusLogStream] log stream error: \(trimmed)")
+        }
+
+        // Clear only when logs explicitly indicate no active mode (helps avoid wiping state during transitions).
+        if trimmed.contains("active mode assertion: (null)") || trimmed.contains("activeModeIdentifier: (null)") {
             clearMetadata()
             return
         }
@@ -945,11 +1036,26 @@ private final class FocusLogStream {
         var updatedIdentifier: String?
         var updatedName: String?
 
-        if let identifier = FocusMetadataDecoder.extractIdentifier(from: trimmed), !identifier.isEmpty {
+        // Special-case parsing for donotdisturbd logs which include a full DNDMode description.
+        // Example: <DNDMode: ... name: Lock In; modeIdentifier: com.apple.donotdisturb.mode.graduationcap.fill; ...>
+        if trimmed.contains("<DNDMode:") {
+            func extractField(_ key: String) -> String? {
+                guard let r = trimmed.range(of: key) else { return nil }
+                let suffix = trimmed[r.upperBound...]
+                guard let end = suffix.range(of: ";") else { return nil }
+                let value = suffix[..<end.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
+                return value.isEmpty ? nil : value
+            }
+
+            if let v = extractField("modeIdentifier:") { updatedIdentifier = v }
+            if let v = extractField("name:") { updatedName = v }
+        }
+
+        if updatedIdentifier == nil, let identifier = FocusMetadataDecoder.extractIdentifier(from: trimmed), !identifier.isEmpty {
             updatedIdentifier = identifier
         }
 
-        if let name = FocusMetadataDecoder.extractName(from: trimmed), !name.isEmpty {
+        if updatedName == nil, let name = FocusMetadataDecoder.extractName(from: trimmed), !name.isEmpty {
             updatedName = name
         }
 
@@ -983,6 +1089,8 @@ private final class FocusLogStream {
     }
 
     private func handleTermination(terminateProcess: Bool = false) {
+        if didTerminate { return }
+        didTerminate = true
         if terminateProcess, let process, process.isRunning {
             process.terminate()
         }
@@ -995,7 +1103,7 @@ private final class FocusLogStream {
         buffer.removeAll(keepingCapacity: false)
         isRunning = false
         clearMetadata()
-        debugPrint("[FocusLogStream] Stopped unified log tail for com.apple.focus")
+        debugPrint("[FocusLogStream] Stopped unified log tail for duetexpertd/donotdisturbd Focus metadata")
     }
 
     private func notifyMetadataUpdate(identifier: String?, name: String?) {
@@ -1006,14 +1114,15 @@ private final class FocusLogStream {
 
 private enum FocusNotificationParsing {
     static let identifierPattern: NSRegularExpression? = {
-        let pattern = "com\\.apple\\.(?:focus|donotdisturb)[A-Za-z0-9_.-]*"
+        let pattern = "com\\.apple\\.(?:focus|donotdisturb|sleep)[A-Za-z0-9_.-]*"
         return try? NSRegularExpression(pattern: pattern, options: [])
     }()
 
     static let identifierDetailPatterns: [NSRegularExpression] = {
         let patterns = [
             "modeIdentifier:\\s*'([^'\\s]+)'",
-            "activityIdentifier:\\s*([A-Za-z0-9._-]+)"
+            "activityIdentifier:\\s*([A-Za-z0-9._-]+)",
+            "semanticModeIdentifier:\\s*([A-Za-z0-9._-]+)"
         ]
         return patterns.compactMap { try? NSRegularExpression(pattern: $0, options: []) }
     }()
@@ -1083,65 +1192,82 @@ private enum FocusMetadataDecoder {
 
 private final class FocusMetadataReader {
     private let pathToDatabase:URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/DoNotDisturb/DB/ModeConfigurations.json")
-    
+
     struct DNDConfigRoot: Codable {
         let data: [DNDDataEntry]
     }
-    
+
     struct DNDDataEntry: Codable {
         let modeConfigurations: [String: DNDModeWrapper]
     }
-    
+
     struct DNDModeWrapper: Codable {
-            let mode: DNDMode
+        let mode: DNDMode
     }
-    
+
     struct DNDMode: Codable {
         let name: String
+        let modeIdentifier: String
         let symbolImageName: String?
         let tintColorName: String?
     }
-    
+
     private init(){}
-    
+
     static let shared = FocusMetadataReader()
-    
-    private func getModeConfig(for focusName: String) -> DNDMode? {
+
+    private func getModeConfig(for focusName: String, identifier: String? = nil) -> DNDMode? {
         guard FullDiskAccessAuthorization.hasPermission() else { return nil }
+
+        let trimmedName = focusName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedIdentifier = identifier?.trimmingCharacters(in: .whitespacesAndNewlines)
+
         do {
             let data = try Data(contentsOf: pathToDatabase)
             let root = try JSONDecoder().decode(DNDConfigRoot.self, from: data)
-            
+
             for entry in root.data {
                 for wrapper in entry.modeConfigurations.values {
-                    if wrapper.mode.name
-                        .localizedCaseInsensitiveCompare(focusName) == .orderedSame {
-                        return wrapper.mode
+                    let mode = wrapper.mode
+
+                    if let id = trimmedIdentifier, !id.isEmpty,
+                       mode.modeIdentifier.compare(id, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame {
+                        return mode
+                    }
+
+                    if !trimmedName.isEmpty,
+                       mode.name.compare(trimmedName, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame {
+                        return mode
                     }
                 }
             }
         } catch {
-            print("JSON Error: \(error)")
+            print("ModeConfigurations.json decode error: \(error)")
         }
+
         return nil
     }
-    
+
+    func getDisplayName(for focus: String, identifier: String? = nil) -> String {
+        guard let mode = getModeConfig(for: focus, identifier: identifier) else { return "" }
+        return mode.name
+    }
+
     /// Fetch the icon for the current focus from disk. If the focus is not found return the placeholder `app.badge`
     /// - Returns A string representing the sfSymbol of the current focus
-    func getIcon(for focus: String) -> String {
-        guard let mode = getModeConfig(for: focus) else { return "app.badge" }
+    func getIcon(for focus: String, identifier: String? = nil) -> String {
+        guard let mode = getModeConfig(for: focus, identifier: identifier) else { return "app.badge" }
         return mode.symbolImageName ?? "app.badge"
     }
-    
+
     /// Fetch the accent color for the current focus from disk. If the focus is not found return the placeholder `Color.indigo`
     /// - Returns A Color representing the accent color for the current focus
-    func getAccentColor(for focus: String) -> Color {
-        guard let mode = getModeConfig(for: focus),
+    func getAccentColor(for focus: String, identifier: String? = nil) -> Color {
+        guard let mode = getModeConfig(for: focus, identifier: identifier),
               let colorName = mode.tintColorName else { return .indigo }
-        
+
         return Color.stringToColor(for: colorName)
     }
-    
 }
 
 extension Color {

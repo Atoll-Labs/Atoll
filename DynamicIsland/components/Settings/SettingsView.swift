@@ -17,6 +17,34 @@ import SwiftUI
 import SwiftUIIntrospect
 import UniformTypeIdentifiers
 
+/// Groups for organizing settings tabs in the sidebar.
+private enum SettingsTabGroup: String, CaseIterable, Identifiable {
+    case core
+    case mediaAndDisplay
+    case system
+    case productivity
+    case utilities
+    case developer
+    case integrations
+    case info
+
+    var id: String { rawValue }
+
+    /// Display title for the section header.  `nil` means no visible header.
+    var title: String? {
+        switch self {
+        case .core:             return nil
+        case .mediaAndDisplay:  return "Media & Display"
+        case .system:           return "System"
+        case .productivity:     return "Productivity"
+        case .utilities:        return "Utilities"
+        case .developer:        return "Developer"
+        case .integrations:     return "Integrations"
+        case .info:             return nil
+        }
+    }
+}
+
 private enum SettingsTab: String, CaseIterable, Identifiable {
     case general
     case liveActivities
@@ -37,9 +65,25 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case shelf
     case shortcuts
     case notes
+    case terminal
     case about
 
     var id: String { rawValue }
+
+    /// Which sidebar group this tab belongs to.
+    var group: SettingsTabGroup {
+        switch self {
+        case .general, .appearance:                                          return .core
+        case .media, .liveActivities, .lockScreen, .devices:                 return .mediaAndDisplay
+        case .hudAndOSD, .battery:                                           return .system
+        case .timer, .calendar, .notes:                                      return .productivity
+        case .clipboard, .screenAssistant, .colorPicker, .shelf,
+             .downloads, .shortcuts:                                         return .utilities
+        case .stats, .terminal:                                              return .developer
+        case .extensions:                                                    return .integrations
+        case .about:                                                         return .info
+        }
+    }
 
     var title: String {
         switch self {
@@ -62,6 +106,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .shelf: return "Shelf"
         case .shortcuts: return "Shortcuts"
         case .notes: return "Notes"
+        case .terminal: return "Terminal"
         case .about: return "About"
         }
     }
@@ -87,6 +132,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .shelf: return "books.vertical"
         case .shortcuts: return "keyboard"
         case .notes: return "note.text"
+        case .terminal: return "apple.terminal"
         case .about: return "info.circle"
         }
     }
@@ -112,6 +158,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .shelf: return .brown
         case .shortcuts: return .orange
         case .notes: return Color(red: 0.979, green: 0.716, blue: 0.153, opacity: 1.000)
+        case .terminal: return Color(red: 0.2, green: 0.8, blue: 0.4)
         case .about: return .secondary
         }
     }
@@ -271,36 +318,19 @@ struct SettingsView: View {
                 Divider()
                     .padding(.horizontal, 12)
 
-                List(filteredTabs, selection: selectionBinding) { tab in
-                    NavigationLink(value: tab) {
-                        HStack(spacing: 10) {
-                            sidebarIcon(for: tab)
-                            Text(tab.title)
-                            if tab == .downloads || tab == .hudAndOSD {
-                                Spacer()
-                                Text("BETA")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.blue)
-                                    )
-                            } else if tab == .extensions {
-                                Spacer()
-                                Text("ALPHA")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.orange)
-                                    )
+                List(selection: selectionBinding) {
+                    ForEach(groupedFilteredTabs, id: \.group) { section in
+                        Section {
+                            ForEach(section.tabs) { tab in
+                                NavigationLink(value: tab) {
+                                    sidebarRow(for: tab)
+                                }
+                            }
+                        } header: {
+                            if let title = section.group.title {
+                                Text(title)
                             }
                         }
-                        .padding(.vertical, 4)
                     }
                 }
                 .listStyle(SidebarListStyle())
@@ -401,31 +431,90 @@ struct SettingsView: View {
             }
     }
 
+    @ViewBuilder
+    private func sidebarRow(for tab: SettingsTab) -> some View {
+        HStack(spacing: 10) {
+            sidebarIcon(for: tab)
+            Text(tab.title)
+            if tab == .downloads {
+                Spacer()
+                Text("BETA")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.blue)
+                    )
+            } else if tab == .extensions {
+                Spacer()
+                Text("BETA")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.blue)
+                    )
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
     private var availableTabs: [SettingsTab] {
+        // Ordered to match group layout: core → media & display → system →
+        // productivity → utilities → developer → integrations → info.
         let ordered: [SettingsTab] = [
+            // Core
             .general,
-            .liveActivities,
             .appearance,
-            .lockScreen,
+            // Media & Display
             .media,
+            .liveActivities,
+            .lockScreen,
             .devices,
-            .timer,
-            .calendar,
+            // System
             .hudAndOSD,
             .battery,
-            .stats,
+            // Productivity
+            .timer,
+            .calendar,
             .notes,
+            // Utilities
             .clipboard,
             .screenAssistant,
             .colorPicker,
-            .downloads,
             .shelf,
+            .downloads,
             .shortcuts,
+            // Developer
+            .stats,
+            .terminal,
+            // Integrations
             .extensions,
+            // Info
             .about
         ]
 
         return ordered.filter { isTabVisible($0) }
+    }
+
+    /// Groups the filtered tabs into sidebar sections, preserving both
+    /// the group order and the per-group tab order from `availableTabs`.
+    private var groupedFilteredTabs: [(group: SettingsTabGroup, tabs: [SettingsTab])] {
+        let visible = filteredTabs
+        var result: [(group: SettingsTabGroup, tabs: [SettingsTab])] = []
+
+        for group in SettingsTabGroup.allCases {
+            let tabs = visible.filter { $0.group == group }
+            if !tabs.isEmpty {
+                result.append((group: group, tabs: tabs))
+            }
+        }
+
+        return result
     }
 
     private func tabsMatchingSearch(_ query: String) -> [SettingsTab] {
@@ -606,6 +695,8 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .general, title: "Extend hover area", keywords: ["hover", "cursor"], highlightID: SettingsTab.general.highlightID(for: "Extend hover area")),
             SettingsSearchEntry(tab: .general, title: "Enable haptics", keywords: ["haptic", "feedback"], highlightID: SettingsTab.general.highlightID(for: "Enable haptics")),
             SettingsSearchEntry(tab: .general, title: "Open notch on hover", keywords: ["hover to open", "auto open"], highlightID: SettingsTab.general.highlightID(for: "Open notch on hover")),
+            SettingsSearchEntry(tab: .general, title: "External display style", keywords: ["dynamic island", "pill", "external display", "non-notch", "floating", "capsule"], highlightID: SettingsTab.general.highlightID(for: "External display style")),
+            SettingsSearchEntry(tab: .general, title: "Hide until hovered", keywords: ["hide", "hover", "external", "non-notch", "auto hide", "slide"], highlightID: SettingsTab.general.highlightID(for: "Hide until hovered")),
             SettingsSearchEntry(tab: .general, title: "Notch display height", keywords: ["display height", "menu bar size"], highlightID: SettingsTab.general.highlightID(for: "Notch display height")),
 
             // Live Activities
@@ -648,6 +739,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .hudAndOSD, title: "Keyboard Backlight OSD", keywords: ["keyboard", "backlight", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Keyboard Backlight OSD")),
             SettingsSearchEntry(tab: .hudAndOSD, title: "Material", keywords: ["material", "frosted", "liquid", "glass", "solid", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Material")),
             SettingsSearchEntry(tab: .hudAndOSD, title: "Icon & Progress Color", keywords: ["color", "icon", "white", "black", "gray", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Icon & Progress Color")),
+            SettingsSearchEntry(tab: .hudAndOSD, title: "BetterDisplay integration", keywords: ["betterdisplay", "external", "display", "brightness", "integration", "third party"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "BetterDisplay integration")),
 
             // Media
             SettingsSearchEntry(tab: .media, title: "Music Source", keywords: ["media source", "controller"], highlightID: SettingsTab.media.highlightID(for: "Music Source")),
@@ -686,6 +778,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .shelf, title: "Quick Share Service", keywords: ["shelf", "share", "airdrop"], highlightID: SettingsTab.shelf.highlightID(for: "Quick Share Service")),
 
             // Appearance
+            SettingsSearchEntry(tab: .appearance, title: "Main screen style", keywords: ["dynamic island", "pill", "non-notch", "display style", "notch style"], highlightID: SettingsTab.appearance.highlightID(for: "Main screen style")),
             SettingsSearchEntry(tab: .appearance, title: "Settings icon in notch", keywords: ["settings button", "toolbar"], highlightID: SettingsTab.appearance.highlightID(for: "Settings icon in notch")),
             SettingsSearchEntry(tab: .appearance, title: "Enable window shadow", keywords: ["shadow", "appearance"], highlightID: SettingsTab.appearance.highlightID(for: "Enable window shadow")),
             SettingsSearchEntry(tab: .appearance, title: "Corner radius scaling", keywords: ["corner radius", "shape"], highlightID: SettingsTab.appearance.highlightID(for: "Corner radius scaling")),
@@ -758,6 +851,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .stats, title: "Enable system stats monitoring", keywords: ["stats", "monitoring"], highlightID: SettingsTab.stats.highlightID(for: "Enable system stats monitoring")),
             SettingsSearchEntry(tab: .stats, title: "Stop monitoring after closing the notch", keywords: ["stats", "auto stop"], highlightID: SettingsTab.stats.highlightID(for: "Stop monitoring after closing the notch")),
             SettingsSearchEntry(tab: .stats, title: "CPU Usage", keywords: ["cpu", "graph"], highlightID: SettingsTab.stats.highlightID(for: "CPU Usage")),
+            SettingsSearchEntry(tab: .stats, title: "Temperature unit", keywords: ["cpu", "temperature", "celsius", "fahrenheit"], highlightID: SettingsTab.stats.highlightID(for: "Temperature unit")),
             SettingsSearchEntry(tab: .stats, title: "Memory Usage", keywords: ["memory", "ram"], highlightID: SettingsTab.stats.highlightID(for: "Memory Usage")),
             SettingsSearchEntry(tab: .stats, title: "GPU Usage", keywords: ["gpu", "graphics"], highlightID: SettingsTab.stats.highlightID(for: "GPU Usage")),
             SettingsSearchEntry(tab: .stats, title: "Network Activity", keywords: ["network", "graph"], highlightID: SettingsTab.stats.highlightID(for: "Network Activity")),
@@ -778,13 +872,28 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .colorPicker, title: "Show Color Picker Icon", keywords: ["color icon", "toolbar"], highlightID: SettingsTab.colorPicker.highlightID(for: "Show Color Picker Icon")),
             SettingsSearchEntry(tab: .colorPicker, title: "Display Mode", keywords: ["color", "list"], highlightID: SettingsTab.colorPicker.highlightID(for: "Display Mode")),
             SettingsSearchEntry(tab: .colorPicker, title: "History Size", keywords: ["color history"], highlightID: SettingsTab.colorPicker.highlightID(for: "History Size")),
-            SettingsSearchEntry(tab: .colorPicker, title: "Show All Color Formats", keywords: ["hex", "hsl", "color formats"], highlightID: SettingsTab.colorPicker.highlightID(for: "Show All Color Formats"))
+            SettingsSearchEntry(tab: .colorPicker, title: "Show All Color Formats", keywords: ["hex", "hsl", "color formats"], highlightID: SettingsTab.colorPicker.highlightID(for: "Show All Color Formats")),
+
+            // Terminal
+            SettingsSearchEntry(tab: .terminal, title: "Enable terminal", keywords: ["terminal", "guake", "shell"], highlightID: SettingsTab.terminal.highlightID(for: "Enable terminal")),
+            SettingsSearchEntry(tab: .terminal, title: "Shell path", keywords: ["shell", "zsh", "bash", "terminal"], highlightID: SettingsTab.terminal.highlightID(for: "Shell path")),
+            SettingsSearchEntry(tab: .terminal, title: "Font size", keywords: ["terminal", "font", "text size"], highlightID: SettingsTab.terminal.highlightID(for: "Font size")),
+            SettingsSearchEntry(tab: .terminal, title: "Terminal opacity", keywords: ["terminal", "opacity", "transparency"], highlightID: SettingsTab.terminal.highlightID(for: "Terminal opacity")),
+            SettingsSearchEntry(tab: .terminal, title: "Maximum height", keywords: ["terminal", "height", "size"], highlightID: SettingsTab.terminal.highlightID(for: "Maximum height")),
+            SettingsSearchEntry(tab: .terminal, title: "Background color", keywords: ["terminal", "background", "color", "theme"], highlightID: SettingsTab.terminal.highlightID(for: "Background color")),
+            SettingsSearchEntry(tab: .terminal, title: "Foreground color", keywords: ["terminal", "foreground", "text color", "theme"], highlightID: SettingsTab.terminal.highlightID(for: "Foreground color")),
+            SettingsSearchEntry(tab: .terminal, title: "Cursor color", keywords: ["terminal", "cursor", "caret", "color"], highlightID: SettingsTab.terminal.highlightID(for: "Cursor color")),
+            SettingsSearchEntry(tab: .terminal, title: "Bold as bright", keywords: ["terminal", "bold", "bright", "colors"], highlightID: SettingsTab.terminal.highlightID(for: "Bold as bright")),
+            SettingsSearchEntry(tab: .terminal, title: "Cursor style", keywords: ["terminal", "cursor", "block", "underline", "bar", "blink"], highlightID: SettingsTab.terminal.highlightID(for: "Cursor style")),
+            SettingsSearchEntry(tab: .terminal, title: "Scrollback lines", keywords: ["terminal", "scrollback", "buffer", "history"], highlightID: SettingsTab.terminal.highlightID(for: "Scrollback lines")),
+            SettingsSearchEntry(tab: .terminal, title: "Option as Meta", keywords: ["terminal", "option", "meta", "alt", "key"], highlightID: SettingsTab.terminal.highlightID(for: "Option as Meta")),
+            SettingsSearchEntry(tab: .terminal, title: "Mouse reporting", keywords: ["terminal", "mouse", "reporting", "vim", "tmux"], highlightID: SettingsTab.terminal.highlightID(for: "Mouse reporting")),
         ]
     }
 
     private func isTabVisible(_ tab: SettingsTab) -> Bool {
         switch tab {
-        case .timer, .stats, .clipboard, .screenAssistant, .colorPicker, .shelf, .notes:
+        case .timer, .stats, .clipboard, .screenAssistant, .colorPicker, .shelf, .notes, .terminal:
             return !enableMinimalisticUI
         default:
             return true
@@ -870,6 +979,10 @@ struct SettingsView: View {
             SettingsForm(tab: .notes) {
                 NotesSettingsView()
             }
+        case .terminal:
+            SettingsForm(tab: .terminal) {
+                TerminalSettings()
+            }
         case .about:
             if let controller = updaterController {
                 SettingsForm(tab: .about) {
@@ -905,6 +1018,8 @@ struct GeneralSettings: View {
     @Default(.musicGestureBehavior) var musicGestureBehavior
     @Default(.reverseSwipeGestures) var reverseSwipeGestures
     @Default(.reverseScrollGestures) var reverseScrollGestures
+    @Default(.externalDisplayStyle) var externalDisplayStyle
+    @Default(.hideNonNotchUntilHover) var hideNonNotchUntilHover
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.general.highlightID(for: title)
@@ -1118,6 +1233,24 @@ struct GeneralSettings: View {
                     NotificationCenter.default.post(name: Notification.Name.notchHeightChanged, object: nil)
                 }
             }
+            Picker("External display style", selection: $externalDisplayStyle) {
+                ForEach(ExternalDisplayStyle.allCases) { style in
+                    Text(style.localizedName)
+                        .tag(style)
+                }
+            }
+            .onChange(of: externalDisplayStyle) {
+                NotificationCenter.default.post(name: Notification.Name.notchHeightChanged, object: nil)
+            }
+            .settingsHighlight(id: highlightID("External display style"))
+            Text(externalDisplayStyle.description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Defaults.Toggle("Hide until hovered on non-notch displays", key: .hideNonNotchUntilHover)
+                .settingsHighlight(id: highlightID("Hide until hovered"))
+            Text("When enabled, the notch slides up and hides on external (non-notch) displays until you hover over it.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         } header: {
             Text("Notch behavior")
         }
@@ -1361,8 +1494,7 @@ private struct HUDAndOSDSettingsView: View {
     @Default(.enableVolumeHUD) var enableVolumeHUD
     @Default(.enableBrightnessHUD) var enableBrightnessHUD
     @Default(.enableKeyboardBacklightHUD) var enableKeyboardBacklightHUD
-    
-    // Vertical HUD Props
+    @Default(.enableBetterDisplayIntegration) var enableBetterDisplayIntegration
     @Default(.verticalHUDShowValue) var verticalHUDShowValue
     @Default(.verticalHUDInteractive) var verticalHUDInteractive
     @Default(.verticalHUDHeight) var verticalHUDHeight
@@ -1598,7 +1730,7 @@ private struct HUDAndOSDSettingsView: View {
                 }
             case .vertical:
                 Form {
-                    if !accessibilityPermission.isAuthorized {
+                    if !accessibilityPermission.isAuthorized && !enableBetterDisplayIntegration {
                         Section {
                             SettingsPermissionCallout(
                                 message: "Accessibility permission is needed to intercept system controls for the Vertical HUD.",
@@ -1614,11 +1746,13 @@ private struct HUDAndOSDSettingsView: View {
                         }
                     }
 
-                    if accessibilityPermission.isAuthorized {
+                    if accessibilityPermission.isAuthorized || enableBetterDisplayIntegration {
                         Section {
                             Toggle("Volume HUD", isOn: $enableVolumeHUD)
                             Toggle("Brightness HUD", isOn: $enableBrightnessHUD)
                             Toggle("Keyboard Backlight HUD", isOn: $enableKeyboardBacklightHUD)
+                                .disabled(enableBetterDisplayIntegration)
+                                .help(enableBetterDisplayIntegration ? "Disabled while BetterDisplay integration is active — BetterDisplay uses Cmd+Brightness keys for its own controls." : "")
                         } header: {
                             Text("Controls")
                         } footer: {
@@ -1713,7 +1847,7 @@ private struct HUDAndOSDSettingsView: View {
 
             case .circular:
                 Form {
-                    if !accessibilityPermission.isAuthorized {
+                    if !accessibilityPermission.isAuthorized && !enableBetterDisplayIntegration {
                         Section {
                             SettingsPermissionCallout(
                                 message: "Accessibility permission is needed to intercept system controls for the Circular HUD.",
@@ -1729,11 +1863,13 @@ private struct HUDAndOSDSettingsView: View {
                         }
                     }
 
-                    if accessibilityPermission.isAuthorized {
+                    if accessibilityPermission.isAuthorized || enableBetterDisplayIntegration {
                         Section {
                             Toggle("Volume HUD", isOn: $enableVolumeHUD)
                             Toggle("Brightness HUD", isOn: $enableBrightnessHUD)
                             Toggle("Keyboard Backlight HUD", isOn: $enableKeyboardBacklightHUD)
+                                .disabled(enableBetterDisplayIntegration)
+                                .help(enableBetterDisplayIntegration ? "Disabled while BetterDisplay integration is active — BetterDisplay uses Cmd+Brightness keys for its own controls." : "")
                         } header: {
                             Text("Controls")
                         } footer: {
@@ -1772,6 +1908,9 @@ private struct HUDAndOSDSettingsView: View {
                     }
                 }
             }
+
+            // BetterDisplay Integration (shared across all HUD variants)
+            BetterDisplayIntegrationSection()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(paneBackgroundColor)
@@ -1780,6 +1919,98 @@ private struct HUDAndOSDSettingsView: View {
             if #unavailable(macOS 26.0), verticalHUDMaterial == .liquid {
                 verticalHUDMaterial = .frosted
                 verticalHUDLiquidGlassCustomizationMode = .standard
+            }
+        }
+    }
+}
+
+// MARK: - BetterDisplay Integration Settings Section
+
+private struct BetterDisplayIntegrationSection: View {
+    @Default(.enableBetterDisplayIntegration) var enableBetterDisplayIntegration
+    @ObservedObject private var betterDisplayManager = BetterDisplayManager.shared
+
+    private func highlightID(_ title: String) -> String {
+        SettingsTab.hudAndOSD.highlightID(for: title)
+    }
+
+    private var statusText: String {
+        if betterDisplayManager.isRunning {
+            return "Running"
+        } else if betterDisplayManager.isDetected {
+            return "Not running"
+        } else {
+            return "Not detected"
+        }
+    }
+
+    private var statusColor: Color {
+        if betterDisplayManager.isRunning {
+            return .green
+        } else if betterDisplayManager.isDetected {
+            return .orange
+        } else {
+            return .secondary
+        }
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("BetterDisplay")
+                            .font(.system(size: 13, weight: .medium))
+                        Text(statusText)
+                            .font(.caption)
+                            .foregroundStyle(statusColor)
+                    }
+
+                    Spacer()
+
+                    Toggle("", isOn: $enableBetterDisplayIntegration)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                        .disabled(!betterDisplayManager.isDetected)
+                }
+                .settingsHighlight(id: highlightID("BetterDisplay integration"))
+
+                if !betterDisplayManager.isDetected {
+                    Text("Install [BetterDisplay](https://betterdisplay.pro) to control external display brightness and volume through Atoll's HUD.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if !betterDisplayManager.isRunning {
+                    Text("BetterDisplay is installed but not currently running. Launch BetterDisplay to enable integration.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if enableBetterDisplayIntegration {
+                    Text("BetterDisplay OSD events will be routed through Atoll's active HUD style. Make sure BetterDisplay's OSD integration is enabled in its Settings › Application › Integration.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Enable to route BetterDisplay's brightness and volume changes through Atoll's HUD instead of the system OSD.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if betterDisplayManager.isDetected {
+                    Button {
+                        betterDisplayManager.refreshDetectionStatus()
+                    } label: {
+                        Label("Refresh detection", systemImage: "arrow.clockwise")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.link)
+                }
+            } header: {
+                HStack(spacing: 6) {
+                    Image(systemName: "display.2")
+                    Text("BetterDisplay Integration")
+                }
+            } footer: {
+                Text("When enabled, Atoll listens for OSD notifications from BetterDisplay and displays them using your selected HUD style above. This works alongside the existing media key interception — BetterDisplay handles external display controls while Atoll provides the visual feedback.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
         }
     }
@@ -1926,6 +2157,7 @@ struct HUD: View {
     @Default(.enableVolumeHUD) var enableVolumeHUD
     @Default(.enableBrightnessHUD) var enableBrightnessHUD
     @Default(.enableKeyboardBacklightHUD) var enableKeyboardBacklightHUD
+    @Default(.enableBetterDisplayIntegration) var enableBetterDisplayIntegration
     @Default(.systemHUDSensitivity) var systemHUDSensitivity
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject private var accessibilityPermission = AccessibilityPermissionStore.shared
@@ -1944,7 +2176,7 @@ struct HUD: View {
     
     var body: some View {
         Form {
-            if !hasAccessibilityPermission {
+            if !hasAccessibilityPermission && !enableBetterDisplayIntegration {
                 Section {
                     SettingsPermissionCallout(
                         message: "Accessibility permission lets Dynamic Island replace the native volume, brightness, and keyboard HUDs.",
@@ -1958,11 +2190,13 @@ struct HUD: View {
 
 
             
-            if enableSystemHUD && !Defaults[.enableCustomOSD] && hasAccessibilityPermission {
+            if enableSystemHUD && !Defaults[.enableCustomOSD] && (hasAccessibilityPermission || enableBetterDisplayIntegration) {
                 Section {
                     Toggle("Volume HUD", isOn: $enableVolumeHUD)
                     Toggle("Brightness HUD", isOn: $enableBrightnessHUD)
                     Toggle("Keyboard Backlight HUD", isOn: $enableKeyboardBacklightHUD)
+                        .disabled(enableBetterDisplayIntegration)
+                        .help(enableBetterDisplayIntegration ? "Disabled while BetterDisplay integration is active \u{2014} BetterDisplay uses Cmd+Brightness keys for its own controls." : "")
                 } header: {
                     Text("Controls")
                 } footer: {
@@ -2208,20 +2442,8 @@ struct Media: View {
                         Text(style.rawValue).tag(style)
                     }
                 }
-                .disabled(!enableSneakPeek || enableMinimalisticUI)
-                .onChange(of: enableMinimalisticUI) { _, isMinimalistic in
-                    // Force standard sneak peek style when minimalistic UI is enabled
-                    if isMinimalistic {
-                        sneakPeekStyles = .standard
-                    }
-                }
+                .disabled(!enableSneakPeek)
                 .settingsHighlight(id: highlightID("Sneak Peek Style"))
-                
-                if enableMinimalisticUI {
-                    Text("Sneak peek style is locked to Standard in minimalistic mode")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
                 
                 HStack {
                     Stepper(value: $waitInterval, in: 0...10, step: 1) {
@@ -3261,6 +3483,7 @@ struct Appearance: View {
     @Default(.lockScreenTimerWidgetUsesBlur) private var timerGlassModeIsGlass
     @Default(.enableLockScreenMediaWidget) private var enableLockScreenMediaWidget
     @Default(.enableLockScreenTimerWidget) private var enableLockScreenTimerWidget
+    @Default(.externalDisplayStyle) private var externalDisplayStyle
     @State private var selectedListVisualizer: CustomVisualizer? = nil
 
     @State private var isIconImporterPresented = false
@@ -3272,8 +3495,20 @@ struct Appearance: View {
     @State private var url: String = ""
     @State private var speed: CGFloat = 1.0
 
-    private let notchWidthRange: ClosedRange<Double> = 640...900
-    private let defaultOpenNotchWidth: CGFloat = 640
+    /// Whether the main screen has a physical notch.
+    private var mainScreenHasPhysicalNotch: Bool {
+        guard let screen = NSScreen.main else { return false }
+        return screen.safeAreaInsets.top > 0
+    }
+
+    private var notchWidthRange: ClosedRange<Double> {
+        let minW = Double(currentRecommendedMinimumNotchWidth())
+        let maxW = min(900, Double(maxAllowedNotchWidth()))
+        return minW...max(minW, maxW)
+    }
+    private var defaultOpenNotchWidth: CGFloat {
+        currentRecommendedMinimumNotchWidth()
+    }
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.appearance.highlightID(for: title)
@@ -3324,6 +3559,27 @@ struct Appearance: View {
                     .settingsHighlight(id: highlightID("Use simpler close animation"))
             } header: {
                 Text("General")
+            }
+
+            // Show display style picker only on non-notch Macs (main screen has no physical notch)
+            if !mainScreenHasPhysicalNotch {
+                Section {
+                    Picker("Main screen style", selection: $externalDisplayStyle) {
+                        ForEach(ExternalDisplayStyle.allCases) { style in
+                            Text(style.localizedName)
+                                .tag(style)
+                        }
+                    }
+                    .onChange(of: externalDisplayStyle) {
+                        NotificationCenter.default.post(name: Notification.Name.notchHeightChanged, object: nil)
+                    }
+                    .settingsHighlight(id: highlightID("Main screen style"))
+                    Text(externalDisplayStyle.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Display Style")
+                }
             }
 
             notchWidthControls()
@@ -3823,10 +4079,14 @@ struct Appearance: View {
     @ViewBuilder
     private func notchWidthControls() -> some View {
         Section {
+            let recommendedMin = currentRecommendedMinimumNotchWidth()
+            let tabCount = enabledStandardTabCount()
+            let dynamicRange = Double(recommendedMin)...900
+
             let widthBinding = Binding<Double>(
                 get: { Double(openNotchWidth) },
                 set: { newValue in
-                    let clamped = min(max(newValue, notchWidthRange.lowerBound), notchWidthRange.upperBound)
+                    let clamped = min(max(newValue, dynamicRange.lowerBound), dynamicRange.upperBound)
                     let value = CGFloat(clamped)
                     if openNotchWidth != value {
                         openNotchWidth = value
@@ -3837,7 +4097,7 @@ struct Appearance: View {
             VStack(alignment: .leading, spacing: 10) {
                 Slider(
                     value: widthBinding,
-                    in: notchWidthRange,
+                    in: dynamicRange,
                     step: 10
                 ) {
                     HStack {
@@ -3851,21 +4111,27 @@ struct Appearance: View {
                 .settingsHighlight(id: highlightID("Expanded notch width"))
 
                 HStack {
+                    Text("\(tabCount) tab\(tabCount == 1 ? "" : "s") enabled · min \(Int(recommendedMin)) px")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Spacer()
                     Button("Reset Width") {
-                        openNotchWidth = defaultOpenNotchWidth
+                        openNotchWidth = recommendedMin
                     }
-                    .disabled(abs(openNotchWidth - defaultOpenNotchWidth) < 0.5)
+                    .disabled(abs(openNotchWidth - recommendedMin) < 0.5)
                     .buttonStyle(.bordered)
                 }
 
                 let description = enableMinimalisticUI
                     ? "Width adjustments apply only to the standard notch layout. Disable Minimalistic UI to edit this value."
-                    : "Extend the notch span so the clipboard, colour picker, and other trailing icons remain visible on scaled displays (e.g. More Space)."
+                    : "Recommended minimum width adjusts automatically based on the number of enabled tabs."
 
                 Text(description)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+            .onAppear {
+                enforceMinimumNotchWidth()
             }
         } header: {
             HStack {
@@ -5916,6 +6182,7 @@ struct StatsSettings: View {
     @Default(.showGpuGraph) var showGpuGraph
     @Default(.showNetworkGraph) var showNetworkGraph
     @Default(.showDiskGraph) var showDiskGraph
+    @Default(.cpuTemperatureUnit) var cpuTemperatureUnit
     
     private func highlightID(_ title: String) -> String {
         SettingsTab.stats.highlightID(for: title)
@@ -6005,6 +6272,16 @@ struct StatsSettings: View {
                 Section {
                     Defaults.Toggle("CPU Usage", key: .showCpuGraph)
                         .settingsHighlight(id: highlightID("CPU Usage"))
+
+                    if showCpuGraph {
+                        Picker("Temperature unit", selection: $cpuTemperatureUnit) {
+                            ForEach(LockScreenWeatherTemperatureUnit.allCases) { unit in
+                                Text(unit.rawValue).tag(unit)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .settingsHighlight(id: highlightID("Temperature unit"))
+                    }
                     Defaults.Toggle("Memory Usage", key: .showMemoryGraph)
                         .settingsHighlight(id: highlightID("Memory Usage"))
                     Defaults.Toggle("GPU Usage", key: .showGpuGraph)
@@ -6608,6 +6885,7 @@ struct CustomOSDSettings: View {
     @Default(.enableOSDVolume) var enableOSDVolume
     @Default(.enableOSDBrightness) var enableOSDBrightness
     @Default(.enableOSDKeyboardBacklight) var enableOSDKeyboardBacklight
+    @Default(.enableBetterDisplayIntegration) var enableBetterDisplayIntegration
     @Default(.osdMaterial) var osdMaterial
     @Default(.osdLiquidGlassCustomizationMode) var osdLiquidGlassCustomizationMode
     @Default(.osdLiquidGlassVariant) var osdLiquidGlassVariant
@@ -6650,7 +6928,7 @@ struct CustomOSDSettings: View {
     
     var body: some View {
         Form {
-            if !hasAccessibilityPermission {
+            if !hasAccessibilityPermission && !enableBetterDisplayIntegration {
                 Section {
                     SettingsPermissionCallout(
                         message: "Accessibility permission is needed to intercept system controls for the Custom OSD.",
@@ -6662,7 +6940,7 @@ struct CustomOSDSettings: View {
                 }
             }
 
-            if hasAccessibilityPermission {
+            if hasAccessibilityPermission || enableBetterDisplayIntegration {
                 Section {
                     Toggle("Volume OSD", isOn: $enableOSDVolume)
                         .settingsHighlight(id: highlightID("Volume OSD"))
@@ -6670,6 +6948,8 @@ struct CustomOSDSettings: View {
                         .settingsHighlight(id: highlightID("Brightness OSD"))
                     Toggle("Keyboard Backlight OSD", isOn: $enableOSDKeyboardBacklight)
                         .settingsHighlight(id: highlightID("Keyboard Backlight OSD"))
+                        .disabled(enableBetterDisplayIntegration)
+                        .help(enableBetterDisplayIntegration ? "Disabled while BetterDisplay integration is active \u{2014} BetterDisplay uses Cmd+Brightness keys for its own controls." : "")
                 } header: {
                     Text("Controls")
                 } footer: {
@@ -6897,5 +7177,235 @@ struct NotesSettingsView: View {
             }
         }
         .navigationTitle("Notes")
+    }
+}
+
+// MARK: - Terminal Settings
+
+struct TerminalSettings: View {
+    @ObservedObject var terminalManager = TerminalManager.shared
+    @Default(.enableTerminalFeature) var enableTerminalFeature
+    @Default(.terminalShellPath) var terminalShellPath
+    @Default(.terminalFontSize) var terminalFontSize
+    @Default(.terminalOpacity) var terminalOpacity
+    @Default(.terminalMaxHeightFraction) var terminalMaxHeightFraction
+    @Default(.terminalCursorStyle) var terminalCursorStyle
+    @Default(.terminalScrollbackLines) var terminalScrollbackLines
+    @Default(.terminalOptionAsMeta) var terminalOptionAsMeta
+    @Default(.terminalMouseReporting) var terminalMouseReporting
+    @Default(.terminalBoldAsBright) var terminalBoldAsBright
+    @Default(.terminalBackgroundColor) var terminalBackgroundColor
+    @Default(.terminalForegroundColor) var terminalForegroundColor
+    @Default(.terminalCursorColor) var terminalCursorColor
+
+    private func highlightID(_ title: String) -> String {
+        SettingsTab.terminal.highlightID(for: title)
+    }
+
+    private var formattedMaxHeight: String {
+        "\(Int(terminalMaxHeightFraction * 100))% of screen"
+    }
+
+    private var cursorStyleBinding: Binding<TerminalCursorStyleOption> {
+        Binding(
+            get: { TerminalCursorStyleOption(rawValue: terminalCursorStyle) ?? .blinkBlock },
+            set: { terminalCursorStyle = $0.rawValue }
+        )
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle("Enable terminal", key: .enableTerminalFeature)
+                    .settingsHighlight(id: highlightID("Enable terminal"))
+            } header: {
+                Text("General")
+            } footer: {
+                Text("Adds a Guake-style dropdown terminal tab. The terminal session persists across notch open/close cycles.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if enableTerminalFeature {
+                // MARK: Shell
+                Section {
+                    HStack {
+                        Text("Shell path")
+                        Spacer()
+                        TextField("", text: $terminalShellPath)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 200)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .settingsHighlight(id: highlightID("Shell path"))
+                } header: {
+                    Text("Shell")
+                }
+
+                // MARK: Appearance
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Font size")
+                            Spacer()
+                            Text("\(Int(terminalFontSize)) pt")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                        Slider(value: $terminalFontSize, in: 8...24, step: 1)
+                            .onChange(of: terminalFontSize) { _, newValue in
+                                terminalManager.applyFontSize(newValue)
+                            }
+                    }
+                    .settingsHighlight(id: highlightID("Font size"))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Terminal opacity")
+                            Spacer()
+                            Text("\(Int(terminalOpacity * 100))%")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                        Slider(value: $terminalOpacity, in: 0.3...1.0, step: 0.05)
+                            .onChange(of: terminalOpacity) { _, newValue in
+                                terminalManager.applyOpacity(newValue)
+                            }
+                    }
+                    .settingsHighlight(id: highlightID("Terminal opacity"))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Maximum height")
+                            Spacer()
+                            Text(formattedMaxHeight)
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                        Slider(value: $terminalMaxHeightFraction, in: 0.2...0.5, step: 0.05)
+                    }
+                    .settingsHighlight(id: highlightID("Maximum height"))
+                } header: {
+                    Text("Appearance")
+                }
+
+                // MARK: Colors
+                Section {
+                    ColorPicker("Background", selection: $terminalBackgroundColor, supportsOpacity: false)
+                        .onChange(of: terminalBackgroundColor) { _, newValue in
+                            terminalManager.applyBackgroundColor(newValue)
+                        }
+                        .settingsHighlight(id: highlightID("Background color"))
+
+                    ColorPicker("Foreground", selection: $terminalForegroundColor, supportsOpacity: false)
+                        .onChange(of: terminalForegroundColor) { _, newValue in
+                            terminalManager.applyForegroundColor(newValue)
+                        }
+                        .settingsHighlight(id: highlightID("Foreground color"))
+
+                    ColorPicker("Cursor", selection: $terminalCursorColor, supportsOpacity: false)
+                        .onChange(of: terminalCursorColor) { _, newValue in
+                            terminalManager.applyCursorColor(newValue)
+                        }
+                        .settingsHighlight(id: highlightID("Cursor color"))
+
+                    Toggle("Bold text as bright colors", isOn: $terminalBoldAsBright)
+                        .onChange(of: terminalBoldAsBright) { _, newValue in
+                            terminalManager.applyBoldAsBright(newValue)
+                        }
+                        .settingsHighlight(id: highlightID("Bold as bright"))
+                } header: {
+                    Text("Colors")
+                } footer: {
+                    Text("When bold-as-bright is off, bold text uses a heavier font weight instead of bright ANSI colors.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                // MARK: Cursor
+                Section {
+                    Picker("Cursor style", selection: cursorStyleBinding) {
+                        ForEach(TerminalCursorStyleOption.allCases, id: \.self) { style in
+                            Text(style.displayName).tag(style)
+                        }
+                    }
+                    .onChange(of: terminalCursorStyle) { _, newValue in
+                        if let style = TerminalCursorStyleOption(rawValue: newValue) {
+                            terminalManager.applyCursorStyle(style)
+                        }
+                    }
+                    .settingsHighlight(id: highlightID("Cursor style"))
+                } header: {
+                    Text("Cursor")
+                }
+
+                // MARK: Scrollback
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Scrollback lines")
+                            Spacer()
+                            Text("\(terminalScrollbackLines)")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { Double(terminalScrollbackLines) },
+                                set: { terminalScrollbackLines = Int($0) }
+                            ),
+                            in: 100...10000,
+                            step: 100
+                        )
+                        .onChange(of: terminalScrollbackLines) { _, newValue in
+                            terminalManager.applyScrollback(newValue)
+                        }
+                    }
+                    .settingsHighlight(id: highlightID("Scrollback lines"))
+                } header: {
+                    Text("Scrollback")
+                } footer: {
+                    Text("Number of lines kept in the scrollback buffer. Higher values use more memory.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                // MARK: Input
+                Section {
+                    Toggle("Option as Meta key", isOn: $terminalOptionAsMeta)
+                        .onChange(of: terminalOptionAsMeta) { _, newValue in
+                            terminalManager.applyOptionAsMeta(newValue)
+                        }
+                        .settingsHighlight(id: highlightID("Option as Meta"))
+
+                    Toggle("Allow mouse reporting", isOn: $terminalMouseReporting)
+                        .onChange(of: terminalMouseReporting) { _, newValue in
+                            terminalManager.applyMouseReporting(newValue)
+                        }
+                        .settingsHighlight(id: highlightID("Mouse reporting"))
+                } header: {
+                    Text("Input")
+                } footer: {
+                    Text("Option as Meta sends Esc+key instead of macOS special characters. Mouse reporting forwards mouse events to terminal applications like vim or tmux.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                // MARK: Actions
+                Section {
+                    Button("Restart Shell") {
+                        terminalManager.restartShell()
+                    }
+                    .disabled(!terminalManager.isProcessRunning)
+                } header: {
+                    Text("Actions")
+                } footer: {
+                    Text("Restarts the shell process. Any unsaved work in the terminal will be lost.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .navigationTitle("Terminal")
     }
 }
