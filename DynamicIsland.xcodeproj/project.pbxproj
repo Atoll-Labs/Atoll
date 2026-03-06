@@ -33,12 +33,12 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		7EA69B1B2F5AE13500EB2D16 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 7;
+			buildActionMask = 8;
+			dstPath = Contents/Helpers;
+			dstSubfolderSpec = 1;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -59,9 +59,36 @@
 		F54406E72CD4987A00C7AFD9 /* Atoll.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Atoll.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7EA69B1E2F5AE61200EB2D16 /* Exceptions for "Contents" folder in "DynamicIsland" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Helpers/NowPlayingTestClient,
+			);
+			target = F54406E62CD4987A00C7AFD9 /* DynamicIsland */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		7EA69B202F5AE63200EB2D16 /* Exceptions for "Contents" folder in "Copy Files" phase from "DynamicIsland" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			attributesByRelativePath = {
+				Helpers/NowPlayingTestClient = (CodeSignOnCopy, );
+			};
+			buildPhase = 7EA69B1B2F5AE13500EB2D16 /* CopyFiles */;
+			membershipExceptions = (
+				Helpers/NowPlayingTestClient,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7EA69B1C2F5AE15C00EB2D16 /* Contents */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7EA69B1E2F5AE61200EB2D16 /* Exceptions for "Contents" folder in "DynamicIsland" target */,
+				7EA69B202F5AE63200EB2D16 /* Exceptions for "Contents" folder in "Copy Files" phase from "DynamicIsland" target */,
+			);
 			path = Contents;
 			sourceTree = "<group>";
 		};
@@ -406,7 +433,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_ASSET_PATHS = "\"DynamicIsland/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = 9Y64TRM77N;
@@ -478,7 +505,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_ASSET_PATHS = "\"DynamicIsland/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = 9Y64TRM77N;
