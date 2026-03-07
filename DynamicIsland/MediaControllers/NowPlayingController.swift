@@ -166,6 +166,19 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         
         let pipeHandler = JSONLinesPipeHandler()
         process.standardOutput = await pipeHandler.getPipe()
+
+        // Capture stderr so framework/script errors are logged
+        let stderrPipe = Pipe()
+        process.standardError = stderrPipe
+        stderrPipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty,
+                  let message = String(data: data, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                  !message.isEmpty
+            else { return }
+            print("NowPlayingController [stderr]: \(message)")
+        }
         
         self.process = process
         self.pipeHandler = pipeHandler
