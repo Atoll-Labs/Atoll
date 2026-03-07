@@ -42,8 +42,19 @@ final class DoNotDisturbManager: ObservableObject {
     private var pollingSource: DispatchSourceTimer?
     private var lastAssertionsModificationDate: Date?
     private var modeCancellable: AnyCancellable?
+    /// Periodic task that verifies focus is still active when `isDoNotDisturbActive` is true.
+    /// Catches cases where the disabled notification fails to fire.
+    private var stateVerificationTask: Task<Void, Never>?
 
     @Published private(set) var monitoringMode: FocusMonitoringMode = Defaults[.focusMonitoringMode]
+
+    /// Timestamp of the last notification-driven state change.
+    /// Used to suppress assertions polling from overriding a fresh notification for a short window.
+    private var lastNotificationTimestamp: Date = .distantPast
+    private static let notificationCooldown: TimeInterval = 4.0
+
+    /// Delayed task that clears retained metadata after the OFF animation completes.
+    private var metadataClearTask: Task<Void, Never>?
 
     private init() {
         focusLogStream.onMetadataUpdate = { [weak self] identifier, name in
@@ -97,6 +108,10 @@ final class DoNotDisturbManager: ObservableObject {
 
         focusLogStream.stop()
         stopAssertionsPolling()
+        stateVerificationTask?.cancel()
+        stateVerificationTask = nil
+        metadataClearTask?.cancel()
+        metadataClearTask = nil
         isMonitoring = false
 
         DispatchQueue.main.async {
@@ -107,10 +122,12 @@ final class DoNotDisturbManager: ObservableObject {
     }
 
     @objc private func handleFocusEnabled(_ notification: Notification) {
+        lastNotificationTimestamp = Date()
         apply(notification: notification, isActive: true)
     }
 
     @objc private func handleFocusDisabled(_ notification: Notification) {
+        lastNotificationTimestamp = Date()
         apply(notification: notification, isActive: false)
     }
 
@@ -220,11 +237,87 @@ final class DoNotDisturbManager: ObservableObject {
                 self.isDoNotDisturbActive = isActive
             }
 
-            // If Focus turned OFF, clear cached mode metadata after the OFF toast can use it.
+            // If Focus turned OFF, retain metadata briefly for the OFF toast,
+            // then clear it so stale state doesn't linger.
             if isActive == false {
                 self.currentFocusModeIdentifier = previousIdentifier
                 self.currentFocusModeName = previousName
+                self.scheduleMetadataClear()
+            } else {
+                // Focus turned ON — cancel any pending metadata clear.
+                self.metadataClearTask?.cancel()
+                self.metadataClearTask = nil
             }
+
+            // Start or stop periodic verification based on new state.
+            self.updateStateVerification(focusActive: isActive)
+        }
+    }
+
+    /// When focus is believed to be active, periodically verify the assertions
+    /// file. If the file shows no active assertions, reset `isDoNotDisturbActive`
+    /// to `false`. This catches the case where `_NSDoNotDisturbDisabledNotification`
+    /// fails to fire.
+    private func updateStateVerification(focusActive: Bool) {
+        stateVerificationTask?.cancel()
+        stateVerificationTask = nil
+
+        guard focusActive else { return }
+
+        stateVerificationTask = Task { @MainActor [weak self] in
+            // Wait a bit before starting verification to let notifications settle.
+            try? await Task.sleep(for: .seconds(5))
+
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3))
+                guard let self, self.isDoNotDisturbActive else { break }
+
+                // Check the assertions file directly (if FDA is available).
+                let focusStillActive = await self.verifyFocusActiveFromAssertions()
+                if !focusStillActive {
+                    withAnimation(.smooth(duration: 0.25)) {
+                        self.isDoNotDisturbActive = false
+                    }
+                    self.scheduleMetadataClear()
+                    debugPrint("[DoNotDisturbManager] State verification: focus no longer active, resetting.")
+                    break
+                }
+            }
+        }
+    }
+
+    /// Read the assertions file directly to verify whether focus is truly active.
+    /// Returns `true` if the file confirms active assertions, or if the check
+    /// cannot be performed (e.g. no FDA) — erring on the side of not falsely resetting.
+    private nonisolated func verifyFocusActiveFromAssertions() async -> Bool {
+        guard FullDiskAccessAuthorization.hasPermission() else {
+            // Can't verify without FDA — conservatively assume still active.
+            return true
+        }
+
+        let url = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/DoNotDisturb/DB/Assertions.json")
+
+        guard let data = try? Data(contentsOf: url),
+              !data.isEmpty,
+              let root = (try? JSONSerialization.jsonObject(with: data, options: [])) as? [String: Any],
+              let dataArray = root["data"] as? [[String: Any]],
+              let firstItem = dataArray.first else {
+            // File unreadable/empty — assume focus is off.
+            return false
+        }
+
+        let assertions = (firstItem["storeAssertionRecords"] as? [Any]) ?? []
+        return !assertions.isEmpty
+    }
+
+    private func scheduleMetadataClear() {
+        metadataClearTask?.cancel()
+        metadataClearTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self, !self.isDoNotDisturbActive else { return }
+            self.currentFocusModeIdentifier = ""
+            self.currentFocusModeName = ""
         }
     }
 
@@ -413,6 +506,12 @@ private extension DoNotDisturbManager {
     func pollAssertionsState() {
         guard FullDiskAccessAuthorization.hasPermission() else { return }
 
+        // Skip if a notification just arrived — let the notification take precedence
+        // to avoid a race where the file hasn't been flushed yet.
+        if Date().timeIntervalSince(lastNotificationTimestamp) < DoNotDisturbManager.notificationCooldown {
+            return
+        }
+
         if let attributes = try? FileManager.default.attributesOfItem(atPath: assertionsURL.path),
            let modifiedAt = attributes[.modificationDate] as? Date,
               let lastObservedModificationDate = lastAssertionsModificationDate,
@@ -420,45 +519,52 @@ private extension DoNotDisturbManager {
             return
         }
 
-        guard let data = try? Data(contentsOf: assertionsURL),
-              !data.isEmpty,
-              let root = (try? JSONSerialization.jsonObject(with: data, options: [])) as? [String: Any],
-              let dataArray = root["data"] as? [[String: Any]],
-              let firstItem = dataArray.first else {
-            return
-        }
-
-        let assertions = (firstItem["storeAssertionRecords"] as? [Any]) ?? []
-        let isActive = !assertions.isEmpty
-
+        // Update last-observed modification date before reading content.
         if let attributes = try? FileManager.default.attributesOfItem(atPath: assertionsURL.path),
            let modifiedAt = attributes[.modificationDate] as? Date {
             lastAssertionsModificationDate = modifiedAt
         }
 
-        let identifierKeys = [
-            "modeIdentifier",
-            "FocusModeIdentifier",
-            "focusModeIdentifier",
-            "identifier",
-            "Identifier",
-            "focusModeUUID",
-            "UUID",
-            "uuid"
-        ]
+        // Default to OFF — if the file can't be read or parsed, treat as no active focus.
+        var isActive = false
+        var identifier: String?
+        var name: String?
 
-        let nameKeys = [
-            "activityDisplayName",
-            "displayName",
-            "FocusModeName",
-            "focusModeName",
-            "focusMode",
-            "name",
-            "Name"
-        ]
+        if let data = try? Data(contentsOf: assertionsURL),
+           !data.isEmpty,
+           let root = (try? JSONSerialization.jsonObject(with: data, options: [])) as? [String: Any],
+           let dataArray = root["data"] as? [[String: Any]],
+           let firstItem = dataArray.first {
 
-        let identifier = isActive ? firstMatch(for: identifierKeys, in: assertions) : nil
-        let name = isActive ? firstMatch(for: nameKeys, in: assertions) : nil
+            let assertions = (firstItem["storeAssertionRecords"] as? [Any]) ?? []
+            isActive = !assertions.isEmpty
+
+            if isActive {
+                let identifierKeys = [
+                    "modeIdentifier",
+                    "FocusModeIdentifier",
+                    "focusModeIdentifier",
+                    "identifier",
+                    "Identifier",
+                    "focusModeUUID",
+                    "UUID",
+                    "uuid"
+                ]
+
+                let nameKeys = [
+                    "activityDisplayName",
+                    "displayName",
+                    "FocusModeName",
+                    "focusModeName",
+                    "focusMode",
+                    "name",
+                    "Name"
+                ]
+
+                identifier = firstMatch(for: identifierKeys, in: assertions)
+                name = firstMatch(for: nameKeys, in: assertions)
+            }
+        }
 
         publishMetadata(identifier: identifier, name: name, isActive: isActive, source: "assertions-poll")
     }

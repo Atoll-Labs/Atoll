@@ -56,6 +56,7 @@ struct DoNotDisturbLiveActivity: View {
         .onAppear(perform: handleInitialState)
         .onChange(of: manager.isDoNotDisturbActive, handleFocusStateChange)
         .onChange(of: manager.focusToastTrigger, handleFocusModeSwitchToast)
+        .onChange(of: focusToastMode, handleToastModeSettingChange)
         .onDisappear(perform: cancelPendingTasks)
     }
 
@@ -385,6 +386,31 @@ struct DoNotDisturbLiveActivity: View {
                 isExpanded = true
             }
             scheduleTransientCollapse()
+        }
+    }
+
+    /// When the user toggles between toast / persistent mode while focus is active,
+    /// re-expand the view so the wings become visible again.
+    private func handleToastModeSettingChange(_ oldValue: Bool, _ newToastMode: Bool) {
+        guard manager.isDoNotDisturbActive else { return }
+
+        cancelPendingTasks()
+
+        if newToastMode {
+            // Switched TO toast mode — show a brief expansion then collapse.
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                isExpanded = true
+                showInactiveIcon = false
+                iconScale = 1.0
+            }
+            scheduleTransientCollapse()
+        } else {
+            // Switched TO persistent mode — ensure wings are expanded.
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                isExpanded = true
+                showInactiveIcon = false
+                iconScale = 1.0
+            }
         }
     }
 
