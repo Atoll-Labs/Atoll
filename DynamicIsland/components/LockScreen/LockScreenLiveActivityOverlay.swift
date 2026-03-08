@@ -27,13 +27,14 @@ struct LockScreenLiveActivityOverlay: View {
 	@ObservedObject var model: LockScreenLiveActivityOverlayModel
 	@ObservedObject var animator: LockIconAnimator
 	let notchSize: CGSize
+	var isDynamicIslandMode: Bool = false
 
 	private var indicatorSize: CGFloat {
 		max(0, notchSize.height - 12)
 	}
 
 	private var horizontalPadding: CGFloat {
-		cornerRadiusInsets.closed.bottom
+		isDynamicIslandMode ? 8 : cornerRadiusInsets.closed.bottom
 	}
 
 	private var totalWidth: CGFloat {
@@ -42,6 +43,10 @@ struct LockScreenLiveActivityOverlay: View {
 
 	private var collapsedScale: CGFloat {
 		Self.collapsedScale(for: notchSize)
+	}
+
+	private var topOffset: CGFloat {
+		isDynamicIslandMode ? dynamicIslandTopOffset : 0
 	}
 
     @State private var isHovering: Bool = false
@@ -66,12 +71,17 @@ struct LockScreenLiveActivityOverlay: View {
 		.padding(.horizontal, horizontalPadding)
 		.background(Color.black)
 		.clipShape(
-			NotchShape(
-				topCornerRadius: cornerRadiusInsets.closed.top,
-				bottomCornerRadius: cornerRadiusInsets.closed.bottom
-			)
+			isDynamicIslandMode
+				? AnyShape(DynamicIslandPillShape(
+					cornerRadius: max(notchSize.height / 2, dynamicIslandPillCornerRadiusInsets.closed.standard)
+				  ))
+				: AnyShape(NotchShape(
+					topCornerRadius: cornerRadiusInsets.closed.top,
+					bottomCornerRadius: cornerRadiusInsets.closed.bottom
+				  ))
 		)
-		.frame(width: totalWidth, height: notchSize.height)
+		.padding(.top, topOffset)
+		.frame(width: totalWidth, height: notchSize.height + topOffset)
 		.scaleEffect(x: max(model.scale, collapsedScale) * (isHovering ? 1.03 : 1.0), 
                      y: 1 * (isHovering ? 1.03 : 1.0), 
                      anchor: .center)
@@ -88,9 +98,9 @@ struct LockScreenLiveActivityOverlay: View {
 }
 
 extension LockScreenLiveActivityOverlay {
-	static func collapsedScale(for notchSize: CGSize) -> CGFloat {
+	static func collapsedScale(for notchSize: CGSize, isDynamicIslandMode: Bool = false) -> CGFloat {
 		let indicatorSize = max(0, notchSize.height - 12)
-		let horizontalPadding = cornerRadiusInsets.closed.bottom
+		let horizontalPadding = isDynamicIslandMode ? 8.0 : cornerRadiusInsets.closed.bottom
 		let totalWidth = notchSize.width + (indicatorSize * 2) + (horizontalPadding * 2)
 		guard totalWidth > 0 else { return 1 }
 		return notchSize.width / totalWidth

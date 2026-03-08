@@ -37,6 +37,16 @@ class LockScreenLiveActivityWindowManager {
     private var workspaceObservers: [NSObjectProtocol] = []
     private var currentNotchSize: CGSize?
 
+    /// Whether the target screen uses Dynamic Island (pill) mode.
+    private var isDynamicIslandMode: Bool {
+        isDynamicIslandModeForScreen(lockContext()?.screen)
+    }
+
+    private func isDynamicIslandModeForScreen(_ screen: NSScreen?) -> Bool {
+        guard let screen else { return false }
+        return shouldUseDynamicIslandMode(for: screen.localizedName)
+    }
+
     private init() {
         registerScreenChangeObservers()
     }
@@ -49,11 +59,12 @@ class LockScreenLiveActivityWindowManager {
 
     private func windowSize(for notchSize: CGSize) -> CGSize {
         let indicatorWidth = max(0, notchSize.height - 12)
-        let horizontalPadding = cornerRadiusInsets.closed.bottom
+        let horizontalPadding = isDynamicIslandMode ? 8 : cornerRadiusInsets.closed.bottom
+        let topOffset: CGFloat = isDynamicIslandMode ? dynamicIslandTopOffset : 0
 
         let totalWidth = notchSize.width + (indicatorWidth * 2) + (horizontalPadding * 2)
 
-        return CGSize(width: totalWidth, height: notchSize.height)
+        return CGSize(width: totalWidth, height: notchSize.height + topOffset)
     }
 
     private func frame(for windowSize: CGSize, on screen: NSScreen) -> NSRect {
@@ -145,7 +156,7 @@ class LockScreenLiveActivityWindowManager {
 
         if let hostingView {
             hostingView.frame = CGRect(origin: .zero, size: targetFrame.size)
-            hostingView.rootView = LockScreenLiveActivityOverlay(model: overlayModel, animator: overlayAnimator, notchSize: context.notchSize)
+            hostingView.rootView = LockScreenLiveActivityOverlay(model: overlayModel, animator: overlayAnimator, notchSize: context.notchSize, isDynamicIslandMode: isDynamicIslandMode)
         }
 
         currentNotchSize = context.notchSize
@@ -164,7 +175,7 @@ class LockScreenLiveActivityWindowManager {
         let targetFrame = frame(for: windowSize, on: screen)
         window.setFrame(targetFrame, display: true)
 
-        let overlayView = LockScreenLiveActivityOverlay(model: overlayModel, animator: overlayAnimator, notchSize: notchSize)
+        let overlayView = LockScreenLiveActivityOverlay(model: overlayModel, animator: overlayAnimator, notchSize: notchSize, isDynamicIslandMode: isDynamicIslandMode)
 
         if let hostingView {
             hostingView.rootView = overlayView
@@ -197,7 +208,7 @@ class LockScreenLiveActivityWindowManager {
         hideTask?.cancel()
         guard let context = lockContext() else { return }
 
-        let collapsedScale = LockScreenLiveActivityOverlay.collapsedScale(for: context.notchSize)
+        let collapsedScale = LockScreenLiveActivityOverlay.collapsedScale(for: context.notchSize, isDynamicIslandMode: isDynamicIslandMode)
 
         overlayAnimator.update(isLocked: true)
         overlayModel.scale = collapsedScale
@@ -249,7 +260,7 @@ class LockScreenLiveActivityWindowManager {
 
         let targetScale: CGFloat
         if let notchSize = currentNotchSize {
-            targetScale = LockScreenLiveActivityOverlay.collapsedScale(for: notchSize)
+            targetScale = LockScreenLiveActivityOverlay.collapsedScale(for: notchSize, isDynamicIslandMode: isDynamicIslandMode)
         } else {
             targetScale = 0.7
         }
