@@ -75,7 +75,6 @@ struct ContentView: View {
     @Default(.capsLockIndicatorTintMode) var capsLockTintMode
     @Default(.enableDoNotDisturbDetection) var enableDoNotDisturbDetection
     @Default(.showDoNotDisturbIndicator) var showDoNotDisturbIndicator
-    @Default(.focusIndicatorNonPersistent) var focusIndicatorNonPersistent
     @Default(.enableScreenRecordingDetection) var enableScreenRecordingDetection
     @Default(.enableCapsLockIndicator) var enableCapsLockIndicator
     @Default(.enableExtensionLiveActivities) var enableExtensionLiveActivities
@@ -713,7 +712,7 @@ struct ContentView: View {
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .download) && vm.notchState == .closed && downloadManager.isDownloading && Defaults[.enableDownloadListener] && !vm.hideOnClosed {
                           DownloadLiveActivity()
                               .transition(.blurReplace.animation(.interactiveSpring(dampingFraction: 1.2)))
-                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .doNotDisturb) && vm.notchState == .closed && Defaults[.enableDoNotDisturbDetection] && Defaults[.showDoNotDisturbIndicator] && (doNotDisturbManager.isDoNotDisturbActive || Defaults[.focusIndicatorNonPersistent]) && !vm.hideOnClosed && !lockScreenManager.isLocked {
+                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .doNotDisturb) && vm.notchState == .closed && Defaults[.enableDoNotDisturbDetection] && Defaults[.showDoNotDisturbIndicator] && (doNotDisturbManager.isDoNotDisturbActive || doNotDisturbManager.isFocusToastDismissing) && !vm.hideOnClosed && !lockScreenManager.isLocked {
                           DoNotDisturbLiveActivity()
                     } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .lockScreen) && vm.notchState == .closed && (lockScreenManager.isLocked || !lockScreenManager.isLockIdle) && Defaults[.enableLockScreenLiveActivity] && !vm.hideOnClosed {
                         LockScreenLiveActivity()
@@ -1044,7 +1043,7 @@ struct ContentView: View {
             return .recording
         }
 
-        if enableDoNotDisturbDetection && showDoNotDisturbIndicator && (doNotDisturbManager.isDoNotDisturbActive || focusIndicatorNonPersistent) {
+        if enableDoNotDisturbDetection && showDoNotDisturbIndicator && doNotDisturbManager.isDoNotDisturbActive {
             let mode = FocusModeType.resolve(identifier: doNotDisturbManager.currentFocusModeIdentifier, name: doNotDisturbManager.currentFocusModeName)
             return .focus(mode)
         }

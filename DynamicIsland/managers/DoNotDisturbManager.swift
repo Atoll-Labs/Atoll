@@ -33,6 +33,11 @@ final class DoNotDisturbManager: ObservableObject {
     // Used by the brief-toast UI to show an ON toast when the active mode switches while Focus stays enabled.
     @Published var focusToastTrigger: UUID = UUID()
 
+    /// Briefly `true` after focus turns OFF while toast mode is enabled,
+    /// keeping the standalone DoNotDisturbLiveActivity mounted long enough
+    /// for the "Off" dismissal animation to play out.
+    @Published private(set) var isFocusToastDismissing: Bool = false
+
     private let notificationCenter = DistributedNotificationCenter.default()
     private let metadataExtractionQueue = DispatchQueue(label: "com.dynamicisland.focus.metadata", qos: .userInitiated)
     private let pollingQueue = DispatchQueue(label: "com.dynamicisland.focus.polling", qos: .utility)
@@ -55,6 +60,9 @@ final class DoNotDisturbManager: ObservableObject {
 
     /// Delayed task that clears retained metadata after the OFF animation completes.
     private var metadataClearTask: Task<Void, Never>?
+
+    /// Task that resets `isFocusToastDismissing` after the OFF toast animation.
+    private var toastDismissTask: Task<Void, Never>?
 
     private init() {
         focusLogStream.onMetadataUpdate = { [weak self] identifier, name in
@@ -112,6 +120,7 @@ final class DoNotDisturbManager: ObservableObject {
         stateVerificationTask = nil
         metadataClearTask?.cancel()
         metadataClearTask = nil
+        cancelFocusToastDismiss()
         isMonitoring = false
 
         DispatchQueue.main.async {
@@ -243,10 +252,12 @@ final class DoNotDisturbManager: ObservableObject {
                 self.currentFocusModeIdentifier = previousIdentifier
                 self.currentFocusModeName = previousName
                 self.scheduleMetadataClear()
+                self.beginFocusToastDismissIfNeeded()
             } else {
-                // Focus turned ON — cancel any pending metadata clear.
+                // Focus turned ON — cancel any pending metadata clear and toast dismiss.
                 self.metadataClearTask?.cancel()
                 self.metadataClearTask = nil
+                self.cancelFocusToastDismiss()
             }
 
             // Start or stop periodic verification based on new state.
@@ -279,6 +290,7 @@ final class DoNotDisturbManager: ObservableObject {
                         self.isDoNotDisturbActive = false
                     }
                     self.scheduleMetadataClear()
+                    self.beginFocusToastDismissIfNeeded()
                     debugPrint("[DoNotDisturbManager] State verification: focus no longer active, resetting.")
                     break
                 }
@@ -319,6 +331,32 @@ final class DoNotDisturbManager: ObservableObject {
             self.currentFocusModeIdentifier = ""
             self.currentFocusModeName = ""
         }
+    }
+
+    /// Sets `isFocusToastDismissing` to `true` for ~2.5 seconds when focus turns
+    /// OFF while toast mode is enabled. This keeps the standalone DND live activity
+    /// mounted long enough for the "Off" toast animation, without permanently
+    /// occupying the live-activity slot.
+    private func beginFocusToastDismissIfNeeded() {
+        guard Defaults[.focusIndicatorNonPersistent] else { return }
+
+        toastDismissTask?.cancel()
+        isFocusToastDismissing = true
+
+        toastDismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(2500))
+            guard !Task.isCancelled, let self else { return }
+            withAnimation(.smooth(duration: 0.25)) {
+                self.isFocusToastDismissing = false
+            }
+        }
+    }
+
+    /// Cancels any in-progress toast dismiss countdown (e.g. when focus turns back ON).
+    private func cancelFocusToastDismiss() {
+        toastDismissTask?.cancel()
+        toastDismissTask = nil
+        isFocusToastDismissing = false
     }
 
     private func handleLogMetadataUpdate(identifier: String?, name: String?) {
