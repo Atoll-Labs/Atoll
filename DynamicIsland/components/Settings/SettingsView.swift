@@ -3135,7 +3135,7 @@ struct Shelf: View {
     }
 
     init() {
-        Task { await QuickShareService.shared.discoverAvailableProviders() }
+        QuickShareService.shared.ensureDiscovered()
     }
 
     private func highlightID(_ title: String) -> String {
