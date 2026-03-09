@@ -24,7 +24,7 @@
   <a href="https://github.com/sponsors/Ebullioscopic">
     <img src="https://img.shields.io/badge/Sponsor-Ebullioscopic-ff69b4?style=for-the-badge&logo=github" alt="Sponsor Ebullioscopic"/>
   </a>
-  <a href="https://github.com/Ebullioscopic/Atoll/releases/download/v2.0.1/Atoll.2.0.1.dmg">
+  <a href="https://github.com/Ebullioscopic/Atoll/releases/latest">
     <img src="https://img.shields.io/badge/Download-Atoll%20for%20macOS-0A84FF?style=for-the-badge&logo=apple" alt="Download Atoll for macOS"/>
   </a>
   <a href="https://www.buymeacoffee.com/kryoscopic">
@@ -70,7 +70,7 @@ Atoll turns the MacBook notch into a focused command surface for media, system i
 - Permissions as needed: Accessibility, Camera, Calendar, Screen Recording, Music.
 
 ## Installation
-1) Download the latest DMG: https://github.com/Ebullioscopic/Atoll/releases/download/v1.3.0-beta/Atoll.1.3.0-beta.dmg
+1) Download the latest DMG [here](https://github.com/Ebullioscopic/Atoll/releases/latest).
 2) Open the DMG and drag Atoll into Applications.
 3) Launch Atoll and grant the requested permissions.
 
