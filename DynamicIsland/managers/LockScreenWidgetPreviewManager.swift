@@ -444,7 +444,14 @@ private struct LockScreenPreviewScene: View {
         let defaultLowering: CGFloat = -28
         let userOffset = CGFloat(Defaults[.lockScreenMusicVerticalOffset])
         let clampedOffset = min(max(userOffset, -160), 160)
-        let originY = baseOriginY + defaultLowering + clampedOffset
+        var originY = baseOriginY + defaultLowering + clampedOffset
+
+        if showsTimer {
+            let maxAllowedTop = timerFrame.minY - 12
+            let maxOriginY = maxAllowedTop - size.height
+            originY = min(originY, maxOriginY)
+        }
+
         return CGRect(x: originX, y: originY, width: size.width, height: size.height)
     }
 
@@ -453,18 +460,10 @@ private struct LockScreenPreviewScene: View {
         let screenFrame = CGRect(origin: .zero, size: screenSize)
         let originX = screenFrame.midX - (size.width / 2)
         let defaultLowering: CGFloat = -18
-        var baseY = screenFrame.midY + 24 + defaultLowering
-
-        if showsMediaPanel {
-            baseY = mediaFrame.maxY + 28 + defaultLowering
-        }
+        let baseY = screenFrame.midY + 24 + defaultLowering
 
         let offset = CGFloat(min(max(Defaults[.lockScreenTimerVerticalOffset], -160), 160))
         var originY = baseY + offset
-
-        if showsMediaPanel {
-            originY = max(originY, mediaFrame.maxY + 12)
-        }
 
         if showsWeather {
             originY = min(originY, weatherFrame.minY - size.height - 20)

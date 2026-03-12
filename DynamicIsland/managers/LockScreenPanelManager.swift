@@ -202,6 +202,11 @@ class LockScreenPanelManager {
         currentAdditionalHeight = additionalHeight
     }
 
+    func notifyTimerWidgetFrameChanged(animated: Bool) {
+        guard panelWindow?.isVisible == true || panelAnimator.isPresented else { return }
+        applyOffsetAdjustment(animated: animated)
+    }
+
     func applyOffsetAdjustment(animated: Bool = true) {
         guard let screen = currentScreen() else { return }
         let screenFrame = screen.frame
@@ -266,7 +271,14 @@ class LockScreenPanelManager {
         let defaultLowering: CGFloat = -28
         let userOffset = CGFloat(Defaults[.lockScreenMusicVerticalOffset])
         let clampedOffset = min(max(userOffset, -160), 160)
-        let originY = baseOriginY + defaultLowering + clampedOffset
+        var originY = baseOriginY + defaultLowering + clampedOffset
+
+        if let timerFrame = LockScreenTimerWidgetPanelManager.shared.latestFrame {
+            let maxAllowedTop = timerFrame.minY - 12
+            let maxOriginY = maxAllowedTop - collapsedSize.height
+            originY = min(originY, maxOriginY)
+        }
+
         return NSRect(x: originX, y: originY, width: collapsedSize.width, height: collapsedSize.height)
     }
 
