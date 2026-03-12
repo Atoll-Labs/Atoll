@@ -46,7 +46,7 @@ struct LockScreenTimerWidget: View {
     }
 
     private func displayFont(size: CGFloat) -> Font {
-        .custom("SF Pro Display", size: size)
+        .system(size: size, weight: .semibold, design: .rounded)
     }
 
     private var hasHoursComponent: Bool {
@@ -58,20 +58,20 @@ struct LockScreenTimerWidget: View {
     }
 
     private var titleFrameWidth: CGFloat {
-        if hasDoubleDigitHours { return 78 }
-        if hasHoursComponent { return 90 }
-        return 130
+        if hasDoubleDigitHours { return 60 }
+        if hasHoursComponent { return 80 }
+        return 110
     }
 
     private var countdownFrameWidth: CGFloat {
-        if hasDoubleDigitHours { return 248 }
-        if hasHoursComponent { return 235 }
-        return 205
+        if hasDoubleDigitHours { return 200 }
+        if hasHoursComponent { return 185 }
+        return 160
     }
 
     private var countdownFont: Font {
-        let baseSize: CGFloat = hasDoubleDigitHours ? 52 : 56
-        return displayFont(size: baseSize)
+        let baseSize: CGFloat = hasDoubleDigitHours ? 42 : 46
+        return .system(size: baseSize, weight: .bold, design: .rounded)
     }
 
     private var timerLabel: String {
@@ -191,17 +191,19 @@ struct LockScreenTimerWidget: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            HStack(alignment: .center, spacing: 8) {
+            HStack(alignment: .center, spacing: 0) {
                 controlButtons
+                    .padding(.trailing, 12)
 
                 titleSection
                     .frame(maxWidth: .infinity)
 
                 countdownSection
+                    .padding(.leading, 12)
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 18)
+        .padding(.vertical, 12)
         .frame(width: widgetSize.width, height: widgetSize.height)
         .background(widgetBackground)
         .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
@@ -260,18 +262,15 @@ struct LockScreenTimerWidget: View {
     }
 
     private var titleSection: some View {
-        VStack(alignment: .center, spacing: 0) {
-            MarqueeText(
-                .constant(timerLabel),
-                font: displayFont(size: 18),
-                nsFont: .title3,
-                textColor: accentColor,
-                minDuration: 0.16,
-                frameWidth: titleFrameWidth
-            )
-            .frame(maxWidth: titleFrameWidth)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        MarqueeText(
+            .constant(timerLabel),
+            font: displayFont(size: 15),
+            nsFont: .title3,
+            textColor: accentColor,
+            minDuration: 0.16,
+            frameWidth: titleFrameWidth
+        )
+        .frame(maxWidth: .infinity, alignment: .center)
         .layoutPriority(0)
     }
 
