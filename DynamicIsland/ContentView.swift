@@ -427,6 +427,11 @@ struct ContentView: View {
                     if newState == .closed {
                         removeStickyTerminalClickMonitor()
                     }
+                    #if os(macOS)
+                    if newState == .open {
+                        TimerControlWindowManager.shared.hide()
+                    }
+                    #endif
                 }
                 .onChange(of: vm.isBatteryPopoverActive) { _, newPopoverState in
                     runAfter(0.1) {
