@@ -6479,7 +6479,7 @@ struct ClipboardSettings: View {
                     HStack {
                         Text("Display Mode")
                         Spacer()
-                        Picker("Display Mode", selection: $clipboardDisplayMode) {
+                        Picker("", selection: $clipboardDisplayMode) {
                             ForEach(ClipboardDisplayMode.allCases, id: \.self) { mode in
                                 Text(mode.displayName).tag(mode)
                             }
@@ -6492,7 +6492,7 @@ struct ClipboardSettings: View {
                     HStack {
                         Text("History Size")
                         Spacer()
-                        Picker("History Size", selection: $clipboardHistorySize) {
+                        Picker("", selection: $clipboardHistorySize) {
                             Text("3 items").tag(3)
                             Text("5 items").tag(5)
                             Text("7 items").tag(7)
@@ -6690,7 +6690,7 @@ struct ScreenAssistantSettings: View {
                     HStack {
                         Text("Display Mode")
                         Spacer()
-                        Picker("Display Mode", selection: $screenAssistantDisplayMode) {
+                        Picker("", selection: $screenAssistantDisplayMode) {
                             ForEach(ScreenAssistantDisplayMode.allCases, id: \.self) { mode in
                                 Text(mode.displayName).tag(mode)
                             }
@@ -6817,7 +6817,7 @@ struct ColorPickerSettings: View {
                     HStack {
                         Text("Display Mode")
                         Spacer()
-                        Picker("Display Mode", selection: $colorPickerDisplayMode) {
+                        Picker("", selection: $colorPickerDisplayMode) {
                             ForEach(ColorPickerDisplayMode.allCases, id: \.self) { mode in
                                 Text(mode.displayName).tag(mode)
                             }
@@ -6830,7 +6830,7 @@ struct ColorPickerSettings: View {
                     HStack {
                         Text("History Size")
                         Spacer()
-                        Picker("History Size", selection: $colorHistorySize) {
+                        Picker("", selection: $colorHistorySize) {
                             Text("5 colors").tag(5)
                             Text("10 colors").tag(10)
                             Text("15 colors").tag(15)
