@@ -824,7 +824,7 @@ struct LockScreenMusicPanel: View {
     private func albumArtImage(size: CGFloat, cornerRadius: CGFloat) -> some View {
         Image(nsImage: musicManager.albumArt)
             .resizable()
-            .aspectRatio(contentMode: .fill)
+            .aspectRatio(contentMode: .fit)
             .frame(width: size, height: size)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
