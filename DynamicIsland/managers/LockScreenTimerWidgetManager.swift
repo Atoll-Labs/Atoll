@@ -156,6 +156,7 @@ final class LockScreenTimerWidgetPanelManager {
         hideTask?.cancel()
         hideTask = nil
         animator.isPresented = true
+        LockScreenPanelManager.shared.notifyTimerWidgetFrameChanged(animated: false)
         LockScreenReminderWidgetPanelManager.shared.refreshPosition(animated: true)
     }
 
@@ -169,6 +170,7 @@ final class LockScreenTimerWidgetPanelManager {
             window.orderOut(nil)
             hideTask = nil
             latestFrame = nil
+            LockScreenPanelManager.shared.notifyTimerWidgetFrameChanged(animated: true)
             LockScreenReminderWidgetPanelManager.shared.refreshPosition(animated: true)
             return
         }
@@ -179,6 +181,7 @@ final class LockScreenTimerWidgetPanelManager {
                 window?.orderOut(nil)
                 self?.hideTask = nil
                 self?.latestFrame = nil
+                LockScreenPanelManager.shared.notifyTimerWidgetFrameChanged(animated: true)
                 LockScreenReminderWidgetPanelManager.shared.refreshPosition(animated: true)
             }
         }
@@ -264,18 +267,10 @@ final class LockScreenTimerWidgetPanelManager {
         let size = LockScreenTimerWidget.preferredSize
         let originX = screen.frame.midX - (size.width / 2)
         let defaultLowering: CGFloat = -18
-        var baseY = screen.frame.midY + 24 + defaultLowering
-
-        if let musicFrame = LockScreenPanelManager.shared.latestFrame {
-            baseY = musicFrame.maxY + 28 + defaultLowering
-        }
+        let baseY = screen.frame.midY + 24 + defaultLowering
 
         let offset = CGFloat(clampedTimerOffset())
         var originY = baseY + offset
-
-        if let musicFrame = LockScreenPanelManager.shared.latestFrame {
-            originY = max(originY, musicFrame.maxY + 12)
-        }
 
         if let weatherFrame = LockScreenWeatherPanelManager.shared.latestFrame {
             originY = min(originY, weatherFrame.minY - size.height - 20)

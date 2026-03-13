@@ -207,7 +207,7 @@ struct TimerLiveActivity: View {
 
         private var shouldShowControlWindow: Bool {
         if !controlWindowEnabled { return false }
-        if shouldDisplayLabel { return false }
+        if showsLabel { return false }
 
         let timerEligible = timerManager.isTimerActive && !timerManager.isExternalTimerActive
         if !timerEligible { return false }
@@ -253,9 +253,6 @@ struct TimerLiveActivity: View {
         }
         .onAppear {
             requestControlWindowSync(forceRefresh: true)
-            if timerManager.isTimerActive && !timerManager.isFinished && !timerManager.isOvertime {
-                triggerTransientLabel()
-            }
         }
         .onDisappear {
             hideControlWindow()
@@ -528,23 +525,24 @@ struct TimerLiveActivity: View {
 
         let syncDelay = max(0, delay)
 
-        pendingControlWindowTask = Task.detached(priority: .userInitiated) { [syncDelay, forceRefresh] in
-            if syncDelay > 0 {
-                let nanoseconds = UInt64(syncDelay * 1_000_000_000)
-                try? await Task.sleep(nanoseconds: nanoseconds)
-            }
+        if syncDelay <= 0 {
+            syncControlWindow(forceRefresh: forceRefresh)
+            return
+        }
+
+        pendingControlWindowTask = Task { @MainActor [forceRefresh] in
+            let nanoseconds = UInt64(syncDelay * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: nanoseconds)
 
             guard !Task.isCancelled else { return }
 
-            await MainActor.run {
-                if shouldShowControlWindow {
-                    syncControlWindow(forceRefresh: forceRefresh)
-                } else {
-                    hideControlWindow()
-                }
-
-                pendingControlWindowTask = nil
+            if shouldShowControlWindow {
+                syncControlWindow(forceRefresh: forceRefresh)
+            } else {
+                hideControlWindow()
             }
+
+            pendingControlWindowTask = nil
         }
     }
 

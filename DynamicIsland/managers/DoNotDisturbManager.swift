@@ -516,9 +516,56 @@ private extension DoNotDisturbManager {
         if mode == .useDevTools {
             stopAssertionsPolling()
             focusLogStream.start()
+            checkInitialFocusStateViaLog()
         } else {
             focusLogStream.stop()
             startAssertionsPolling()
+        }
+    }
+
+    /// When using the log-stream mode, `log stream` only delivers future events — it misses any
+    /// focus mode that was already active when Atoll launched. This one-shot `log show` reads
+    /// recent duetexpertd debug logs to find the most recent `semanticModeIdentifier` event and
+    /// seeds the initial focus state from it. Tries progressively larger windows so the common
+    /// case (focus toggled recently) resolves in ~1-2s without scanning a full day of logs.
+    private func checkInitialFocusStateViaLog() {
+        metadataExtractionQueue.async { [weak self] in
+            guard let self else { return }
+
+            for window in ["5m", "1h", "24h"] {
+                let task = Process()
+                task.executableURL = URL(fileURLWithPath: "/usr/bin/log")
+                task.arguments = [
+                    "show",
+                    "--last", window,
+                    "--debug",
+                    "--style", "compact",
+                    "--predicate", "process == \"duetexpertd\" AND eventMessage CONTAINS \"semanticModeIdentifier\""
+                ]
+                let pipe = Pipe()
+                task.standardOutput = pipe
+                task.standardError = Pipe()
+
+                guard (try? task.run()) != nil else { return }
+                task.waitUntilExit()
+
+                let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                let lines = output.components(separatedBy: "\n").filter {
+                    $0.contains("semanticModeIdentifier") && !$0.hasPrefix("Filtering")
+                }
+
+                guard let lastLine = lines.last(where: { !$0.isEmpty }) else { continue }
+
+                // starting: 0 means focus ended — nothing to activate.
+                guard !lastLine.contains("starting: 0") else { return }
+
+                let identifier = FocusMetadataDecoder.extractIdentifier(from: lastLine)
+                let name = FocusMetadataDecoder.extractName(from: lastLine)
+                guard identifier != nil || name != nil else { return }
+
+                self.publishMetadata(identifier: identifier, name: name, isActive: true, source: "log-initial")
+                return
+            }
         }
     }
 
@@ -740,7 +787,14 @@ extension FocusModeType {
             return
         }
 
-        // 2. macOS 26.3 custom Focus modes use `com.apple.donotdisturb.mode.<symbol>`.
+        // 2. Sleep focus is reported as `com.apple.sleep.sleep-mode` by duetexpertd,
+        //    not as the rawValue `com.apple.focus.sleep`, so handle it explicitly here.
+        if normalizedLowercased == "com.apple.sleep.sleep-mode" {
+            self = .sleep
+            return
+        }
+
+        // 3. macOS custom Focus modes use `com.apple.donotdisturb.mode.<symbol>`.
         //    Must be checked BEFORE the generic prefix match, otherwise the prefix
         //    `com.apple.donotdisturb.mode` would incorrectly resolve to .doNotDisturb.
         if normalizedLowercased.hasPrefix("com.apple.donotdisturb.mode.") {
@@ -751,7 +805,7 @@ extension FocusModeType {
             }
         }
 
-        // 3. Prefix match for known built-in modes (e.g., com.apple.focus.personal-time -> .personal).
+        // 4. Prefix match for known built-in modes (e.g., com.apple.focus.personal-time -> .personal).
         if let resolved = FocusModeType.allCases.first(where: {
             guard !$0.rawValue.isEmpty else { return false }
             return normalized.hasPrefix($0.rawValue) || normalizedLowercased.hasPrefix($0.rawValue)
@@ -760,7 +814,7 @@ extension FocusModeType {
             return
         }
 
-        // 4. Anything else under com.apple.focus is custom.
+        // 5. Anything else under com.apple.focus is custom.
         if normalizedLowercased.hasPrefix("com.apple.focus") {
             self = .custom
             return
@@ -1276,6 +1330,7 @@ private enum FocusNotificationParsing {
             "(?i)(?:focusModeName|focusMode|displayName|name)\\s*=\\s*\"([^\"]+)\"",
             "(?i)(?:focusModeName|focusMode|displayName|name)\\s*=\\s*([^;\\n]+)",
             "activityDisplayName:\\s*([^;>\\n]+)",
+            "semanticType:\\s*([A-Za-z][A-Za-z0-9 _-]+)",
             "modeIdentifier:\\s*'com\\.apple\\.focus\\.([A-Za-z0-9._-]+)'"
         ]
         return patterns.compactMap { try? NSRegularExpression(pattern: $0, options: []) }
