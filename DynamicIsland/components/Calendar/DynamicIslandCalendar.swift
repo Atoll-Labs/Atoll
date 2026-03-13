@@ -261,7 +261,16 @@ struct StandaloneCalendarView: View {
     @Default(.hideCompletedReminders) private var hideCompletedReminders
 
     private let calendar = Calendar.current
-    private let weekdaySymbols = Calendar.current.shortWeekdaySymbols
+
+    private var weekdaySymbols: [String] {
+        let symbols = calendar.veryShortStandaloneWeekdaySymbols
+        guard !symbols.isEmpty else { return symbols }
+
+        let firstWeekdayIndex = max(0, min(symbols.count - 1, calendar.firstWeekday - 1))
+        var ordered = Array(symbols[firstWeekdayIndex...])
+        ordered.append(contentsOf: symbols[..<firstWeekdayIndex])
+        return ordered
+    }
 
     private var monthTitle: String {
         displayedMonth.formatted(.dateTime.month(.wide))
