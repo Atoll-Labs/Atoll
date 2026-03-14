@@ -6485,7 +6485,7 @@ struct ClipboardSettings: View {
                             }
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 100)
+                        .frame(minWidth: 100)
                     }
                     .settingsHighlight(id: highlightID("Display Mode"))
                     
@@ -6499,7 +6499,7 @@ struct ClipboardSettings: View {
                             Text("10 items").tag(10)
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 100)
+                        .frame(minWidth: 100)
                     }
                     .settingsHighlight(id: highlightID("History Size"))
                     
@@ -6696,10 +6696,10 @@ struct ScreenAssistantSettings: View {
                             }
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 100)
+                        .frame(minWidth: 100)
                     }
                     .settingsHighlight(id: highlightID("Display Mode"))
-                    
+
                     HStack {
                         Text("Attached Files")
                         Spacer()
@@ -6823,10 +6823,10 @@ struct ColorPickerSettings: View {
                             }
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 100)
+                        .frame(minWidth: 100)
                     }
                     .settingsHighlight(id: highlightID("Display Mode"))
-                    
+
                     HStack {
                         Text("History Size")
                         Spacer()
@@ -6837,7 +6837,7 @@ struct ColorPickerSettings: View {
                             Text("20 colors").tag(20)
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 100)
+                        .frame(minWidth: 100)
                     }
                     .settingsHighlight(id: highlightID("History Size"))
                     
