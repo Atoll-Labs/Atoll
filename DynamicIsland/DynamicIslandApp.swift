@@ -400,6 +400,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Defaults.Keys.migrateMusicAuxControls()
         Defaults.Keys.migrateMusicControlSlots()
         Defaults.Keys.migrateCapsLockTintMode()
+        Defaults.Keys.migrateThirdPartyDDCIntegration()
+
+        Defaults.publisher(.enableThirdPartyDDCIntegration, options: [])
+            .sink { _ in
+                Defaults.Keys.syncLegacyThirdPartyDDCKeys()
+            }
+            .store(in: &cancellables)
+
+        Defaults.publisher(.thirdPartyDDCProvider, options: [])
+            .sink { _ in
+                Defaults.Keys.syncLegacyThirdPartyDDCKeys()
+            }
+            .store(in: &cancellables)
         
         // Initialize idle animations (load bundled + built-in face)
         idleAnimationManager.initializeDefaultAnimations()

@@ -87,6 +87,10 @@ final class LunarManager: ObservableObject {
     private static let maxReconnectAttempts = 5
     private static let baseReconnectDelay: UInt64 = 2_000_000_000 // 2 seconds
 
+    private var isLunarIntegrationEnabled: Bool {
+        Defaults[.enableThirdPartyDDCIntegration] && Defaults[.thirdPartyDDCProvider] == .lunar
+    }
+
     private init() {
         isDetected = Self.checkInstallation()
         isRunning = Self.checkRunning()
@@ -99,10 +103,7 @@ final class LunarManager: ObservableObject {
     /// Configure with the view coordinator for HUD dispatch.
     func configure(coordinator: DynamicIslandViewCoordinator) {
         self.coordinator = coordinator
-
-        if Defaults[.enableLunarIntegration] && isRunning {
-            connectToLunar()
-        }
+        refreshConnectionState()
     }
 
     /// Called when Atoll is about to quit so Lunar's native OSD is restored.
@@ -115,11 +116,10 @@ final class LunarManager: ObservableObject {
         let wasRunning = isRunning
         isDetected = Self.checkInstallation()
         isRunning = Self.checkRunning()
-        if wasRunning && !isRunning {
-            disconnect()
-        } else if !wasRunning && isRunning && Defaults[.enableLunarIntegration] {
-            connectToLunar()
+        if wasRunning != isRunning {
+            NSLog("🌙 Lunar running state changed: running=\(isRunning)")
         }
+        refreshConnectionState()
     }
 
     // MARK: - Detection
@@ -267,11 +267,11 @@ final class LunarManager: ObservableObject {
     }
 
     private func handleReceivedData(_ data: Data) {
-        guard Defaults[.enableLunarIntegration], isRunning else { return }
+        guard isLunarIntegrationEnabled, isRunning else { return }
 
         do {
             let displayData = try JSONDecoder().decode(LunarDisplayData.self, from: data)
-            NSLog("🌙 Lunar: display=\(displayData.display) brightness=\(displayData.brightness ?? -1) contrast=\(displayData.contrast ?? -1) volume=\(displayData.volume ?? -1) mute=\(displayData.mute.map(String.init) ?? "nil")")
+            logDecodedPayload(displayData, source: "socket")
             routeToHUD(displayData)
         } catch {
             // Lunar may send multi-line JSON or partial data; try splitting by newlines
@@ -280,7 +280,7 @@ final class LunarManager: ObservableObject {
             for line in lines {
                 guard let lineData = line.data(using: .utf8) else { continue }
                 if let displayData = try? JSONDecoder().decode(LunarDisplayData.self, from: lineData) {
-                    NSLog("🌙 Lunar: display=\(displayData.display) brightness=\(displayData.brightness ?? -1) contrast=\(displayData.contrast ?? -1) volume=\(displayData.volume ?? -1)")
+                    logDecodedPayload(displayData, source: "socket-line")
                     routeToHUD(displayData)
                 }
             }
@@ -292,6 +292,16 @@ final class LunarManager: ObservableObject {
     private func routeToHUD(_ data: LunarDisplayData) {
         let targetScreen = resolveScreen(for: data.display)
         let isExternal = isExternalDisplay(data.display, resolvedScreen: targetScreen)
+        let hasVolumeData = data.volume != nil || data.mute != nil
+        let resolvedScreenText = targetScreen?.localizedName ?? "nil"
+        let brightnessText = data.brightness.map { String($0) } ?? "nil"
+        let contrastText = data.contrast.map { String($0) } ?? "nil"
+        let volumeText = data.volume.map { String($0) } ?? "nil"
+        let muteText = data.mute.map { String($0) } ?? "nil"
+
+        NSLog(
+            "🌙 Lunar routed payload: display=\(data.display) resolvedScreen=\(resolvedScreenText) isExternal=\(isExternal) brightness=\(brightnessText) contrast=\(contrastText) volume=\(volumeText) mute=\(muteText) hasVolumeData=\(hasVolumeData)"
+        )
 
         // Nits-only events are informational (no user-facing HUD needed).
         let hasActionableChange = data.brightness != nil || data.contrast != nil || data.volume != nil || data.mute != nil
@@ -418,10 +428,21 @@ final class LunarManager: ObservableObject {
         return num.uint32Value
     }
 
+    private func logDecodedPayload(_ data: LunarDisplayData, source: String) {
+        let hasVolumeData = data.volume != nil || data.mute != nil
+        let brightnessText = data.brightness.map { String($0) } ?? "nil"
+        let contrastText = data.contrast.map { String($0) } ?? "nil"
+        let volumeText = data.volume.map { String($0) } ?? "nil"
+        let muteText = data.mute.map { String($0) } ?? "nil"
+        NSLog(
+            "🌙 Lunar decoded payload (\(source)): display=\(data.display) brightness=\(brightnessText) contrast=\(contrastText) volume=\(volumeText) mute=\(muteText) hasVolumeData=\(hasVolumeData)"
+        )
+    }
+
     // MARK: - Reconnection
 
     private func scheduleReconnect() {
-        guard Defaults[.enableLunarIntegration], isRunning else { return }
+        guard isLunarIntegrationEnabled, isRunning else { return }
         guard reconnectAttempts < Self.maxReconnectAttempts else {
             NSLog("🌙 Lunar: max reconnect attempts reached, giving up")
             return
@@ -435,7 +456,7 @@ final class LunarManager: ObservableObject {
 
         reconnectTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: delay)
-            guard !Task.isCancelled, self.isRunning, Defaults[.enableLunarIntegration] else { return }
+            guard !Task.isCancelled, self.isRunning, self.isLunarIntegrationEnabled else { return }
             NSLog("🌙 Lunar: reconnect attempt \(attempt + 1)/\(Self.maxReconnectAttempts)")
             self.connectToLunar()
         }
@@ -459,7 +480,7 @@ final class LunarManager: ObservableObject {
                 self?.isDetected = true
                 self?.isRunning = true
                 self?.reconnectAttempts = 0
-                if Defaults[.enableLunarIntegration] {
+                if self?.isLunarIntegrationEnabled == true {
                     // Give Lunar a moment to start its socket server
                     try? await Task.sleep(nanoseconds: 1_500_000_000)
                     self?.connectToLunar()
@@ -485,16 +506,27 @@ final class LunarManager: ObservableObject {
 
     // MARK: - Settings Observer
 
+    private func refreshConnectionState() {
+        if isLunarIntegrationEnabled && isRunning {
+            connectToLunar()
+        } else {
+            disconnect()
+        }
+    }
+
     private func setupSettingsObserver() {
-        Defaults.publisher(.enableLunarIntegration, options: [])
-            .sink { [weak self] change in
+        Defaults.publisher(.enableThirdPartyDDCIntegration, options: [])
+            .sink { [weak self] _ in
                 Task { @MainActor in
-                    guard let self else { return }
-                    if change.newValue && self.isRunning {
-                        self.connectToLunar()
-                    } else {
-                        self.disconnect()
-                    }
+                    self?.refreshConnectionState()
+                }
+            }
+            .store(in: &cancellables)
+
+        Defaults.publisher(.thirdPartyDDCProvider, options: [])
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    self?.refreshConnectionState()
                 }
             }
             .store(in: &cancellables)

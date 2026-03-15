@@ -181,16 +181,15 @@ class SystemHUDManager {
             )
         }.store(in: &cancellables)
 
-        // When BetterDisplay integration toggled, restart observer to update Cmd+Brightness key interception
-        Defaults.publisher(.enableBetterDisplayIntegration, options: []).sink { [weak self] _ in
+        // Restart observer when third-party DDC integration state changes.
+        Defaults.publisher(.enableThirdPartyDDCIntegration, options: []).sink { [weak self] _ in
             guard let self = self, self.isSetupComplete else { return }
             Task { @MainActor in
                 await self.startSystemObserver()
             }
         }.store(in: &cancellables)
 
-        // When Lunar integration toggled, restart observer to update brightness key interception
-        Defaults.publisher(.enableLunarIntegration, options: []).sink { [weak self] _ in
+        Defaults.publisher(.thirdPartyDDCProvider, options: []).sink { [weak self] _ in
             guard let self = self, self.isSetupComplete else { return }
             Task { @MainActor in
                 await self.startSystemObserver()
@@ -248,9 +247,9 @@ class SystemHUDManager {
             keyboardBacklightEnabled = Defaults[.enableKeyboardBacklightHUD]
         }
 
-        // When BetterDisplay or Lunar integration is on, stop intercepting brightness and
+        // When third-party DDC integration is on, stop intercepting brightness and
         // Cmd+Brightness keys so the external app receives them and sends DDC/OSD events.
-        if Defaults[.enableBetterDisplayIntegration] || Defaults[.enableLunarIntegration] {
+        if Defaults[.enableThirdPartyDDCIntegration] {
             brightnessEnabled = false
             keyboardBacklightEnabled = false
         }
@@ -281,7 +280,7 @@ class SystemHUDManager {
         // Force disable system HUD to ensure no duplicates
         SystemOSDManager.disableSystemHUD()
         
-        print("System observer started (HUD: \(Defaults[.enableSystemHUD]), OSD: \(Defaults[.enableCustomOSD]), Vertical: \(Defaults[.enableVerticalHUD]), BD: \(Defaults[.enableBetterDisplayIntegration]))")
+        print("System observer started (HUD: \(Defaults[.enableSystemHUD]), OSD: \(Defaults[.enableCustomOSD]), Vertical: \(Defaults[.enableVerticalHUD]), ThirdPartyDDC: \(Defaults[.enableThirdPartyDDCIntegration]), Provider: \(Defaults[.thirdPartyDDCProvider].displayName))")
         isSystemOperationInProgress = false
     }
     

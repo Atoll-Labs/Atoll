@@ -115,6 +115,10 @@ final class BetterDisplayManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private weak var coordinator: DynamicIslandViewCoordinator?
 
+    private var isBetterDisplayIntegrationEnabled: Bool {
+        Defaults[.enableThirdPartyDDCIntegration] && Defaults[.thirdPartyDDCProvider] == .betterDisplay
+    }
+
     private init() {
         isDetected = Self.checkInstallation()
         isRunning = Self.checkRunning()
@@ -128,11 +132,7 @@ final class BetterDisplayManager: ObservableObject {
     /// Configure with the view coordinator for HUD dispatch.
     func configure(coordinator: DynamicIslandViewCoordinator) {
         self.coordinator = coordinator
-
-        // Start listening if integration is enabled and BetterDisplay is running
-        if Defaults[.enableBetterDisplayIntegration] && isRunning {
-            startListening()
-        }
+        refreshListeningState()
     }
 
     /// Refresh detection status (e.g. after app install/uninstall).
@@ -141,11 +141,13 @@ final class BetterDisplayManager: ObservableObject {
         let wasRunning = isRunning
         isDetected = Self.checkInstallation()
         isRunning = Self.checkRunning()
-        if wasRunning && !isRunning {
-            stopListening()
-        } else if !wasRunning && isRunning && Defaults[.enableBetterDisplayIntegration] {
-            startListening()
+        if wasDetected != isDetected {
+            NSLog("📺 BetterDisplay detection changed: detected=\(isDetected)")
         }
+        if wasRunning != isRunning {
+            NSLog("📺 BetterDisplay running state changed: running=\(isRunning)")
+        }
+        refreshListeningState()
     }
 
     // MARK: - Detection
@@ -199,7 +201,7 @@ final class BetterDisplayManager: ObservableObject {
     // MARK: - OSD Handling
 
     private func handleOSDNotification(_ notification: Notification) {
-        guard Defaults[.enableBetterDisplayIntegration], isRunning else { return }
+        guard isBetterDisplayIntegrationEnabled, isRunning else { return }
 
         guard let notificationString = notification.object as? String else {
             NSLog("⚠️ BetterDisplay OSD: unexpected notification format")
@@ -213,6 +215,16 @@ final class BetterDisplayManager: ObservableObject {
                 BetterDisplayOSDNotification.self,
                 from: Data(notificationString.utf8)
             )
+            let displayIDText = osd.displayID.map { String($0) } ?? "nil"
+            let targetText = osd.controlTarget ?? "nil"
+            let iconIDText = osd.systemIconID.map { String($0) } ?? "nil"
+            let valueText = osd.value.map { String($0) } ?? "nil"
+            let maxValueText = osd.maxValue.map { String($0) } ?? "nil"
+            let symbolText = osd.customSymbol ?? "nil"
+            let textValue = osd.text ?? "nil"
+            NSLog(
+                "📺 BetterDisplay decoded payload: displayID=\(displayIDText) target=\(targetText) iconID=\(iconIDText) value=\(valueText) maxValue=\(maxValueText) customSymbol=\(symbolText) text=\(textValue)"
+            )
             routeOSDToHUD(osd)
         } catch {
             NSLog("⚠️ BetterDisplay OSD decode error: \(error.localizedDescription)")
@@ -225,8 +237,18 @@ final class BetterDisplayManager: ObservableObject {
         let normalizedValue = normalizeValue(osd.value, maxValue: osd.maxValue)
         let targetScreen = resolveScreen(for: osd.displayID)
         let isExternalDisplay = isExternal(displayID: osd.displayID, resolvedScreen: targetScreen)
+        let inferredMute = osd.controlTarget == "mute" || osd.systemIconID == 4
+        let hasVolumeData = category == .volume && osd.value != nil
+        let targetText = osd.controlTarget ?? "nil"
+        let displayIDText = osd.displayID.map { String($0) } ?? "nil"
+        let resolvedScreenText = targetScreen?.localizedName ?? "nil"
+        let valueText = osd.value.map { String($0) } ?? "nil"
+        let maxValueText = osd.maxValue.map { String($0) } ?? "nil"
+        let normalizedText = String(format: "%.3f", normalizedValue)
 
-        NSLog("📺 BetterDisplay OSD: target=\(osd.controlTarget ?? "nil") displayID=\(osd.displayID.map(String.init) ?? "nil") resolvedScreen=\(targetScreen?.localizedName ?? "nil") isExternal=\(isExternalDisplay) value=\(osd.value ?? -1)")
+        NSLog(
+            "📺 BetterDisplay routed payload: category=\(categoryName(category)) target=\(targetText) displayID=\(displayIDText) resolvedScreen=\(resolvedScreenText) isExternal=\(isExternalDisplay) rawValue=\(valueText) maxValue=\(maxValueText) normalized=\(normalizedText) hasVolumeData=\(hasVolumeData) inferredMute=\(inferredMute)"
+        )
 
         switch category {
         case .brightness:
@@ -365,6 +387,17 @@ final class BetterDisplayManager: ObservableObject {
         }
     }
 
+    private func categoryName(_ category: BetterDisplayControlCategory) -> String {
+        switch category {
+        case .brightness:
+            return "brightness"
+        case .volume:
+            return "volume"
+        case .other:
+            return "other"
+        }
+    }
+
     /// Normalize a BetterDisplay value (0...maxValue) to 0...1 range.
     private func normalizeValue(_ value: Double?, maxValue: Double?) -> CGFloat {
         guard let value else { return 0 }
@@ -488,7 +521,7 @@ final class BetterDisplayManager: ObservableObject {
             Task { @MainActor in
                 NSLog("🔴 BetterDisplay terminated (workspace notification)")
                 self?.isRunning = false
-                self?.stopListening()
+                self?.refreshListeningState()
             }
         }
     }
@@ -507,9 +540,7 @@ final class BetterDisplayManager: ObservableObject {
                 NSLog("🟢 BetterDisplay launched notification received")
                 self?.isDetected = true
                 self?.isRunning = true
-                if Defaults[.enableBetterDisplayIntegration] {
-                    self?.startListening()
-                }
+                self?.refreshListeningState()
             }
         }
 
@@ -521,23 +552,34 @@ final class BetterDisplayManager: ObservableObject {
             Task { @MainActor in
                 NSLog("🔴 BetterDisplay terminated notification received")
                 self?.isRunning = false
-                self?.stopListening()
+                self?.refreshListeningState()
             }
         }
     }
 
     // MARK: - Settings Observer
 
+    private func refreshListeningState() {
+        if isBetterDisplayIntegrationEnabled && isRunning {
+            startListening()
+        } else {
+            stopListening()
+        }
+    }
+
     private func setupSettingsObserver() {
-        Defaults.publisher(.enableBetterDisplayIntegration, options: [])
-            .sink { [weak self] change in
+        Defaults.publisher(.enableThirdPartyDDCIntegration, options: [])
+            .sink { [weak self] _ in
                 Task { @MainActor in
-                    guard let self else { return }
-                    if change.newValue && self.isRunning {
-                        self.startListening()
-                    } else {
-                        self.stopListening()
-                    }
+                    self?.refreshListeningState()
+                }
+            }
+            .store(in: &cancellables)
+
+        Defaults.publisher(.thirdPartyDDCProvider, options: [])
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    self?.refreshListeningState()
                 }
             }
             .store(in: &cancellables)
