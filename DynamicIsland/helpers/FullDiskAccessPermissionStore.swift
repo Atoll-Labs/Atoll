@@ -53,6 +53,53 @@ enum FullDiskAccessAuthorization {
     }
 }
 
+enum ShelfFolderAccessAuthorization {
+    private static var documentsDirectoryURL: URL? {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+    }
+
+    private static var downloadsDirectoryURL: URL? {
+        FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+    }
+
+    static func hasDocumentsAccess() -> Bool {
+        canReadDirectory(at: documentsDirectoryURL)
+    }
+
+    static func hasDownloadsAccess() -> Bool {
+        canReadDirectory(at: downloadsDirectoryURL)
+    }
+
+    static func hasDocumentsAndDownloadsAccess() -> Bool {
+        hasDocumentsAccess() && hasDownloadsAccess()
+    }
+
+    static func requestAccessProbe() {
+        if let documentsDirectoryURL {
+            _ = try? FileManager.default.contentsOfDirectory(at: documentsDirectoryURL, includingPropertiesForKeys: nil)
+        }
+
+        if let downloadsDirectoryURL {
+            _ = try? FileManager.default.contentsOfDirectory(at: downloadsDirectoryURL, includingPropertiesForKeys: nil)
+        }
+    }
+
+    private static func canReadDirectory(at url: URL?) -> Bool {
+        guard let url else { return false }
+
+        do {
+            _ = try FileManager.default.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+            return true
+        } catch {
+            return false
+        }
+    }
+}
+
 @MainActor
 final class FullDiskAccessPermissionStore: ObservableObject {
     static let shared = FullDiskAccessPermissionStore()
@@ -126,5 +173,85 @@ final class FullDiskAccessPermissionStore: ObservableObject {
     private func updateAuthorizationStatus(to newValue: Bool) {
         guard newValue != isAuthorized else { return }
         isAuthorized = newValue
+    }
+}
+
+@MainActor
+final class ShelfFolderAccessPermissionStore: ObservableObject {
+    static let shared = ShelfFolderAccessPermissionStore()
+
+    @Published private(set) var hasDocumentsAccess: Bool = ShelfFolderAccessAuthorization.hasDocumentsAccess()
+    @Published private(set) var hasDownloadsAccess: Bool = ShelfFolderAccessAuthorization.hasDownloadsAccess()
+
+    var hasDocumentsAndDownloadsAccess: Bool {
+        hasDocumentsAccess && hasDownloadsAccess
+    }
+
+    private var pollingTask: Task<Void, Never>?
+
+    private init() {}
+
+    deinit {
+        pollingTask?.cancel()
+    }
+
+    func refreshStatus() {
+        updateStatus(
+            documents: ShelfFolderAccessAuthorization.hasDocumentsAccess(),
+            downloads: ShelfFolderAccessAuthorization.hasDownloadsAccess()
+        )
+    }
+
+    func requestAccessPrompt() {
+        ShelfFolderAccessAuthorization.requestAccessProbe()
+        beginPollingForStatusChanges()
+    }
+
+    func openSystemSettings() {
+#if os(macOS)
+        let urls = [
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders",
+            "x-apple.systempreferences:com.apple.preference.security"
+        ]
+
+        for candidate in urls {
+            guard let url = URL(string: candidate) else { continue }
+            if NSWorkspace.shared.open(url) {
+                return
+            }
+        }
+#endif
+    }
+
+    private func beginPollingForStatusChanges() {
+        pollingTask?.cancel()
+        pollingTask = Task { [weak self] in
+            guard let self else { return }
+
+            for _ in 0..<40 {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+
+                let docs = ShelfFolderAccessAuthorization.hasDocumentsAccess()
+                let downloads = ShelfFolderAccessAuthorization.hasDownloadsAccess()
+
+                await MainActor.run {
+                    self.updateStatus(documents: docs, downloads: downloads)
+                }
+
+                if docs && downloads {
+                    break
+                }
+            }
+        }
+    }
+
+    private func updateStatus(documents: Bool, downloads: Bool) {
+        if hasDocumentsAccess != documents {
+            hasDocumentsAccess = documents
+        }
+
+        if hasDownloadsAccess != downloads {
+            hasDownloadsAccess = downloads
+        }
     }
 }

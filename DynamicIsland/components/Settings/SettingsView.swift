@@ -3183,6 +3183,15 @@ struct Shelf: View {
     @Default(.autoRemoveShelfItems) var autoRemoveShelfItems
     @StateObject private var quickShareService = QuickShareService.shared
     @ObservedObject private var fullDiskAccessPermission = FullDiskAccessPermissionStore.shared
+    @ObservedObject private var shelfFolderAccessPermission = ShelfFolderAccessPermissionStore.shared
+
+    private var hasDocumentsAndDownloadsAccess: Bool {
+        shelfFolderAccessPermission.hasDocumentsAndDownloadsAccess
+    }
+
+    private var canEnableShelf: Bool {
+        fullDiskAccessPermission.isAuthorized || hasDocumentsAndDownloadsAccess
+    }
 
     private var selectedProvider: QuickShareProvider? {
         quickShareService.availableProviders.first(where: { $0.id == quickShareProvider })
@@ -3198,18 +3207,33 @@ struct Shelf: View {
 
     var body: some View {
         Form {
-            if !fullDiskAccessPermission.isAuthorized {
+            if !canEnableShelf || !fullDiskAccessPermission.isAuthorized {
                 Section {
-                    SettingsPermissionCallout(
-                        title: "Full Disk Access required",
-                        message: "Grant Full Disk Access so the Shelf can index and move files outside the app sandbox.",
-                        icon: "externaldrive.fill",
-                        iconColor: .purple,
-                        requestButtonTitle: "Request Full Disk Access",
-                        openSettingsButtonTitle: "Open Privacy & Security",
-                        requestAction: { fullDiskAccessPermission.requestAccessPrompt() },
-                        openSettingsAction: { fullDiskAccessPermission.openSystemSettings() }
-                    )
+                    if !canEnableShelf {
+                        SettingsPermissionCallout(
+                            title: "Additional folder access required",
+                            message: "Enable Full Disk Access, or grant access to both Documents and Downloads folders to use Shelf.",
+                            icon: "folder.badge.questionmark",
+                            iconColor: .orange,
+                            requestButtonTitle: "Request Folder Access",
+                            openSettingsButtonTitle: "Open Privacy & Security",
+                            requestAction: { shelfFolderAccessPermission.requestAccessPrompt() },
+                            openSettingsAction: { shelfFolderAccessPermission.openSystemSettings() }
+                        )
+                    }
+
+                    if !fullDiskAccessPermission.isAuthorized {
+                        SettingsPermissionCallout(
+                            title: "Full Disk Access for global mode",
+                            message: "Without Full Disk Access, Shelf can only read files from Documents and Downloads. Grant Full Disk Access to make Shelf work globally.",
+                            icon: "externaldrive.fill",
+                            iconColor: .purple,
+                            requestButtonTitle: "Request Full Disk Access",
+                            openSettingsButtonTitle: "Open Privacy & Security",
+                            requestAction: { fullDiskAccessPermission.requestAccessPrompt() },
+                            openSettingsAction: { fullDiskAccessPermission.openSystemSettings() }
+                        )
+                    }
                 } header: {
                     Text("Permissions")
                 }
@@ -3217,7 +3241,7 @@ struct Shelf: View {
 
             Section {
                 Defaults.Toggle("Enable shelf", key: .dynamicShelf)
-                    .disabled(!fullDiskAccessPermission.isAuthorized)
+                    .disabled(!canEnableShelf)
                     .settingsHighlight(id: highlightID("Enable shelf"))
 
                 Defaults.Toggle("Open shelf tab by default if items added", key: .openShelfByDefault)
@@ -3304,6 +3328,7 @@ struct Shelf: View {
         .navigationTitle("Shelf")
         .onAppear {
             fullDiskAccessPermission.refreshStatus()
+            shelfFolderAccessPermission.refreshStatus()
         }
     }
 }
