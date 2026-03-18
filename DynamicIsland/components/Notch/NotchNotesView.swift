@@ -158,9 +158,13 @@ struct NotchNotesView: View {
             return
         }
         
-        // Fallback to text if not editing and clipboard has text
-        if !isEditingNewNote && selectedNoteId == nil {
-            if let text = pasteboard.string(forType: .string) {
+        // Handle text paste
+        if let text = pasteboard.string(forType: .string) {
+            if isEditingNewNote || selectedNoteId != nil {
+                // In editor: insert text at the end of content since we intercepted the shortcut
+                editorContent.append(text)
+            } else {
+                // Not in editor: create a new note with the pasted text
                 createNoteWithContent(text)
             }
         }
