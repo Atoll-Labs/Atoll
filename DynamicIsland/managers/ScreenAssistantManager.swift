@@ -720,6 +720,13 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                
+                // Ensure this callback belongs to the current in-flight request
+                guard self.activeRequest === task else { return }
+                
+                self.isLoading = false
+                self.activeRequest = nil
+                
                 self.handleResponse(data: data, response: response, error: error, provider: .claude)
             }
         }
@@ -731,9 +738,6 @@ class ScreenAssistantManager: NSObject, ObservableObject {
     // MARK: - Response Handlers
     
     private func handleResponse(data: Data?, response: URLResponse?, error: Error?, provider: AIModelProvider) {
-        isLoading = false
-        activeRequest = nil
-        
         // Check if the request was cancelled (e.g., by resetConversationContext)
         if let error = error as? NSError, error.code == NSURLErrorCancelled {
             print("ℹ️ ScreenAssistant: Request was cancelled")
