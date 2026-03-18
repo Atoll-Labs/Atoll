@@ -6479,27 +6479,27 @@ struct ClipboardSettings: View {
                     HStack {
                         Text("Display Mode")
                         Spacer()
-                        Picker("Display Mode", selection: $clipboardDisplayMode) {
+                        Picker("", selection: $clipboardDisplayMode) {
                             ForEach(ClipboardDisplayMode.allCases, id: \.self) { mode in
                                 Text(mode.displayName).tag(mode)
                             }
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 100)
+                        .frame(minWidth: 100)
                     }
                     .settingsHighlight(id: highlightID("Display Mode"))
                     
                     HStack {
                         Text("History Size")
                         Spacer()
-                        Picker("History Size", selection: $clipboardHistorySize) {
+                        Picker("", selection: $clipboardHistorySize) {
                             Text("3 items").tag(3)
                             Text("5 items").tag(5)
                             Text("7 items").tag(7)
                             Text("10 items").tag(10)
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 100)
+                        .frame(minWidth: 100)
                     }
                     .settingsHighlight(id: highlightID("History Size"))
                     
@@ -6690,16 +6690,16 @@ struct ScreenAssistantSettings: View {
                     HStack {
                         Text("Display Mode")
                         Spacer()
-                        Picker("Display Mode", selection: $screenAssistantDisplayMode) {
+                        Picker("", selection: $screenAssistantDisplayMode) {
                             ForEach(ScreenAssistantDisplayMode.allCases, id: \.self) { mode in
                                 Text(mode.displayName).tag(mode)
                             }
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 100)
+                        .frame(minWidth: 100)
                     }
                     .settingsHighlight(id: highlightID("Display Mode"))
-                    
+
                     HStack {
                         Text("Attached Files")
                         Spacer()
@@ -6817,27 +6817,27 @@ struct ColorPickerSettings: View {
                     HStack {
                         Text("Display Mode")
                         Spacer()
-                        Picker("Display Mode", selection: $colorPickerDisplayMode) {
+                        Picker("", selection: $colorPickerDisplayMode) {
                             ForEach(ColorPickerDisplayMode.allCases, id: \.self) { mode in
                                 Text(mode.displayName).tag(mode)
                             }
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 100)
+                        .frame(minWidth: 100)
                     }
                     .settingsHighlight(id: highlightID("Display Mode"))
-                    
+
                     HStack {
                         Text("History Size")
                         Spacer()
-                        Picker("History Size", selection: $colorHistorySize) {
+                        Picker("", selection: $colorHistorySize) {
                             Text("5 colors").tag(5)
                             Text("10 colors").tag(10)
                             Text("15 colors").tag(15)
                             Text("20 colors").tag(20)
                         }
                         .pickerStyle(.menu)
-                        .frame(width: 100)
+                        .frame(minWidth: 100)
                     }
                     .settingsHighlight(id: highlightID("History Size"))
                     
