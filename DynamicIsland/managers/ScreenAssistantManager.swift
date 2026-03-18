@@ -120,6 +120,7 @@ class ScreenAssistantManager: NSObject, ObservableObject {
     
     private var audioRecorder: AVAudioRecorder?
     private var recordingTimer: Timer?
+    private var activeRequest: URLSessionTask?
     
     // Panel management
     private var chatMessagesPanel: ChatMessagesPanel?
@@ -668,6 +669,7 @@ class ScreenAssistantManager: NSObject, ObservableObject {
             }
         }
         
+        activeRequest = task
         task.resume()
     }
     
@@ -694,6 +696,7 @@ class ScreenAssistantManager: NSObject, ObservableObject {
             }
         }
         
+        activeRequest = task
         task.resume()
     }
     
@@ -721,6 +724,7 @@ class ScreenAssistantManager: NSObject, ObservableObject {
             }
         }
         
+        activeRequest = task
         task.resume()
     }
     
@@ -728,6 +732,13 @@ class ScreenAssistantManager: NSObject, ObservableObject {
     
     private func handleResponse(data: Data?, response: URLResponse?, error: Error?, provider: AIModelProvider) {
         isLoading = false
+        activeRequest = nil
+        
+        // Check if the request was cancelled (e.g., by resetConversationContext)
+        if let error = error as? NSError, error.code == NSURLErrorCancelled {
+            print("ℹ️ ScreenAssistant: Request was cancelled")
+            return
+        }
         
         if let error = error {
             print("❌ ScreenAssistant: Network error - \(error)")
@@ -1107,6 +1118,10 @@ class ScreenAssistantManager: NSObject, ObservableObject {
     }
 
     func resetConversationContext() {
+        // Cancel any in-flight request
+        activeRequest?.cancel()
+        activeRequest = nil
+        
         isLoading = false
         chatMessages.removeAll()
         clearAllFiles()

@@ -219,6 +219,7 @@ struct ChatMessagesView: View {
                     .background(Color.gray.opacity(0.12))
                     .cornerRadius(8)
                 }
+                .disabled(screenAssistantManager.isLoading)
                 .buttonStyle(PlainButtonStyle())
                 .help("Clear conversation and attachments")
                 
