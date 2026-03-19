@@ -665,6 +665,13 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                
+                // Ensure this callback belongs to the current in-flight request
+                guard self.activeRequest === task else { return }
+                
+                self.isLoading = false
+                self.activeRequest = nil
+                
                 self.handleResponse(data: data, response: response, error: error, provider: provider)
             }
         }
@@ -692,6 +699,13 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                
+                // Ensure this callback belongs to the current in-flight request
+                guard self.activeRequest === task else { return }
+                
+                self.isLoading = false
+                self.activeRequest = nil
+                
                 self.handleResponse(data: data, response: response, error: error, provider: .openai)
             }
         }
