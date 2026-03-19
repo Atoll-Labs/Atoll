@@ -662,12 +662,14 @@ class ScreenAssistantManager: NSObject, ObservableObject {
             return
         }
         
-        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        var task: URLSessionDataTask?
+        task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                guard let currentTask = task else { return }
                 
                 // Ensure this callback belongs to the current in-flight request
-                guard self.activeRequest === task else { return }
+                guard self.activeRequest === currentTask else { return }
                 
                 self.isLoading = false
                 self.activeRequest = nil
@@ -677,7 +679,7 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         }
         
         activeRequest = task
-        task.resume()
+        task?.resume()
     }
     
     private func performOpenAIRequest(url: URL, requestBody: [String: Any], apiKey: String) {
@@ -696,12 +698,14 @@ class ScreenAssistantManager: NSObject, ObservableObject {
             return
         }
         
-        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        var task: URLSessionDataTask?
+        task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                guard let currentTask = task else { return }
                 
                 // Ensure this callback belongs to the current in-flight request
-                guard self.activeRequest === task else { return }
+                guard self.activeRequest === currentTask else { return }
                 
                 self.isLoading = false
                 self.activeRequest = nil
@@ -711,7 +715,7 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         }
         
         activeRequest = task
-        task.resume()
+        task?.resume()
     }
     
     private func performClaudeRequest(url: URL, requestBody: [String: Any], apiKey: String) {
@@ -731,12 +735,14 @@ class ScreenAssistantManager: NSObject, ObservableObject {
             return
         }
         
-        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        var task: URLSessionDataTask?
+        task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                guard let currentTask = task else { return }
                 
                 // Ensure this callback belongs to the current in-flight request
-                guard self.activeRequest === task else { return }
+                guard self.activeRequest === currentTask else { return }
                 
                 self.isLoading = false
                 self.activeRequest = nil
@@ -746,7 +752,7 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         }
         
         activeRequest = task
-        task.resume()
+        task?.resume()
     }
     
     // MARK: - Response Handlers
