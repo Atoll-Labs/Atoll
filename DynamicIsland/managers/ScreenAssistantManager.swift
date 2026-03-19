@@ -120,6 +120,7 @@ class ScreenAssistantManager: NSObject, ObservableObject {
     
     private var audioRecorder: AVAudioRecorder?
     private var recordingTimer: Timer?
+    private var activeRequest: URLSessionTask?
     
     // Panel management
     private var chatMessagesPanel: ChatMessagesPanel?
@@ -664,10 +665,18 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                
+                // Ensure this callback belongs to the current in-flight request
+                guard self.activeRequest === task else { return }
+                
+                self.isLoading = false
+                self.activeRequest = nil
+                
                 self.handleResponse(data: data, response: response, error: error, provider: provider)
             }
         }
         
+        activeRequest = task
         task.resume()
     }
     
@@ -690,10 +699,18 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                
+                // Ensure this callback belongs to the current in-flight request
+                guard self.activeRequest === task else { return }
+                
+                self.isLoading = false
+                self.activeRequest = nil
+                
                 self.handleResponse(data: data, response: response, error: error, provider: .openai)
             }
         }
         
+        activeRequest = task
         task.resume()
     }
     
@@ -717,17 +734,29 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                
+                // Ensure this callback belongs to the current in-flight request
+                guard self.activeRequest === task else { return }
+                
+                self.isLoading = false
+                self.activeRequest = nil
+                
                 self.handleResponse(data: data, response: response, error: error, provider: .claude)
             }
         }
         
+        activeRequest = task
         task.resume()
     }
     
     // MARK: - Response Handlers
     
     private func handleResponse(data: Data?, response: URLResponse?, error: Error?, provider: AIModelProvider) {
-        isLoading = false
+        // Check if the request was cancelled (e.g., by resetConversationContext)
+        if let error = error as? NSError, error.code == NSURLErrorCancelled {
+            print("ℹ️ ScreenAssistant: Request was cancelled")
+            return
+        }
         
         if let error = error {
             print("❌ ScreenAssistant: Network error - \(error)")
@@ -1107,6 +1136,10 @@ class ScreenAssistantManager: NSObject, ObservableObject {
     }
 
     func resetConversationContext() {
+        // Cancel any in-flight request
+        activeRequest?.cancel()
+        activeRequest = nil
+        
         isLoading = false
         chatMessages.removeAll()
         clearAllFiles()
