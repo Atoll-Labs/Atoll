@@ -422,8 +422,23 @@ struct SettingsView: View {
     @ViewBuilder
     private func sidebarIcon(for tab: SettingsTab) -> some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(tab.tint)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        tab.tint.opacity(1),
+                        tab.tint.opacity(0.7)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
             .frame(width: 26, height: 26)
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.7)
+                    .blendMode(.plusLighter)
+            }
+            .shadow(color: tab.tint.opacity(0.35), radius: 2, x: 0, y: 1)
             .overlay {
                 Image(systemName: tab.systemImage)
                     .font(.system(size: 13, weight: .semibold))
