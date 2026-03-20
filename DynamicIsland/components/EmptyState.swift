@@ -28,8 +28,10 @@ struct EmptyStateView: View {
     
     var body: some View {
         HStack {
-            MinimalFaceFeatures(
-                height: 70, width: 80)
+            Image(systemName: "music.note")
+                .font(.system(size: 24))
+                .foregroundColor(.gray)
+                .frame(width: 80, height: 70)
             Text(message)
                 .font(.system(size:14))
                 .foregroundColor(.gray)

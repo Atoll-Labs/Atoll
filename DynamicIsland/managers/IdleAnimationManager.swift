@@ -39,18 +39,9 @@ class IdleAnimationManager {
     
     // MARK: - Initialization
     
-    /// Load bundled animations from the LottieAnimations folder and built-in face
+    /// Load bundled animations from the LottieAnimations folder
     func initializeDefaultAnimations() {
         var animations: [CustomIdleAnimation] = []
-        
-        // Add built-in face as first option
-        let builtInFace = CustomIdleAnimation(
-            name: "Classic Face",
-            source: .builtInFace,
-            speed: 1.0,
-            isBuiltIn: true
-        )
-        animations.append(builtInFace)
         
         // Load bundled Lottie files
         if let bundledAnimations = loadBundledAnimations() {
@@ -60,14 +51,21 @@ class IdleAnimationManager {
         // Get existing animations
         var existing = Defaults[.customIdleAnimations]
         
+        // Remove any legacy builtInFace entries that may be stored from older versions
+        existing.removeAll { animation in
+            if case .lottieFile(let url) = animation.source, url.absoluteString == "builtin://face" {
+                return true
+            }
+            return false
+        }
+        
         if existing.isEmpty {
             // First launch - set everything
             Defaults[.customIdleAnimations] = animations
-            Defaults[.selectedIdleAnimation] = builtInFace
+            Defaults[.selectedIdleAnimation] = animations.first
             print("✅ [IdleAnimationManager] First launch: Initialized with \(animations.count) animations")
         } else {
             // Subsequent launch - ensure all bundled animations are present
-            let existingIDs = Set(existing.map { $0.id })
             let existingNames = Set(existing.filter { $0.isBuiltIn }.map { $0.name })
             
             // Add any missing bundled animations
@@ -79,7 +77,23 @@ class IdleAnimationManager {
             }
             
             Defaults[.customIdleAnimations] = existing
-            print("✅ [IdleAnimationManager] Subsequent launch: \(existing.count) total animations (\(animations.count - 1) bundled + built-in face)")
+            
+            // If current selection was the old built-in face (no longer valid), select first available
+            if let selected = Defaults[.selectedIdleAnimation] {
+                let isValid: Bool
+                switch selected.source {
+                case .lottieFile(let url):
+                    isValid = url.absoluteString != "builtin://face"
+                case .lottieURL:
+                    isValid = true
+                }
+                if !isValid {
+                    Defaults[.selectedIdleAnimation] = existing.first
+                    print("🔄 [IdleAnimationManager] Migrated selection from legacy face to: \(existing.first?.name ?? "nil")")
+                }
+            }
+            
+            print("✅ [IdleAnimationManager] Subsequent launch: \(existing.count) total animations")
         }
     }
     

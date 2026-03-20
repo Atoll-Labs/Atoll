@@ -170,16 +170,11 @@ struct AnimationEditorView: View {
                 .frame(width: 30 * previewScale, height: 20 * previewScale)
             
             Group {
-                if let existing = existingAnimation, case .builtInFace = existing.source {
-                    MinimalFaceFeatures(height: 20, width: 30)
-                        .scaleEffect(previewScale)
-                } else {
-                    LottieView(state: LUStateData(
-                        type: .loadedFrom(sourceURL),
-                        speed: speed,
-                        loopMode: loopMode.lottieLoopMode
-                    ))
-                }
+                LottieView(state: LUStateData(
+                    type: .loadedFrom(sourceURL),
+                    speed: speed,
+                    loopMode: loopMode.lottieLoopMode
+                ))
             }
             .frame(width: cropWidth * scale * previewScale, height: cropHeight * scale * previewScale)
             .offset(x: offsetX * previewScale, y: offsetY * previewScale)

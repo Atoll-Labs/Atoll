@@ -87,12 +87,6 @@ struct IdleAnimationsSettingsSection: View {
                                         print("🔧 [Edit] Lottie URL: \(url)")
                                         editorSourceURL = url
                                         editorIsRemote = true
-                                        
-                                    case .builtInFace:
-                                        print("🔧 [Edit] Built-in face - using dummy URL")
-                                        // Use a dummy URL for built-in face (editor only needs URL for preview)
-                                        editorSourceURL = URL(string: "builtin://face")!
-                                        editorIsRemote = false
                                     }
                                     
                                     // Show editor with slight delay to ensure state is set
@@ -118,7 +112,7 @@ struct IdleAnimationsSettingsSection: View {
                 }
                 .frame(height: 140)
             } else {
-                Text("Enable \"Show cool face animation while inactivity\" to customize animations")
+                Text("Enable \"Idle Animation\" to customize animations")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 8)
@@ -388,10 +382,6 @@ struct AnimationPreview: View {
                 loopMode: .loop
             ))
             .frame(width: 60, height: 40)
-            
-        case .builtInFace:
-            MinimalFaceFeatures(height: 40, width: 60)
-                .scaleEffect(2.0)  // Scale up the face for preview
         }
     }
 }

@@ -414,14 +414,20 @@ class StatsManager: ObservableObject {
     private var delayedStopTimer: Timer?
     private var delayedStartTimer: Timer?
     private let maxHistoryPoints = 30
+    /// Cached host port to avoid leaking Mach send rights.
+    /// Every call to `mach_host_self()` acquires a new send right that must be
+    /// explicitly deallocated; caching it once prevents port exhaustion over time.
+    private let hostPort: mach_port_t = mach_host_self()
     private let totalPhysicalMemory: UInt64 = {
         var stats = host_basic_info()
         var count = mach_msg_type_number_t(MemoryLayout<host_basic_info_data_t>.size / MemoryLayout<integer_t>.size)
+        let initHostPort = mach_host_self()
         let result = withUnsafeMutablePointer(to: &stats) {
             $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                host_info(mach_host_self(), HOST_BASIC_INFO, $0, &count)
+                host_info(initHostPort, HOST_BASIC_INFO, $0, &count)
             }
         }
+        mach_port_deallocate(mach_task_self_, initHostPort)
         if result == KERN_SUCCESS {
             return UInt64(stats.max_mem)
         }
@@ -786,7 +792,7 @@ class StatsManager: ObservableObject {
 
         let result = withUnsafeMutablePointer(to: &info) {
             $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, $0, &count)
+                host_statistics(hostPort, HOST_CPU_LOAD_INFO, $0, &count)
             }
         }
 
@@ -858,7 +864,7 @@ class StatsManager: ObservableObject {
         
         let vmResult = withUnsafeMutablePointer(to: &vmStatistics) {
             $0.withMemoryRebound(to: integer_t.self, capacity: Int(size)) {
-                host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &size)
+                host_statistics64(hostPort, HOST_VM_INFO64, $0, &size)
             }
         }
         
@@ -978,7 +984,7 @@ class StatsManager: ObservableObject {
         var cpuInfo: processor_info_array_t?
         var numCpuInfo: mach_msg_type_number_t = 0
         var numCPUsU: natural_t = 0
-        let result = host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &numCPUsU, &cpuInfo, &numCpuInfo)
+        let result = host_processor_info(hostPort, PROCESSOR_CPU_LOAD_INFO, &numCPUsU, &cpuInfo, &numCpuInfo)
         guard result == KERN_SUCCESS, let cpuInfo else {
             return cpuCoreUsage
         }

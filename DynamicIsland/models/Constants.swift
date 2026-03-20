@@ -128,13 +128,11 @@ enum AnimationLoopMode: String, Codable, CaseIterable {
 enum AnimationSource: Codable, Hashable, Equatable {
     case lottieFile(URL)        // Local file (in app support or bundle)
     case lottieURL(URL)         // Remote URL
-    case builtInFace            // Original MinimalFaceFeatures
     
     var displayType: String {
         switch self {
         case .lottieFile: return "Local"
         case .lottieURL: return "Remote"
-        case .builtInFace: return "Built-in"
         }
     }
 }

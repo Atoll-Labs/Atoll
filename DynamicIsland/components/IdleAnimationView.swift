@@ -31,8 +31,8 @@ struct IdleAnimationView: View {
                 AnimationContentView(animation: animation)
                     .id("\(animation.id)-\(overrides[animation.id.uuidString]?.hashValue ?? 0)")  // Force recreation when override changes
             } else {
-                // Fallback to original face if nothing selected
-                MinimalFaceFeatures(height: 20, width: 30)
+                // No animation selected
+                EmptyView()
             }
         }
     }
@@ -85,20 +85,6 @@ private struct AnimationContentView: View {
             .padding(.bottom, config.paddingBottom)
             .frame(width: config.expandWithAnimation ? nil : 30, height: 20)
             .clipped()
-            
-        case .builtInFace:
-            // Apply transforms to built-in face too!
-            MinimalFaceFeatures(height: 20, width: 30)
-                .frame(
-                    width: config.cropWidth * config.scale,
-                    height: config.cropHeight * config.scale
-                )
-                .offset(x: config.offsetX, y: config.offsetY)
-                .rotationEffect(.degrees(config.rotation))
-                .opacity(config.opacity)
-                .padding(.bottom, config.paddingBottom)
-                .frame(width: config.expandWithAnimation ? nil : 30, height: 20)
-                .clipped()
         }
     }
 }
