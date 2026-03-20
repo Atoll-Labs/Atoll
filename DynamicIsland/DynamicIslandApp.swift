@@ -156,6 +156,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationWillTerminate(_ notification: Notification) {
+        let userInfo: [String: Any] = [
+            AtollDistributedNotifications.UserInfoKey.sourcePID: NSNumber(value: ProcessInfo.processInfo.processIdentifier)
+        ]
+        DistributedNotificationCenter.default().postNotificationName(
+            AtollDistributedNotifications.didBecomeIdle,
+            object: nil,
+            userInfo: userInfo,
+            deliverImmediately: true
+        )
+
         // Cancel any pending window size updates
         windowSizeUpdateWorkItem?.cancel()
         NotificationCenter.default.removeObserver(self)
@@ -393,6 +403,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let userInfo: [String: Any] = [
+            AtollDistributedNotifications.UserInfoKey.sourcePID: NSNumber(value: ProcessInfo.processInfo.processIdentifier)
+        ]
+        DistributedNotificationCenter.default().postNotificationName(
+            AtollDistributedNotifications.didBecomeActive,
+            object: nil,
+            userInfo: userInfo,
+            deliverImmediately: true
+        )
+
         LockScreenLiveActivityWindowManager.shared.configure(viewModel: vm)
         LockScreenManager.shared.configure(viewModel: vm)
         extensionXPCServiceHost.start()
