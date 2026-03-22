@@ -167,9 +167,6 @@ class AppleMusicController: MediaControllerProtocol {
 
     // MARK: - Private Methods
 
-    /// Searches the Apple Music catalog (via iTunes Search API) for the current
-    /// track and downloads its artwork. This works for streamed content where
-    /// AppleScript cannot access artwork data.
     private func fetchArtworkFromCatalog(title: String, artist: String, album: String) async -> Data? {
         let key = "\(title)|\(artist)|\(album)"
 
