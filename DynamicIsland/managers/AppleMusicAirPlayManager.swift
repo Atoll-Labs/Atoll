@@ -47,6 +47,8 @@ struct AirPlayDevice: Identifiable, Equatable {
 
 @MainActor
 final class AppleMusicAirPlayManager: ObservableObject {
+    static let shared = AppleMusicAirPlayManager()
+
     @Published private(set) var devices: [AirPlayDevice] = []
     @Published private(set) var isLoading = false
 
@@ -135,6 +137,14 @@ final class AppleMusicAirPlayManager: ObservableObject {
     }
 
     // MARK: - Volume control
+
+    /// Returns the most recent volume the user set for a device, whether it's
+    /// still pending, already committed, or (as fallback) the last fetched value.
+    func currentVolume(for deviceID: String) -> Int {
+        if let pending = userSetVolume[deviceID] { return pending }
+        if let committed = lastCommittedVolume[deviceID] { return committed }
+        return devices.first { $0.id == deviceID }?.volume ?? 0
+    }
 
     /// Called by the slider on every drag value change.
     /// Does NOT mutate any @Published property — this is critical to prevent

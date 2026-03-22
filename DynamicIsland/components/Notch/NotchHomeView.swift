@@ -851,7 +851,7 @@ private struct MediaOutputPickerButton: View {
     @ObservedObject private var routeManager = AudioRouteManager.shared
     @ObservedObject private var musicManager = MusicManager.shared
     @StateObject private var volumeModel = MediaOutputVolumeViewModel()
-    @StateObject private var airPlayManager = AppleMusicAirPlayManager()
+    @ObservedObject private var airPlayManager = AppleMusicAirPlayManager.shared
     @State private var isPopoverPresented = false
     @State private var isAirPlayPopoverPresented = false
     @State private var isHoveringPopover = false
@@ -1151,7 +1151,7 @@ struct AirPlaySelectorPopover: View {
 /// Local @State slider decoupled from the manager's @Published state.
 /// This prevents SwiftUI from resetting the slider position when other
 /// published properties on the manager change during a drag.
-private struct AirPlayVolumeSlider: View {
+struct AirPlayVolumeSlider: View {
     @ObservedObject var airPlayManager: AppleMusicAirPlayManager
     let deviceID: String
 
@@ -1163,8 +1163,7 @@ private struct AirPlayVolumeSlider: View {
             .tint(.accentColor)
             .onAppear {
                 isSyncing = true
-                let volume = airPlayManager.devices.first { $0.id == deviceID }?.volume ?? 0
-                sliderValue = Double(volume)
+                sliderValue = Double(airPlayManager.currentVolume(for: deviceID))
                 isSyncing = false
             }
             .onChange(of: sliderValue) { _, newValue in

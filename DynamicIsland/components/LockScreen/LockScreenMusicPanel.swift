@@ -37,6 +37,7 @@ struct LockScreenMusicPanel: View {
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject private var routeManager = AudioRouteManager.shared
     @StateObject private var volumeModel = MediaOutputVolumeViewModel()
+    @ObservedObject private var airPlayManager = AppleMusicAirPlayManager.shared
     @ObservedObject private var animator: LockScreenPanelAnimator
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
@@ -142,6 +143,9 @@ struct LockScreenMusicPanel: View {
             logPanelAppearance()
             updatePanelSize(animated: false)
             routeManager.refreshDevices()
+            if isAppleMusicActive {
+                Task { await airPlayManager.refreshDevices() }
+            }
             logGlassState(reason: "Panel appeared")
         }
         .onDisappear {
@@ -161,6 +165,17 @@ struct LockScreenMusicPanel: View {
                     isVolumeSliderVisible = false
                 }
             }
+            updatePanelSize()
+        }
+        .onChange(of: isVolumeSliderVisible) { _, visible in
+            if visible && isAppleMusicActive {
+                Task { await airPlayManager.refreshDevices() }
+            } else {
+                measuredAirPlayHeight = nil
+            }
+            updatePanelSize()
+        }
+        .onChange(of: airPlayManager.devices) { _, _ in
             updatePanelSize()
         }
         .onChange(of: enableLyrics) { _, _ in
@@ -433,6 +448,12 @@ struct LockScreenMusicPanel: View {
                 volumeSlider
                     .frame(maxWidth: .infinity, alignment: alignment)
                     .transition(.scale(scale: 0.98, anchor: .top).combined(with: .opacity))
+
+                if shouldShowAirPlay {
+                    airPlaySection
+                        .frame(maxWidth: .infinity, alignment: alignment)
+                        .transition(.scale(scale: 0.98, anchor: .top).combined(with: .opacity))
+                }
             }
 
             if enableLyrics {
@@ -443,6 +464,7 @@ struct LockScreenMusicPanel: View {
         .frame(maxWidth: .infinity, alignment: alignment)
         .padding(.top, isExpanded ? 6 : 2)
         .animation(.spring(response: 0.45, dampingFraction: 0.82), value: shouldShowVolumeSlider)
+        .animation(.spring(response: 0.45, dampingFraction: 0.82), value: shouldShowAirPlay)
         .animation(.spring(response: 0.45, dampingFraction: 0.82), value: enableLyrics)
     }
 
@@ -692,11 +714,74 @@ struct LockScreenMusicPanel: View {
         )
     }
 
+    private var airPlaySection: some View {
+        VStack(spacing: 6) {
+            ForEach(airPlayManager.devices) { device in
+                VStack(spacing: 4) {
+                    Button {
+                        registerInteraction()
+                        Task { await airPlayManager.toggleDevice(device) }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: device.iconName)
+                                .font(.system(size: isExpanded ? 14 : 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                            Text(device.name)
+                                .font(.system(size: isExpanded ? 13 : 11, weight: .medium))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                            Spacer()
+                            if device.isSelected {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: isExpanded ? 12 : 10, weight: .bold))
+                                    .foregroundColor(.accentColor)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 12)
+                    }
+                    .buttonStyle(.plain)
+
+                    if device.isSelected {
+                        AirPlayVolumeSlider(
+                            airPlayManager: airPlayManager,
+                            deviceID: device.id
+                        )
+                        .padding(.horizontal, 12)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: isExpanded ? 16 : 12, style: .continuous)
+                .fill(sliderBackgroundFill)
+        )
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { measuredAirPlayHeight = geo.size.height }
+                    .onChange(of: geo.size.height) { _, newHeight in
+                        measuredAirPlayHeight = newHeight
+                        updatePanelSize()
+                    }
+            }
+        )
+    }
+
     private var sliderBackgroundFill: Color {
         if usesLiquidGlass {
             return Color.white.opacity(0.05)
         }
         return Color.white.opacity(0.08)
+    }
+
+    private var isAppleMusicActive: Bool {
+        musicManager.bundleIdentifier == "com.apple.Music"
+    }
+
+    private var shouldShowAirPlay: Bool {
+        shouldShowVolumeSlider && isAppleMusicActive && !airPlayManager.devices.isEmpty
     }
 
     private var shouldShowVolumeSlider: Bool {
@@ -711,8 +796,23 @@ struct LockScreenMusicPanel: View {
         lyricsHeight(forExpanded: isExpanded, enabled: enableLyrics)
     }
 
+    @State private var measuredAirPlayHeight: CGFloat?
+
+    private var airPlayExtraHeight: CGFloat {
+        guard shouldShowAirPlay else { return 0 }
+        if let measured = measuredAirPlayHeight {
+            return measured
+        }
+        // Fallback estimate used only until the first GeometryReader measurement arrives
+        let selectedCount = airPlayManager.devices.filter(\.isSelected).count
+        let totalCount = airPlayManager.devices.count
+        let deviceRows: CGFloat = CGFloat(totalCount) * 22 + CGFloat(max(totalCount - 1, 0)) * 6
+        let sliders: CGFloat = CGFloat(selectedCount) * 24
+        return deviceRows + sliders + 16
+    }
+
     private var totalExtraHeight: CGFloat {
-        sliderExtraHeight + lyricsExtraHeight
+        sliderExtraHeight + airPlayExtraHeight + lyricsExtraHeight
     }
 
     private func lyricsHeight(forExpanded expanded: Bool, enabled: Bool) -> CGFloat {
@@ -722,6 +822,7 @@ struct LockScreenMusicPanel: View {
 
     private func panelAdditionalHeight(forExpanded expanded: Bool) -> CGFloat {
         sliderHeight(forExpanded: expanded, visible: shouldShowVolumeSlider) +
+        airPlayExtraHeight +
         lyricsHeight(forExpanded: expanded, enabled: enableLyrics)
     }
 
