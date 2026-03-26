@@ -146,6 +146,7 @@ class CalendarService: CalendarServiceProviding {
 extension CalendarModel {
     init(from calendar: EKCalendar) {
         self.init(
+            accountName: calendar.accountTitle,
             id: calendar.calendarIdentifier,
             title: calendar.title,
             color: calendar.color,
@@ -267,7 +268,7 @@ extension Priority {
 
 // MARK: - Helper Extensions
 
-private extension EKCalendar {
+extension EKCalendar {
     var accountTitle: String {
         switch source.sourceType {
         case .local, .subscribed, .birthdays:

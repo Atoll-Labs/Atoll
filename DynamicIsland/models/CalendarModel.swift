@@ -23,6 +23,7 @@
 import Cocoa
 
 struct CalendarModel: Identifiable, Hashable {
+    let accountName: String
     let id: String
     let title: String
     let color: NSColor

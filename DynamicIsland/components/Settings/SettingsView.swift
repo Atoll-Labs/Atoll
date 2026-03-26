@@ -2905,18 +2905,48 @@ struct CalendarSettings: View {
                 }
 
                 Section(header: Text("Select Calendars")) {
-                    ForEach(calendarManager.allCalendars, id: \.id) { calendar in
-                        Toggle(isOn: Binding(
-                            get: { calendarManager.getCalendarSelected(calendar) },
-                            set: { isSelected in
-                                Task {
-                                    await calendarManager.setCalendarSelected(calendar, isSelected: isSelected)
+                    let grouped = Dictionary(grouping: calendarManager.allCalendars, by: \.accountName)
+                    let sortedAccounts = grouped.keys.sorted()
+
+                    ForEach(sortedAccounts, id: \.self) { account in
+                        let accountCalendars = grouped[account] ?? []
+                        let allAccountSelected = accountCalendars.allSatisfy { calendarManager.getCalendarSelected($0) }
+
+                        Section(header: HStack {
+                            Text(account)
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { allAccountSelected },
+                                set: { isSelected in
+                                    Task {
+                                        await calendarManager.setCalendarsSelected(accountCalendars, isSelected: isSelected)
+                                    }
                                 }
+                            ))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                            .disabled(!showCalendar)
+                        }) {
+                            ForEach(accountCalendars, id: \.id) { calendar in
+                                Toggle(isOn: Binding(
+                                    get: { calendarManager.getCalendarSelected(calendar) },
+                                    set: { isSelected in
+                                        Task {
+                                            await calendarManager.setCalendarSelected(calendar, isSelected: isSelected)
+                                        }
+                                    }
+                                )) {
+                                    HStack(spacing: 8) {
+                                        Circle()
+                                            .fill(Color(calendar.color))
+                                            .frame(width: 8, height: 8)
+                                        Text(calendar.title)
+                                    }
+                                }
+                                .disabled(!showCalendar)
                             }
-                        )) {
-                            Text(calendar.title)
                         }
-                        .disabled(!showCalendar)
                     }
                 }
             }
