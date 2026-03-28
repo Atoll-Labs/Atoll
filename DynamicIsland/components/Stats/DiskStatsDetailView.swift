@@ -28,7 +28,7 @@ struct DiskStatsDetailView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                StatsCard(title: "Disk Overview", padding: 16, background: cardBackground, cornerRadius: 12) {
+                StatsCard(title: String(localized: "Disk Overview"), padding: 16, background: cardBackground, cornerRadius: 12) {
                     DiskOverview(
                         readSpeed: statsManager.diskRead,
                         writeSpeed: statsManager.diskWrite,
@@ -39,11 +39,11 @@ struct DiskStatsDetailView: View {
                     )
                 }
                 
-                StatsCard(title: "Storage Devices", padding: 16, background: cardBackground, cornerRadius: 12) {
+                StatsCard(title: String(localized: "Storage Devices"), padding: 16, background: cardBackground, cornerRadius: 12) {
                     DiskDevicesCard(devices: statsManager.diskDevices, accentColor: readColor)
                 }
                 
-                StatsCard(title: "Session Totals", padding: 16, background: cardBackground, cornerRadius: 12) {
+                StatsCard(title: String(localized: "Session Totals"), padding: 16, background: cardBackground, cornerRadius: 12) {
                     DiskTotalsView(totals: statsManager.diskTotals, readColor: readColor, writeColor: writeColor)
                 }
             }
@@ -99,8 +99,8 @@ private struct DiskTotalsView: View {
     
     var body: some View {
         VStack(spacing: 10) {
-            DetailRow(color: readColor.opacity(0.75), label: "Read", value: formattedBytes(totals.readMB))
-            DetailRow(color: writeColor.opacity(0.75), label: "Written", value: formattedBytes(totals.writtenMB))
+            DetailRow(color: readColor.opacity(0.75), label: String(localized: "Read"), value: formattedBytes(totals.readMB))
+            DetailRow(color: writeColor.opacity(0.75), label: String(localized: "Written"), value: formattedBytes(totals.writtenMB))
         }
     }
     

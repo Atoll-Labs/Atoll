@@ -88,12 +88,12 @@ struct CPUUsageDashboard: View {
             Text("System")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            DetailRow(color: nil, label: "Logical cores", value: "\(max(coreCount, 1))")
-            DetailRow(color: nil, label: "Uptime", value: StatsFormatting.abbreviatedDuration(uptime))
+            DetailRow(color: nil, label: String(localized: "Logical cores"), value: "\(max(coreCount, 1))")
+            DetailRow(color: nil, label: String(localized: "Uptime"), value: StatsFormatting.abbreviatedDuration(uptime))
             Divider().padding(.vertical, 4)
-            DetailRow(color: nil, label: "Load 1m", value: String(format: "%.2f", loadAverage.oneMinute))
-            DetailRow(color: nil, label: "Load 5m", value: String(format: "%.2f", loadAverage.fiveMinutes))
-            DetailRow(color: nil, label: "Load 15m", value: String(format: "%.2f", loadAverage.fifteenMinutes))
+            DetailRow(color: nil, label: String(localized: "Load 1m"), value: String(format: "%.2f", loadAverage.oneMinute))
+            DetailRow(color: nil, label: String(localized: "Load 5m"), value: String(format: "%.2f", loadAverage.fiveMinutes))
+            DetailRow(color: nil, label: String(localized: "Load 15m"), value: String(format: "%.2f", loadAverage.fifteenMinutes))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -205,7 +205,7 @@ private struct CPUFrequencyGauge: View {
 
     var body: some View {
         CircularGaugeView(
-            title: "Frequency",
+            title: String(localized: "Frequency"),
             value: normalizedValue,
             tint: tint,
             centerPrimaryText: centerPrimary,
@@ -264,7 +264,7 @@ private struct CPUSegmentDonut: View {
             VStack(spacing: 4) {
                 Text(StatsFormatting.percentage(breakdown.activeUsage))
                     .font(.system(size: 30, weight: .bold, design: .rounded))
-                Text("Active")
+                Text(String(localized: "stats_resource_active", defaultValue: "Active"))
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
@@ -335,9 +335,9 @@ struct LoadAverageRow: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             HStack(spacing: 12) {
-                LoadAverageValue(label: "1m", value: loadAverage.oneMinute)
-                LoadAverageValue(label: "5m", value: loadAverage.fiveMinutes)
-                LoadAverageValue(label: "15m", value: loadAverage.fifteenMinutes)
+                LoadAverageValue(label: String(localized: "1m"), value: loadAverage.oneMinute)
+                LoadAverageValue(label: String(localized: "5m"), value: loadAverage.fiveMinutes)
+                LoadAverageValue(label: String(localized: "15m"), value: loadAverage.fifteenMinutes)
             }
         }
     }
@@ -455,10 +455,10 @@ struct CPUDetailsGrid: View {
                 Text("Usage Breakdown")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                DetailRow(color: nil, label: "Total", value: StatsFormatting.percentage(breakdown.activeUsage))
-                DetailRow(color: systemColor, label: "System", value: StatsFormatting.percentage(breakdown.system))
-                DetailRow(color: userColor, label: "User", value: StatsFormatting.percentage(breakdown.user))
-                DetailRow(color: Color.gray.opacity(0.4), label: "Idle", value: StatsFormatting.percentage(breakdown.idle))
+                DetailRow(color: nil, label: String(localized: "Total"), value: StatsFormatting.percentage(breakdown.activeUsage))
+                DetailRow(color: systemColor, label: String(localized: "System"), value: StatsFormatting.percentage(breakdown.system))
+                DetailRow(color: userColor, label: String(localized: "User"), value: StatsFormatting.percentage(breakdown.user))
+                DetailRow(color: Color.gray.opacity(0.4), label: String(localized: "Idle"), value: StatsFormatting.percentage(breakdown.idle))
             }
 
             Divider().padding(.vertical, 4)
@@ -467,8 +467,8 @@ struct CPUDetailsGrid: View {
                 Text("System")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                DetailRow(color: nil, label: "Logical cores", value: "\(max(coreCount, 1))")
-                DetailRow(color: nil, label: "Uptime", value: StatsFormatting.abbreviatedDuration(uptime))
+                DetailRow(color: nil, label: String(localized: "Logical cores"), value: "\(max(coreCount, 1))")
+                DetailRow(color: nil, label: String(localized: "Uptime"), value: StatsFormatting.abbreviatedDuration(uptime))
             }
 
             if showLoadAverage {

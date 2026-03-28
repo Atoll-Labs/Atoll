@@ -29,7 +29,7 @@ struct CPUStatsDetailView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                StatsCard(title: "CPU Overview") {
+                StatsCard(title: String(localized: "CPU Overview")) {
                     CPUUsageDashboard(
                         breakdown: statsManager.cpuBreakdown,
                         loadAverage: statsManager.cpuLoadAverage,
@@ -43,12 +43,12 @@ struct CPUStatsDetailView: View {
                     )
                 }
 
-                StatsCard(title: "Top Processes") {
+                StatsCard(title: String(localized: "Top Processes")) {
                     CPUProcessList(processes: topProcesses, accentColor: userColor)
                 }
                 
                 if !statsManager.cpuCoreUsage.isEmpty {
-                    StatsCard(title: "Per-Core Usage") {
+                    StatsCard(title: String(localized: "Per-Core Usage")) {
                         CPUCoreUsageGrid(cores: statsManager.cpuCoreUsage, accentColor: userColor)
                     }
                 }
