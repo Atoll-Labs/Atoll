@@ -28,7 +28,7 @@ struct NetworkStatsDetailView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                StatsCard(title: "Network Overview", padding: 16, background: cardBackground, cornerRadius: 12) {
+                StatsCard(title: String(localized: "Network Overview"), padding: 16, background: cardBackground, cornerRadius: 12) {
                     NetworkOverview(
                         download: statsManager.networkDownload,
                         upload: statsManager.networkUpload,
@@ -41,7 +41,7 @@ struct NetworkStatsDetailView: View {
                     )
                 }
                 
-                StatsCard(title: "Interfaces", padding: 16, background: cardBackground, cornerRadius: 12) {
+                StatsCard(title: String(localized: "Interfaces"), padding: 16, background: cardBackground, cornerRadius: 12) {
                     NetworkInterfacesCard(
                         interfaces: statsManager.networkInterfaces,
                         downloadColor: downloadColor,
@@ -49,7 +49,7 @@ struct NetworkStatsDetailView: View {
                     )
                 }
                 
-                StatsCard(title: "Session Totals", padding: 16, background: cardBackground, cornerRadius: 12) {
+                StatsCard(title: String(localized: "Session Totals"), padding: 16, background: cardBackground, cornerRadius: 12) {
                     NetworkTotalsView(totals: statsManager.networkTotals, downloadColor: downloadColor, uploadColor: uploadColor)
                 }
             }
@@ -101,8 +101,8 @@ private struct NetworkOverview: View {
                 Text(StatsFormatting.throughput(upload))
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
-                DetailRow(color: uploadColor.opacity(0.6), label: "Average", value: StatsFormatting.throughput(avgUpload))
-                DetailRow(color: uploadColor.opacity(0.45), label: "Peak", value: StatsFormatting.throughput(peakUpload))
+                DetailRow(color: uploadColor.opacity(0.6), label: String(localized: "Average"), value: StatsFormatting.throughput(avgUpload))
+                DetailRow(color: uploadColor.opacity(0.45), label: String(localized: "Peak"), value: StatsFormatting.throughput(peakUpload))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -116,8 +116,8 @@ private struct NetworkTotalsView: View {
     
     var body: some View {
         VStack(spacing: 10) {
-            DetailRow(color: downloadColor.opacity(0.75), label: "Downloaded", value: formattedBytes(totals.downloadedMB))
-            DetailRow(color: uploadColor.opacity(0.75), label: "Uploaded", value: formattedBytes(totals.uploadedMB))
+            DetailRow(color: downloadColor.opacity(0.75), label: String(localized: "Downloaded"), value: formattedBytes(totals.downloadedMB))
+            DetailRow(color: uploadColor.opacity(0.75), label: String(localized: "Uploaded"), value: formattedBytes(totals.uploadedMB))
         }
     }
     
@@ -193,7 +193,7 @@ private struct NetworkInterfaceRow: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.primary)
                     if interface.isActive {
-                        Text("Active")
+                        Text(String(localized: "stats_resource_active", defaultValue: "Active"))
                             .font(.caption2)
                             .foregroundColor(downloadColor)
                             .padding(.horizontal, 6)
@@ -222,8 +222,8 @@ private struct NetworkInterfaceRow: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 4) {
-                metricRow(label: "Down", value: StatsFormatting.throughput(interface.currentDownload), color: downloadColor)
-                metricRow(label: "Up", value: StatsFormatting.throughput(interface.currentUpload), color: uploadColor)
+                metricRow(label: String(localized: "Down"), value: StatsFormatting.throughput(interface.currentDownload), color: downloadColor)
+                metricRow(label: String(localized: "Up"), value: StatsFormatting.throughput(interface.currentUpload), color: uploadColor)
             }
         }
     }

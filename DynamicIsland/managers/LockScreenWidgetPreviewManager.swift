@@ -302,6 +302,7 @@ final class LockScreenWidgetPreviewManager: ObservableObject {
     private func applyCalendarPreviewEvents() {
         let now = Date()
         let reminderCalendar = CalendarModel(
+            accountName: "Preview",
             id: "preview.reminders",
             title: "Reminders",
             color: .systemBlue,
@@ -327,6 +328,7 @@ final class LockScreenWidgetPreviewManager: ObservableObject {
         )
 
         let eventCalendar = CalendarModel(
+            accountName: "Preview",
             id: "preview.calendar",
             title: "Calendar",
             color: .systemOrange,

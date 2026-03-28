@@ -615,11 +615,11 @@ private struct DurationInputRow: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
-            DurationField(label: "HH", value: $hours, range: 0...23, width: fieldWidth)
+            DurationField(label: String(localized: "HH"), value: $hours, range: 0...23, width: fieldWidth)
             colon
-            DurationField(label: "MM", value: $minutes, range: 0...59, width: fieldWidth)
+            DurationField(label: String(localized: "MM"), value: $minutes, range: 0...59, width: fieldWidth)
             colon
-            DurationField(label: "SS", value: $seconds, range: 0...59, width: fieldWidth)
+            DurationField(label: String(localized: "SS"), value: $seconds, range: 0...59, width: fieldWidth)
         }
     }
 

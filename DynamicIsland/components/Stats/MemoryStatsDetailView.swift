@@ -29,15 +29,15 @@ struct MemoryStatsDetailView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                StatsCard(title: "Memory Overview", padding: 16, background: cardBackground, cornerRadius: 12) {
+                StatsCard(title: String(localized: "Memory Overview"), padding: 16, background: cardBackground, cornerRadius: 12) {
                     MemoryUsageDashboard(breakdown: statsManager.memoryBreakdown, accentColor: accentColor)
                 }
                 
-                StatsCard(title: "Top Processes", padding: 16, background: cardBackground, cornerRadius: 12) {
+                StatsCard(title: String(localized: "Top Processes"), padding: 16, background: cardBackground, cornerRadius: 12) {
                     CPUProcessList(processes: topProcesses, accentColor: accentColor, displayLimit: processDisplayLimit)
                 }
 
-                StatsCard(title: "Pressure & Swap", padding: 16, background: cardBackground, cornerRadius: 12) {
+                StatsCard(title: String(localized: "Pressure & Swap"), padding: 16, background: cardBackground, cornerRadius: 12) {
                     MemoryHealthView(breakdown: statsManager.memoryBreakdown, accentColor: accentColor)
                 }
             }
@@ -64,9 +64,9 @@ private struct MemoryUsageDashboard: View {
     
     var body: some View {
         let totalsSection = VStack(alignment: .leading, spacing: 12) {
-            DetailRow(color: accentColor.opacity(0.8), label: "Used", value: formattedBytes(breakdown.usedBytes))
-            DetailRow(color: freeColor.opacity(0.9), label: "Free", value: formattedBytes(breakdown.freeBytes))
-            DetailRow(color: nil, label: "Total", value: formattedBytes(breakdown.totalBytes))
+            DetailRow(color: accentColor.opacity(0.8), label: String(localized: "Used"), value: formattedBytes(breakdown.usedBytes))
+            DetailRow(color: freeColor.opacity(0.9), label: String(localized: "Free"), value: formattedBytes(breakdown.freeBytes))
+            DetailRow(color: nil, label: String(localized: "Total"), value: formattedBytes(breakdown.totalBytes))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         
@@ -74,10 +74,10 @@ private struct MemoryUsageDashboard: View {
             Text("Breakdown")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            MemoryBreakdownRow(label: "App", value: breakdown.appBytes, total: breakdown.totalBytes, color: accentColor.opacity(0.85))
-            MemoryBreakdownRow(label: "Cached", value: breakdown.cacheBytes, total: breakdown.totalBytes, color: accentColor.opacity(0.65))
-            MemoryBreakdownRow(label: "Wired", value: breakdown.wiredBytes, total: breakdown.totalBytes, color: accentColor.opacity(0.45))
-            MemoryBreakdownRow(label: "Compressed", value: breakdown.compressedBytes, total: breakdown.totalBytes, color: accentColor.opacity(0.35))
+            MemoryBreakdownRow(label: String(localized: "App"), value: breakdown.appBytes, total: breakdown.totalBytes, color: accentColor.opacity(0.85))
+            MemoryBreakdownRow(label: String(localized: "Cached"), value: breakdown.cacheBytes, total: breakdown.totalBytes, color: accentColor.opacity(0.65))
+            MemoryBreakdownRow(label: String(localized: "Wired"), value: breakdown.wiredBytes, total: breakdown.totalBytes, color: accentColor.opacity(0.45))
+            MemoryBreakdownRow(label: String(localized: "Compressed"), value: breakdown.compressedBytes, total: breakdown.totalBytes, color: accentColor.opacity(0.35))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         
@@ -170,11 +170,11 @@ private struct MemoryPressureIndicator: View {
     private var status: (title: String, color: Color, description: String) {
         switch pressure.level {
         case .normal:
-            return ("Normal", Color.green, "System memory pressure is nominal.")
+            return (String(localized: "Normal"), Color.green, String(localized: "System memory pressure is nominal."))
         case .warning:
-            return ("Warning", Color.orange, "Memory pressure is elevated. Closing apps may help.")
+            return (String(localized: "Warning"), Color.orange, String(localized: "Memory pressure is elevated. Closing apps may help."))
         case .critical:
-            return ("Critical", Color.red, "Memory pressure is critical; the system may purge aggressively.")
+            return (String(localized: "Critical"), Color.red, String(localized: "Memory pressure is critical; the system may purge aggressively."))
         }
     }
 
@@ -220,9 +220,9 @@ private struct SwapUsageView: View {
                 .foregroundColor(.secondary)
 
             if swap.totalBytes > 0 {
-                DetailRow(color: accentColor.opacity(0.85), label: "Used", value: StatsFormatting.bytes(swap.usedBytes))
-                DetailRow(color: accentColor.opacity(0.55), label: "Free", value: StatsFormatting.bytes(swap.freeBytes))
-                DetailRow(color: nil, label: "Total", value: StatsFormatting.bytes(swap.totalBytes))
+                DetailRow(color: accentColor.opacity(0.85), label: String(localized: "Used"), value: StatsFormatting.bytes(swap.usedBytes))
+                DetailRow(color: accentColor.opacity(0.55), label: String(localized: "Free"), value: StatsFormatting.bytes(swap.freeBytes))
+                DetailRow(color: nil, label: String(localized: "Total"), value: StatsFormatting.bytes(swap.totalBytes))
                 SwapUsageBar(usedBytes: swap.usedBytes, totalBytes: swap.totalBytes, tint: accentColor)
                     .frame(height: 8)
             } else {

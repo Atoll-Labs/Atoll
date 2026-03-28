@@ -382,6 +382,36 @@ class CalendarManager: ObservableObject {
         lastEventsFetchDate = Date()
     }
 
+    func setCalendarsSelected(_ calendars: [CalendarModel], isSelected: Bool) async {
+        var selectionState = Defaults[.calendarSelectionState]
+        let ids = Set(calendars.map { $0.id })
+
+        switch selectionState {
+        case .all:
+            if !isSelected {
+                let identifiers = Set(allCalendars.map { $0.id }).subtracting(ids)
+                selectionState = .selected(identifiers)
+            }
+        case .selected(var identifiers):
+            if isSelected {
+                identifiers.formUnion(ids)
+            } else {
+                identifiers.subtract(ids)
+            }
+
+            if identifiers.isEmpty || identifiers.count == allCalendars.count {
+                selectionState = .all
+            } else {
+                selectionState = .selected(identifiers)
+            }
+        }
+
+        Defaults[.calendarSelectionState] = selectionState
+        updateSelectedCalendars()
+        await updateEvents(force: true)
+        await updateLockScreenEvents(force: true)
+    }
+
     func setReminderCompleted(reminderID: String, completed: Bool) async {
         await calendarService.setReminderCompleted(reminderID: reminderID, completed: completed)
         await updateEvents(force: true)

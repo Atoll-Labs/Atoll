@@ -166,6 +166,8 @@ class LockScreenPanelManager {
             return
         }
 
+        let resizeDuration: CFTimeInterval = 0.28
+
         let baseSize = expanded ? LockScreenMusicPanel.expandedSize : LockScreenMusicPanel.collapsedSize
         let targetWidth = baseSize.width
         let targetHeight = baseSize.height + additionalHeight
@@ -175,7 +177,7 @@ class LockScreenPanelManager {
 
         if animated {
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.45
+                context.duration = resizeDuration
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 window.animator().setFrame(targetFrame, display: true)
             }
@@ -191,7 +193,8 @@ class LockScreenPanelManager {
         let targetRadius = expanded ? expandedPanelCornerRadius : collapsedPanelCornerRadius
         if animated {
             CATransaction.begin()
-            CATransaction.setAnimationDuration(0.28)
+            CATransaction.setAnimationDuration(resizeDuration)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
             window.contentView?.layer?.cornerRadius = targetRadius
             CATransaction.commit()
         } else {

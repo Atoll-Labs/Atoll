@@ -29,7 +29,7 @@ struct GPUStatsDetailView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                StatsCard(title: "GPU Overview", padding: 16, background: cardBackground, cornerRadius: 12) {
+                StatsCard(title: String(localized: "GPU Overview"), padding: 16, background: cardBackground, cornerRadius: 12) {
                     GPUUsageDashboard(
                         usage: statsManager.gpuUsage,
                         breakdown: statsManager.gpuBreakdown,
@@ -40,12 +40,12 @@ struct GPUStatsDetailView: View {
                     )
                 }
                 
-                StatsCard(title: "Top Processes", padding: 16, background: cardBackground, cornerRadius: 12) {
+                StatsCard(title: String(localized: "Top Processes"), padding: 16, background: cardBackground, cornerRadius: 12) {
                     CPUProcessList(processes: topProcesses, accentColor: accentColor, displayLimit: processDisplayLimit)
                 }
 
                 if !statsManager.gpuDevices.isEmpty {
-                    StatsCard(title: "Devices", padding: 16, background: cardBackground, cornerRadius: 12) {
+                    StatsCard(title: String(localized: "Devices"), padding: 16, background: cardBackground, cornerRadius: 12) {
                         GPUDeviceList(devices: statsManager.gpuDevices, accentColor: accentColor)
                     }
                 }
@@ -119,10 +119,10 @@ private struct GPUUsageDashboard: View {
 
     private var breakdownSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            DetailRow(color: accentColor.opacity(0.9), label: "Render", value: StatsFormatting.percentage(breakdown.render))
-            DetailRow(color: accentColor.opacity(0.7), label: "Compute", value: StatsFormatting.percentage(breakdown.compute))
-            DetailRow(color: accentColor.opacity(0.55), label: "Video", value: StatsFormatting.percentage(breakdown.video))
-            DetailRow(color: accentColor.opacity(0.45), label: "Other", value: StatsFormatting.percentage(breakdown.other))
+            DetailRow(color: accentColor.opacity(0.9), label: String(localized: "Render"), value: StatsFormatting.percentage(breakdown.render))
+            DetailRow(color: accentColor.opacity(0.7), label: String(localized: "Compute"), value: StatsFormatting.percentage(breakdown.compute))
+            DetailRow(color: accentColor.opacity(0.55), label: String(localized: "Video"), value: StatsFormatting.percentage(breakdown.video))
+            DetailRow(color: accentColor.opacity(0.45), label: String(localized: "Other"), value: StatsFormatting.percentage(breakdown.other))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -132,15 +132,15 @@ private struct GPUUsageDashboard: View {
             Text("Averages")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            DetailRow(color: nil, label: "Session Avg", value: StatsFormatting.percentage(averageUsage))
-            DetailRow(color: nil, label: "Last Update", value: formattedTimestamp(lastUpdated))
+            DetailRow(color: nil, label: String(localized: "Session Avg"), value: StatsFormatting.percentage(averageUsage))
+            DetailRow(color: nil, label: String("localized: Last Update"), value: formattedTimestamp(lastUpdated))
             if let device = primaryDevice {
                 Divider().padding(.vertical, 4)
-                DetailRow(color: nil, label: "Active GPU", value: device.formattedVendorModel)
-                DetailRow(color: nil, label: "Status", value: device.isActive ? "Active" : "Idle")
-                DetailRow(color: nil, label: "Temperature", value: device.temperatureText)
+                DetailRow(color: nil, label: String(localized: "Active GPU"), value: device.formattedVendorModel)
+                DetailRow(color: nil, label: String(localized: "Status"), value: device.isActive ? String(localized: "Active") : String(localized: "Idle"))
+                DetailRow(color: nil, label: String(localized: "Temperature"), value: device.temperatureText)
                 if let cores = device.cores {
-                    DetailRow(color: nil, label: "Cores", value: "\(cores)")
+                    DetailRow(color: nil, label: String(localized: "Cores"), value: "\(cores)")
                 }
             }
         }
@@ -170,9 +170,9 @@ private struct GPUEngineGauges: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             HStack(alignment: .center, spacing: 18) {
-                EngineGaugeView(title: "Render", value: render, tint: accentColor, size: 72)
+                EngineGaugeView(title: String(localized: "Render"), value: render, tint: accentColor, size: 72)
                 GPUUsageRing(usage: usage, accentColor: accentColor, diameter: ringDiameter, lineWidth: ringLineWidth)
-                EngineGaugeView(title: "Tiler", value: tiler, tint: accentColor.opacity(0.75), size: 72)
+                EngineGaugeView(title: String(localized: "Tiler"), value: tiler, tint: accentColor.opacity(0.75), size: 72)
             }
             .frame(maxWidth: .infinity, alignment: .center)
         }
@@ -193,7 +193,7 @@ private struct GPUUsageRing: View {
             VStack(spacing: 4) {
                 Text(StatsFormatting.percentage(usage))
                     .font(.system(size: 26, weight: .bold, design: .rounded))
-                Text("Active")
+                Text(String(localized: "stats_resource_active", defaultValue: "Active"))
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
@@ -272,7 +272,7 @@ private struct GPUDeviceRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(device.formattedVendorModel)
                         .font(.system(size: 13, weight: .semibold))
-                    Text(device.isActive ? "Active" : "Idle")
+                    Text(device.isActive ? String(localized: "stats_resource_active", defaultValue: "Active") : String(localized: "Idle"))
                         .font(.caption2)
                         .foregroundColor(device.isActive ? .green : .secondary)
                 }
@@ -288,25 +288,25 @@ private struct GPUDeviceRow: View {
             }
             VStack(spacing: 8) {
                 if let render = device.renderUtilization {
-                    DetailRow(color: accentColor.opacity(0.9), label: "Renderer", value: StatsFormatting.percentage(render))
+                    DetailRow(color: accentColor.opacity(0.9), label: String(localized: "Renderer"), value: StatsFormatting.percentage(render))
                 }
                 if let tiler = device.tilerUtilization {
-                    DetailRow(color: accentColor.opacity(0.6), label: "Tiler", value: StatsFormatting.percentage(tiler))
+                    DetailRow(color: accentColor.opacity(0.6), label: String(localized: "Tiler"), value: StatsFormatting.percentage(tiler))
                 }
                 if let temp = device.temperature {
-                    DetailRow(color: nil, label: "Temperature", value: String(format: "%.0f°C", temp))
+                    DetailRow(color: nil, label: String(localized: "Temperature"), value: String(format: "%.0f°C", temp))
                 }
                 if let fan = device.fanSpeed {
-                    DetailRow(color: nil, label: "Fan Speed", value: "\(fan)%")
+                    DetailRow(color: nil, label: String(localized: "Fan Speed"), value: "\(fan)%")
                 }
                 if let coreClock = device.coreClock {
-                    DetailRow(color: nil, label: "Core Clock", value: "\(coreClock) MHz")
+                    DetailRow(color: nil, label: String(localized: "Core Clock"), value: "\(coreClock) MHz")
                 }
                 if let memoryClock = device.memoryClock {
-                    DetailRow(color: nil, label: "Memory Clock", value: "\(memoryClock) MHz")
+                    DetailRow(color: nil, label: String(localized: "Memory Clock"), value: "\(memoryClock) MHz")
                 }
                 if let cores = device.cores {
-                    DetailRow(color: nil, label: "Cores", value: "\(cores)")
+                    DetailRow(color: nil, label: String(localized: "Cores"), value: "\(cores)")
                 }
             }
         }

@@ -398,9 +398,13 @@ struct MusicControlsView: View {
         }
     }
 
+    private var isAppleMusicActive: Bool {
+        musicManager.bundleIdentifier == "com.apple.Music"
+    }
+
     private var displayedSlots: [MusicControlButton] {
         if showCustomControls {
-            let normalized = slotConfig.normalized(allowingMediaOutput: showMediaOutputControl)
+            let normalized = slotConfig.normalized(allowingMediaOutput: showMediaOutputControl, isAppleMusicActive: isAppleMusicActive)
             return normalized.contains(where: { $0 != .none }) ? normalized : MusicControlButton.defaultLayout
         }
 
@@ -474,6 +478,8 @@ struct MusicControlsView: View {
             }
         case .mediaOutput:
             MediaOutputPickerButton()
+        case .airPlay:
+            AirPlayPickerButton()
         case .lyrics:
             HoverButton(
                 icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble",
@@ -899,6 +905,62 @@ private struct MediaOutputPickerButton: View {
     }
 }
 
+private struct AirPlayPickerButton: View {
+    @ObservedObject private var musicManager = MusicManager.shared
+    @ObservedObject private var airPlayManager = AppleMusicAirPlayManager.shared
+    @State private var isPopoverPresented = false
+    @State private var isHoveringPopover = false
+    @EnvironmentObject private var vm: DynamicIslandViewModel
+
+    private var isAppleMusicActive: Bool {
+        musicManager.bundleIdentifier == "com.apple.Music"
+    }
+
+    var body: some View {
+        HoverButton(icon: "airplayaudio", iconColor: .white, scale: .medium) {
+            isPopoverPresented.toggle()
+            if isPopoverPresented {
+                Task { await airPlayManager.refreshDevices() }
+            }
+        }
+        .accessibilityLabel("AirPlay")
+        .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
+            AirPlaySelectorPopover(
+                airPlayManager: airPlayManager,
+                onHoverChanged: { hovering in
+                    isHoveringPopover = hovering
+                    updatePopoverActivity()
+                }
+            ) {
+                isPopoverPresented = false
+                isHoveringPopover = false
+                updatePopoverActivity()
+            }
+        }
+        .onAppear {
+            if isAppleMusicActive {
+                Task { await airPlayManager.refreshDevices() }
+            }
+        }
+        .onChange(of: isPopoverPresented) { _, presented in
+            if !presented { isHoveringPopover = false }
+            updatePopoverActivity()
+        }
+        .onChange(of: musicManager.bundleIdentifier) { _, newBundle in
+            if newBundle == "com.apple.Music" {
+                Task { await airPlayManager.refreshDevices() }
+            }
+        }
+        .onDisappear {
+            vm.isMediaOutputPopoverActive = false
+        }
+    }
+
+    private func updatePopoverActivity() {
+        vm.isMediaOutputPopoverActive = isPopoverPresented && isHoveringPopover
+    }
+}
+
 struct MediaOutputSelectorPopover: View {
     @ObservedObject var routeManager: AudioRouteManager
     @ObservedObject var volumeModel: MediaOutputVolumeViewModel
@@ -1008,7 +1070,7 @@ struct MediaOutputSelectorPopover: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxHeight: 180)
+                .frame(maxHeight: 240)
             }
         }
     }
@@ -1026,6 +1088,104 @@ struct MediaOutputSelectorPopover: View {
 
     private var volumePercentage: String {
         "\(Int(round(volumeModel.level * 100)))%"
+    }
+}
+
+struct AirPlaySelectorPopover: View {
+    @ObservedObject var airPlayManager: AppleMusicAirPlayManager
+    var onHoverChanged: (Bool) -> Void
+    var dismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("AirPlay")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            if airPlayManager.devices.isEmpty {
+                Text("No AirPlay devices found")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ScrollView {
+                    VStack(spacing: 6) {
+                        ForEach(airPlayManager.devices) { device in
+                            VStack(spacing: 4) {
+                                Button {
+                                    Task { await airPlayManager.toggleDevice(device) }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: device.iconName)
+                                            .font(.system(size: 14, weight: .medium))
+                                        Text(device.name)
+                                            .foregroundColor(.primary)
+                                            .lineLimit(1)
+                                        Spacer()
+                                        if device.isSelected {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 12, weight: .bold))
+                                        }
+                                    }
+                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, 8)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(device.isSelected ? Color.primary.opacity(0.12) : .clear)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+
+                                if device.isSelected {
+                                    AirPlayVolumeSlider(
+                                        airPlayManager: airPlayManager,
+                                        deviceID: device.id
+                                    )
+                                    .padding(.horizontal, 8)
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 300)
+            }
+        }
+        .frame(width: 240)
+        .padding(16)
+        .onHover { hovering in
+            onHoverChanged(hovering)
+        }
+        .onDisappear {
+            onHoverChanged(false)
+        }
+    }
+}
+
+/// Local @State slider decoupled from the manager's @Published state.
+/// This prevents SwiftUI from resetting the slider position when other
+/// published properties on the manager change during a drag.
+struct AirPlayVolumeSlider: View {
+    @ObservedObject var airPlayManager: AppleMusicAirPlayManager
+    let deviceID: String
+
+    @State private var sliderValue: Double = 0
+    @State private var isSyncing = false
+
+    var body: some View {
+        Slider(value: $sliderValue, in: 0...100)
+            .tint(.accentColor)
+            .onAppear {
+                isSyncing = true
+                sliderValue = Double(airPlayManager.currentVolume(for: deviceID))
+                isSyncing = false
+            }
+            .onChange(of: sliderValue) { _, newValue in
+                guard !isSyncing else { return }
+                airPlayManager.setVolume(Int(newValue), for: deviceID)
+            }
     }
 }
 

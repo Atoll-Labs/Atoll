@@ -34,6 +34,10 @@ struct MusicSlotConfigurationView: View {
 
     private let slotCount = MusicControlButton.slotCount
 
+    private var isAppleMusicActive: Bool {
+        musicManager.bundleIdentifier == "com.apple.Music"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
@@ -195,15 +199,23 @@ private struct ScrollHintIndicator: View {
         }
     }
 
+    private func isControlDisabled(_ control: MusicControlButton) -> Bool {
+        if control == .mediaOutput && !showMediaOutputControl { return true }
+        if control.isAppleMusicExclusive && !isAppleMusicActive { return true }
+        return false
+    }
+
     private func paletteItem(for control: MusicControlButton) -> some View {
-        VStack(spacing: 6) {
+        let disabled = isControlDisabled(control)
+
+        return VStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(nsColor: .controlBackgroundColor))
                 .frame(width: 44, height: 44)
                 .overlay {
                     Image(systemName: control.iconName)
                         .font(.system(size: control.prefersLargeScale ? 18 : 15, weight: .medium))
-                        .foregroundStyle(control == .mediaOutput && !showMediaOutputControl ? .secondary : .primary)
+                        .foregroundStyle(disabled ? .secondary : .primary)
                 }
                 .onDrag {
                     NSItemProvider(object: NSString(string: "control:\(control.rawValue)"))
@@ -220,8 +232,8 @@ private struct ScrollHintIndicator: View {
                 .minimumScaleFactor(0.8)
                 .multilineTextAlignment(.center)
         }
-        .opacity(control == .mediaOutput && !showMediaOutputControl ? 0.4 : 1)
-        .disabled(control == .mediaOutput && !showMediaOutputControl)
+        .opacity(disabled ? 0.4 : 1)
+        .disabled(disabled)
     }
 
     private func place(_ control: MusicControlButton) {
@@ -233,17 +245,20 @@ private struct ScrollHintIndicator: View {
     }
 
     private func slotValue(at index: Int) -> MusicControlButton {
-        let normalized = musicControlSlots.normalized(allowingMediaOutput: showMediaOutputControl)
+        let normalized = musicControlSlots.normalized(allowingMediaOutput: showMediaOutputControl, isAppleMusicActive: isAppleMusicActive)
         guard normalized.indices.contains(index) else { return .none }
         return normalized[index]
     }
 
     private var pickerOptions: [MusicControlButton] {
-        let base = MusicControlButton.pickerOptions
-        if showMediaOutputControl {
-            return base
+        var base = MusicControlButton.pickerOptions
+        if !showMediaOutputControl {
+            base = base.filter { $0 != .mediaOutput }
         }
-        return base.filter { $0 != .mediaOutput }
+        if !isAppleMusicActive {
+            base = base.filter { !$0.isAppleMusicExclusive }
+        }
+        return base
     }
 
     private func previewIconColor(for slot: MusicControlButton) -> Color {
