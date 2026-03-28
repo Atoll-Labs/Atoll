@@ -501,7 +501,7 @@ private struct DeviceGridItem: View {
         }
         
         // Default fallback
-        return "desktopcomputer"
+        return "smartphone"
     }
 }
 
