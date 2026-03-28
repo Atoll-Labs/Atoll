@@ -37,6 +37,7 @@ struct LockScreenMusicPanel: View {
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject private var routeManager = AudioRouteManager.shared
     @StateObject private var volumeModel = MediaOutputVolumeViewModel()
+    @ObservedObject private var airPlayManager = AppleMusicAirPlayManager.shared
     @ObservedObject private var animator: LockScreenPanelAnimator
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
@@ -44,6 +45,8 @@ struct LockScreenMusicPanel: View {
     @State private var isActive = true
     @State private var isExpanded = false
     @State private var isVolumeSliderVisible = false
+    @State private var isAirPlayPopoverPresented = false
+    
     @State private var collapseWorkItem: DispatchWorkItem?
     @State private var parallaxResumeWorkItem: DispatchWorkItem?
     @State private var isParallaxSuspended = false
@@ -58,6 +61,7 @@ struct LockScreenMusicPanel: View {
     @Default(.showShuffleAndRepeat) private var showShuffleAndRepeat
     @Default(.musicControlSlots) private var slotConfig
     @Default(.musicSkipBehavior) private var musicSkipBehavior
+    @Default(.lockScreenMusicMergedAirPlayOutput) private var mergedAirPlayOutput
     @Default(.enableLyrics) private var enableLyrics
     @Default(.lockScreenMusicAlbumParallaxEnabled) private var lockScreenParallaxEnabled
     @Default(.lockScreenMusicPanelWidth) private var collapsedPanelWidth
@@ -134,14 +138,17 @@ struct LockScreenMusicPanel: View {
         }
         .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)
         .contentShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
-        .animation(.spring(response: 0.48, dampingFraction: 0.82, blendDuration: 0.18), value: isExpanded)
-        .animation(.spring(response: 0.45, dampingFraction: 0.85, blendDuration: 0.18), value: shouldShowVolumeSlider)
+        .animation(.easeInOut(duration: 0.28), value: isExpanded)
+        .animation(.easeInOut(duration: 0.24), value: shouldShowVolumeSlider)
         .onAppear {
             sliderValue = musicManager.elapsedTime
             isActive = true
             logPanelAppearance()
             updatePanelSize(animated: false)
             routeManager.refreshDevices()
+            if isAppleMusicActive {
+                Task { await airPlayManager.refreshDevices() }
+            }
             logGlassState(reason: "Panel appeared")
         }
         .onDisappear {
@@ -162,6 +169,24 @@ struct LockScreenMusicPanel: View {
                 }
             }
             updatePanelSize()
+        }
+        .onChange(of: isVolumeSliderVisible) { _, visible in
+            if useMergedAirPlayOutput {
+                if visible && isAppleMusicActive {
+                    Task { await airPlayManager.refreshDevices() }
+                }
+            }
+            updatePanelSize()
+        }
+        .onChange(of: airPlayManager.devices) { _, _ in
+            if useMergedAirPlayOutput {
+                updatePanelSize()
+            }
+        }
+        .onChange(of: routeManager.devices) { _, _ in
+            if !useMergedAirPlayOutput {
+                updatePanelSize()
+            }
         }
         .onChange(of: enableLyrics) { _, _ in
             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
@@ -311,7 +336,7 @@ struct LockScreenMusicPanel: View {
     private func toggleExpanded() {
         let newState = !isExpanded
         suspendParallaxInteraction()
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.82)) {
+        withAnimation(.easeInOut(duration: 0.28)) {
             isExpanded = newState
         }
 
@@ -330,7 +355,7 @@ struct LockScreenMusicPanel: View {
 
         let workItem = DispatchWorkItem {
             suspendParallaxInteraction()
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+            withAnimation(.easeInOut(duration: 0.28)) {
                 isExpanded = false
             }
             logPanelAppearance(event: "⏱️ Auto-collapsed")
@@ -433,6 +458,16 @@ struct LockScreenMusicPanel: View {
                 volumeSlider
                     .frame(maxWidth: .infinity, alignment: alignment)
                     .transition(.scale(scale: 0.98, anchor: .top).combined(with: .opacity))
+
+                if shouldShowAirPlay {
+                    airPlaySection
+                        .frame(maxWidth: .infinity, alignment: alignment)
+                        .transition(.scale(scale: 0.98, anchor: .top).combined(with: .opacity))
+                } else if shouldShowRouteSelector {
+                    mediaOutputDevicesSection
+                        .frame(maxWidth: .infinity, alignment: alignment)
+                        .transition(.scale(scale: 0.98, anchor: .top).combined(with: .opacity))
+                }
             }
 
             if enableLyrics {
@@ -442,8 +477,10 @@ struct LockScreenMusicPanel: View {
         }
         .frame(maxWidth: .infinity, alignment: alignment)
         .padding(.top, isExpanded ? 6 : 2)
-        .animation(.spring(response: 0.45, dampingFraction: 0.82), value: shouldShowVolumeSlider)
-        .animation(.spring(response: 0.45, dampingFraction: 0.82), value: enableLyrics)
+        .animation(.easeInOut(duration: 0.24), value: shouldShowVolumeSlider)
+        .animation(.easeInOut(duration: 0.24), value: shouldShowAirPlay)
+        .animation(.easeInOut(duration: 0.24), value: shouldShowRouteSelector)
+        .animation(.easeInOut(duration: 0.24), value: enableLyrics)
     }
 
     private func controlsRow(alignment: Alignment, spacing: CGFloat) -> some View {
@@ -462,7 +499,7 @@ struct LockScreenMusicPanel: View {
             return fallbackSlots
         }
 
-        let normalized = slotConfig.normalized(allowingMediaOutput: showMediaOutputControl)
+        let normalized = slotConfig.normalized(allowingMediaOutput: showMediaOutputControl, isAppleMusicActive: isAppleMusicActive)
         return normalized.contains(where: { $0 != .none }) ? normalized : MusicControlButton.defaultLayout
     }
 
@@ -541,6 +578,12 @@ struct LockScreenMusicPanel: View {
             }
         case .mediaOutput:
             mediaOutputControlButton
+        case .airPlay:
+            if useMergedAirPlayOutput {
+                mediaOutputControlButton
+            } else {
+                standaloneAirPlayButton
+            }
         case .lyrics:
             controlButton(
                 icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble",
@@ -618,6 +661,35 @@ struct LockScreenMusicPanel: View {
         .accessibilityLabel("Media output")
     }
 
+    private var standaloneAirPlayButton: some View {
+        let frameSize: CGFloat = isExpanded ? 56 : 32
+        let iconSize: CGFloat = isExpanded ? 26 : 18
+
+        return PanelControlButton(
+            icon: "airplayaudio",
+            frameSize: frameSize,
+            iconSize: iconSize,
+            iconColor: isAirPlayPopoverPresented ? .accentColor : .white.opacity(0.8),
+            backgroundOpacity: isAirPlayPopoverPresented ? 0.22 : 0.0,
+            interaction: .none,
+            symbolEffect: .replace
+        ) {
+            registerInteraction()
+            isAirPlayPopoverPresented.toggle()
+            if isAirPlayPopoverPresented {
+                Task { await airPlayManager.refreshDevices() }
+            }
+        }
+        .accessibilityLabel("AirPlay")
+        .popover(isPresented: $isAirPlayPopoverPresented, arrowEdge: .bottom) {
+            AirPlaySelectorPopover(
+                airPlayManager: airPlayManager,
+                onHoverChanged: { _ in },
+                dismiss: { isAirPlayPopoverPresented = false }
+            )
+        }
+    }
+
     private func lyricsSection(alignment: Alignment) -> some View {
         let line = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
         let transition: AnyTransition = .asymmetric(
@@ -692,11 +764,141 @@ struct LockScreenMusicPanel: View {
         )
     }
 
+    private var airPlaySection: some View {
+        accessorySectionContainer {
+            if airPlayManager.devices.isEmpty {
+                Text("No AirPlay outputs available")
+                    .font(.system(size: isExpanded ? 13 : 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.68))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+            } else {
+                ScrollView(.vertical, showsIndicators: true) {
+                    VStack(spacing: 6) {
+                        ForEach(airPlayManager.devices) { device in
+                            VStack(spacing: 4) {
+                                Button {
+                                    registerInteraction()
+                                    Task { await airPlayManager.toggleDevice(device) }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: device.iconName)
+                                            .font(.system(size: isExpanded ? 14 : 12, weight: .medium))
+                                            .foregroundColor(.white.opacity(0.8))
+                                        Text(device.name)
+                                            .font(.system(size: isExpanded ? 13 : 11, weight: .medium))
+                                            .foregroundColor(.white)
+                                            .lineLimit(1)
+                                        Spacer()
+                                        if device.isSelected {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: isExpanded ? 12 : 10, weight: .bold))
+                                                .foregroundColor(.accentColor)
+                                        }
+                                    }
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 12)
+                                }
+                                .buttonStyle(.plain)
+
+                                if device.isSelected {
+                                    AirPlayVolumeSlider(
+                                        airPlayManager: airPlayManager,
+                                        deviceID: device.id
+                                    )
+                                    .padding(.horizontal, 12)
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: accessorySectionScrollMaxHeight)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var mediaOutputDevicesSection: some View {
+        accessorySectionContainer {
+            if routeManager.devices.isEmpty {
+                Text("No audio outputs available")
+                    .font(.system(size: isExpanded ? 13 : 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.68))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+            } else {
+                ScrollView(.vertical, showsIndicators: true) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(routeManager.devices) { device in
+                            Button {
+                                registerInteraction()
+                                routeManager.select(device: device)
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: device.iconName)
+                                        .font(.system(size: isExpanded ? 14 : 12, weight: .medium))
+                                        .foregroundColor(.white.opacity(0.82))
+                                    Text(device.name)
+                                        .font(.system(size: isExpanded ? 13 : 11, weight: .medium))
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    if device.id == routeManager.activeDeviceID {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: isExpanded ? 12 : 10, weight: .bold))
+                                            .foregroundColor(.accentColor)
+                                    }
+                                }
+                                .padding(.vertical, 5)
+                                .padding(.horizontal, 12)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: accessorySectionScrollMaxHeight)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func accessorySectionContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .background(
+                RoundedRectangle(cornerRadius: isExpanded ? 16 : 12, style: .continuous)
+                    .fill(sliderBackgroundFill)
+            )
+    }
+
     private var sliderBackgroundFill: Color {
         if usesLiquidGlass {
             return Color.white.opacity(0.05)
         }
         return Color.white.opacity(0.08)
+    }
+
+    private var isAppleMusicActive: Bool {
+        musicManager.bundleIdentifier == "com.apple.Music"
+    }
+
+    private var useMergedAirPlayOutput: Bool {
+        mergedAirPlayOutput && isAppleMusicActive && slotConfig.contains(where: { $0 == .mediaOutput || $0 == .airPlay })
+    }
+
+    private var shouldShowAirPlay: Bool {
+        useMergedAirPlayOutput && shouldShowVolumeSlider && !airPlayManager.devices.isEmpty
+    }
+
+    private var shouldShowRouteSelector: Bool {
+        !useMergedAirPlayOutput && shouldShowVolumeSlider
+    }
+
+    private var shouldShowAccessorySection: Bool {
+        shouldShowAirPlay || shouldShowRouteSelector
     }
 
     private var shouldShowVolumeSlider: Bool {
@@ -707,12 +909,31 @@ struct LockScreenMusicPanel: View {
         sliderHeight(forExpanded: isExpanded, visible: shouldShowVolumeSlider)
     }
 
+    private var accessorySectionScrollMaxHeight: CGFloat {
+        isExpanded ? 170 : 130
+    }
+
     private var lyricsExtraHeight: CGFloat {
         lyricsHeight(forExpanded: isExpanded, enabled: enableLyrics)
     }
 
+    private var accessorySectionExtraHeight: CGFloat {
+        guard shouldShowAccessorySection else { return 0 }
+        if shouldShowAirPlay {
+            let selectedCount = airPlayManager.devices.filter(\.isSelected).count
+            let totalCount = airPlayManager.devices.count
+            let deviceRows: CGFloat = CGFloat(totalCount) * 30 + CGFloat(max(totalCount - 1, 0)) * 6
+            let sliders: CGFloat = CGFloat(selectedCount) * 34
+            return min(deviceRows + sliders + 24, accessorySectionScrollMaxHeight + 16)
+        }
+
+        let totalCount = max(routeManager.devices.count, 1)
+        let deviceRows: CGFloat = CGFloat(totalCount) * 30 + CGFloat(max(totalCount - 1, 0)) * 6
+        return min(deviceRows + 24, accessorySectionScrollMaxHeight + 16)
+    }
+
     private var totalExtraHeight: CGFloat {
-        sliderExtraHeight + lyricsExtraHeight
+        sliderExtraHeight + accessorySectionExtraHeight + lyricsExtraHeight
     }
 
     private func lyricsHeight(forExpanded expanded: Bool, enabled: Bool) -> CGFloat {
@@ -722,6 +943,7 @@ struct LockScreenMusicPanel: View {
 
     private func panelAdditionalHeight(forExpanded expanded: Bool) -> CGFloat {
         sliderHeight(forExpanded: expanded, visible: shouldShowVolumeSlider) +
+        accessorySectionExtraHeight +
         lyricsHeight(forExpanded: expanded, enabled: enableLyrics)
     }
 
@@ -758,9 +980,12 @@ struct LockScreenMusicPanel: View {
         let newState = !isVolumeSliderVisible
         if newState {
             routeManager.refreshDevices()
+            if useMergedAirPlayOutput {
+                Task { await airPlayManager.refreshDevices() }
+            }
         }
 
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+        withAnimation(.easeInOut(duration: 0.24)) {
             isVolumeSliderVisible = newState
         }
 

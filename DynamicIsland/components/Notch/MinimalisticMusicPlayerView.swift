@@ -876,9 +876,13 @@ private struct MinimalisticReminderDetailsView: View {
         )
     }
 
+    private var isAppleMusicActive: Bool {
+        musicManager.bundleIdentifier == "com.apple.Music"
+    }
+
     private var displayedSlots: [MusicControlButton] {
         if showCustomControls {
-            let normalized = slotConfig.normalized(allowingMediaOutput: showMediaOutputControl)
+            let normalized = slotConfig.normalized(allowingMediaOutput: showMediaOutputControl, isAppleMusicActive: isAppleMusicActive)
             return normalized.contains(where: { $0 != .none }) ? normalized : MusicControlButton.defaultLayout
         }
 
@@ -943,6 +947,8 @@ private struct MinimalisticReminderDetailsView: View {
             }
         case .mediaOutput:
             MinimalisticMediaOutputButton()
+        case .airPlay:
+            MinimalisticAirPlayButton()
         case .lyrics:
             controlButton(
                 icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble",
@@ -1016,6 +1022,70 @@ private struct MinimalisticReminderDetailsView: View {
             }
             .onAppear {
                 routeManager.refreshDevices()
+            }
+            .onDisappear {
+                vm.isMediaOutputPopoverActive = false
+            }
+        }
+
+        private func updateActivity() {
+            vm.isMediaOutputPopoverActive = isPopoverPresented && isHoveringPopover
+        }
+    }
+
+    private struct MinimalisticAirPlayButton: View {
+        @ObservedObject private var musicManager = MusicManager.shared
+        @ObservedObject private var airPlayManager = AppleMusicAirPlayManager.shared
+        @EnvironmentObject private var vm: DynamicIslandViewModel
+        @State private var isPopoverPresented = false
+        @State private var isHoveringPopover = false
+
+        private var isAppleMusicActive: Bool {
+            musicManager.bundleIdentifier == "com.apple.Music"
+        }
+
+        var body: some View {
+            MinimalisticSquircircleButton(
+                icon: "airplayaudio",
+                fontSize: 18,
+                fontWeight: .medium,
+                frameSize: CGSize(width: 40, height: 40),
+                cornerRadius: 16,
+                foregroundColor: .white.opacity(0.85),
+                symbolEffectStyle: .replace
+            ) {
+                isPopoverPresented.toggle()
+                if isPopoverPresented {
+                    Task { await airPlayManager.refreshDevices() }
+                }
+            }
+            .accessibilityLabel("AirPlay")
+            .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
+                AirPlaySelectorPopover(
+                    airPlayManager: airPlayManager,
+                    onHoverChanged: { hovering in
+                        isHoveringPopover = hovering
+                        updateActivity()
+                    }
+                ) {
+                    isPopoverPresented = false
+                    isHoveringPopover = false
+                    updateActivity()
+                }
+            }
+            .onChange(of: isPopoverPresented) { _, presented in
+                if !presented { isHoveringPopover = false }
+                updateActivity()
+            }
+            .onAppear {
+                if isAppleMusicActive {
+                    Task { await airPlayManager.refreshDevices() }
+                }
+            }
+            .onChange(of: musicManager.bundleIdentifier) { _, newBundle in
+                if newBundle == "com.apple.Music" {
+                    Task { await airPlayManager.refreshDevices() }
+                }
             }
             .onDisappear {
                 vm.isMediaOutputPopoverActive = false

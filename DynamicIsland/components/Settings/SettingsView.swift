@@ -2443,6 +2443,11 @@ struct Media: View {
     @Default(.lockScreenMusicAlbumParallaxEnabled) private var lockScreenMusicAlbumParallaxEnabled
     @Default(.showStandardMediaControls) private var showStandardMediaControls
     @Default(.autoHideInactiveNotchMediaPlayer) private var autoHideInactiveNotchMediaPlayer
+    @ObservedObject private var musicManager = MusicManager.shared
+
+    private var isAppleMusicActive: Bool {
+        musicManager.bundleIdentifier == "com.apple.Music"
+    }
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.media.highlightID(for: title)
@@ -2616,6 +2621,11 @@ struct Media: View {
                     Text("Show media app icon")
                 }
                 .disabled(!enableLockScreenMediaWidget)
+                if isAppleMusicActive {
+                    Defaults.Toggle("Show merged AirPlay and output devices", key: .lockScreenMusicMergedAirPlayOutput)
+                        .disabled(!enableLockScreenMediaWidget)
+                        .settingsHighlight(id: highlightID("Show merged AirPlay and output devices"))
+                }
                 Defaults.Toggle(key: .lockScreenPanelShowsBorder) {
                     Text("Show panel border")
                 }
@@ -4458,6 +4468,12 @@ struct LockScreenSettings: View {
     @Default(.lockScreenCalendarSelectionMode) private var lockScreenCalendarSelectionMode
     @Default(.lockScreenSelectedCalendarIDs) private var lockScreenSelectedCalendarIDs
     @Default(.lockScreenShowCalendarEventAfterStartEnabled) private var lockScreenShowCalendarEventAfterStartEnabled
+    @Default(.lockScreenMusicMergedAirPlayOutput) private var lockScreenMusicMergedAirPlayOutput
+    @ObservedObject private var musicManager = MusicManager.shared
+
+    private var isAppleMusicActive: Bool {
+        musicManager.bundleIdentifier == "com.apple.Music"
+    }
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.lockScreen.highlightID(for: title)
@@ -4621,6 +4637,11 @@ struct LockScreenSettings: View {
                 }
                 .disabled(!enableLockScreenMediaWidget)
                 .settingsHighlight(id: highlightID("Show media app icon"))
+                if isAppleMusicActive {
+                    Defaults.Toggle("Show merged AirPlay and output devices", key: .lockScreenMusicMergedAirPlayOutput)
+                        .disabled(!enableLockScreenMediaWidget)
+                        .settingsHighlight(id: highlightID("Show merged AirPlay and output devices"))
+                }
                 Defaults.Toggle(key: .lockScreenPanelShowsBorder) {
                     Text("Show panel border")
                 }

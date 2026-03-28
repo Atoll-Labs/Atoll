@@ -29,6 +29,7 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
     case trackForward
     case repeatMode
     case mediaOutput
+    case airPlay
     case lyrics
     case seekBackward
     case seekForward
@@ -61,8 +62,14 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
         .shuffle,
         .repeatMode,
         .lyrics,
-        .mediaOutput
+        .mediaOutput,
+        .airPlay
     ]
+
+    /// Controls that are only available when Apple Music is the active media source.
+    var isAppleMusicExclusive: Bool {
+        self == .airPlay
+    }
 
     var id: String { rawValue }
 
@@ -80,6 +87,8 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
             return "Repeat"
         case .mediaOutput:
             return "Change Media Output"
+        case .airPlay:
+            return "AirPlay"
         case .lyrics:
             return "Lyrics"
         case .seekBackward:
@@ -105,6 +114,8 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
             return "repeat"
         case .mediaOutput:
             return "speaker.wave.2"
+        case .airPlay:
+            return "airplayaudio"
         case .lyrics:
             return "quote.bubble"
         case .seekBackward:
@@ -122,11 +133,10 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
 }
 
 extension Array where Element == MusicControlButton {
-    func normalized(allowingMediaOutput: Bool) -> [MusicControlButton] {
+    func normalized(allowingMediaOutput: Bool, isAppleMusicActive: Bool = true) -> [MusicControlButton] {
         var sanitized = map { button -> MusicControlButton in
-            if button == .mediaOutput && !allowingMediaOutput {
-                return .none
-            }
+            if button == .mediaOutput && !allowingMediaOutput { return .none }
+            if button.isAppleMusicExclusive && !isAppleMusicActive { return .none }
             return button
         }
 
