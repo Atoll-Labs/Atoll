@@ -20,6 +20,16 @@ import AppKit
 import SwiftUI
 import Defaults
 
+private func applyLocalSendPanelCornerMask(_ view: NSView, radius: CGFloat) {
+    view.wantsLayer = true
+    view.layer?.masksToBounds = true
+    view.layer?.cornerRadius = radius
+    view.layer?.backgroundColor = NSColor.clear.cgColor
+    if #available(macOS 13.0, *) {
+        view.layer?.cornerCurve = .continuous
+    }
+}
+
 @MainActor
 final class LocalSendDevicePickerWindowManager {
     static let shared = LocalSendDevicePickerWindowManager()
@@ -34,6 +44,7 @@ final class LocalSendDevicePickerWindowManager {
         onDeviceSelected: @escaping (LocalSendDeviceInfo) -> Void,
         onDismiss: @escaping () -> Void
     ) {
+        let cornerRadius: CGFloat = 24
         self.onDeviceSelected = onDeviceSelected
         self.onDismiss = onDismiss
         
@@ -50,7 +61,7 @@ final class LocalSendDevicePickerWindowManager {
         
         if let existingWindow = window {
             let hostingView = NSHostingView(rootView: pickerView)
-            hostingView.layer?.backgroundColor = .clear
+            applyLocalSendPanelCornerMask(hostingView, radius: cornerRadius)
             existingWindow.contentView = hostingView
             existingWindow.makeKeyAndOrderFront(nil)
             return
@@ -81,9 +92,7 @@ final class LocalSendDevicePickerWindowManager {
             pickerView
                 .background(Color.clear)
         )
-        hostingView.wantsLayer = true
-        hostingView.layer?.backgroundColor = .clear
-        hostingView.layer?.isOpaque = false
+        applyLocalSendPanelCornerMask(hostingView, radius: cornerRadius)
         newWindow.contentView = hostingView
         newWindow.isMovableByWindowBackground = true
         
