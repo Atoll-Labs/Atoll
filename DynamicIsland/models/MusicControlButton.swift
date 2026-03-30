@@ -76,27 +76,27 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
     var label: String {
         switch self {
         case .shuffle:
-            return "Shuffle"
+            return String(localized: "Shuffle")
         case .trackBackward:
-            return "Previous Track"
+            return String(localized: "Previous Track")
         case .playPause:
-            return "Play / Pause"
+            return String(localized: "Play / Pause")
         case .trackForward:
-            return "Next Track"
+            return String(localized: "Next Track")
         case .repeatMode:
-            return "Repeat"
+            return String(localized: "Repeat")
         case .mediaOutput:
-            return "Change Media Output"
+            return String(localized: "Change Media Output")
         case .airPlay:
-            return "AirPlay"
+            return String(localized: "AirPlay")
         case .lyrics:
-            return "Lyrics"
+            return String(localized: "Lyrics")
         case .seekBackward:
-            return "Rewind 10s"
+            return String(localized: "Rewind 10s")
         case .seekForward:
-            return "Forward 10s"
+            return String(localized: "Forward 10s")
         case .none:
-            return "Empty Slot"
+            return String(localized: "Empty Slot")
         }
     }
 

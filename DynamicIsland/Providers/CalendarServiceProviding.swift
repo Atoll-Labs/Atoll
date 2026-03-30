@@ -272,7 +272,7 @@ extension EKCalendar {
     var accountTitle: String {
         switch source.sourceType {
         case .local, .subscribed, .birthdays:
-            return "Other"
+            return String(localized: "Other")
         default:
             return source.title
         }

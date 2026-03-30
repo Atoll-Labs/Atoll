@@ -77,10 +77,10 @@ struct CPUUsageDashboard: View {
             Text("Usage")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            DetailRow(color: systemColor.opacity(0.95), label: "System", value: StatsFormatting.percentage(breakdown.system))
-            DetailRow(color: userColor.opacity(0.95), label: "User", value: StatsFormatting.percentage(breakdown.user))
-            DetailRow(color: idleColor.opacity(0.7), label: "Idle", value: StatsFormatting.percentage(breakdown.idle))
-            DetailRow(color: nil, label: "Active", value: StatsFormatting.percentage(breakdown.activeUsage))
+            DetailRow(color: systemColor.opacity(0.95), label: String(localized: "System"), value: StatsFormatting.percentage(breakdown.system))
+            DetailRow(color: userColor.opacity(0.95), label: String(localized: "User"), value: StatsFormatting.percentage(breakdown.user))
+            DetailRow(color: idleColor.opacity(0.7), label: String(localized: "Idle"), value: StatsFormatting.percentage(breakdown.idle))
+            DetailRow(color: nil, label: String(localized: "stats_resource_active", defaultValue: "Active"), value: StatsFormatting.percentage(breakdown.activeUsage))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         
@@ -171,7 +171,7 @@ private struct CPUTemperatureGauge: View {
 
     var body: some View {
         CircularGaugeView(
-            title: "Temperature",
+            title: String(localized: "Temperature"),
             value: normalizedValue,
             tint: tint,
             centerPrimaryText: centerPrimary,
