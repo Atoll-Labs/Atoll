@@ -133,7 +133,7 @@ private struct GPUUsageDashboard: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             DetailRow(color: nil, label: String(localized: "Session Avg"), value: StatsFormatting.percentage(averageUsage))
-            DetailRow(color: nil, label: String("localized: Last Update"), value: formattedTimestamp(lastUpdated))
+            DetailRow(color: nil, label: String(localized: "Last Update"), value: formattedTimestamp(lastUpdated))
             if let device = primaryDevice {
                 Divider().padding(.vertical, 4)
                 DetailRow(color: nil, label: String(localized: "Active GPU"), value: device.formattedVendorModel)
