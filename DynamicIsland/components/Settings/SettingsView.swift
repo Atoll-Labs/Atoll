@@ -793,7 +793,8 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .shelf, title: "Expanded drag detection area", keywords: ["shelf", "drag"], highlightID: SettingsTab.shelf.highlightID(for: "Expanded drag detection area")),
             SettingsSearchEntry(tab: .shelf, title: "Copy items on drag", keywords: ["shelf", "drag", "copy"], highlightID: SettingsTab.shelf.highlightID(for: "Copy items on drag")),
             SettingsSearchEntry(tab: .shelf, title: "Remove from shelf after dragging", keywords: ["shelf", "drag", "remove"], highlightID: SettingsTab.shelf.highlightID(for: "Remove from shelf after dragging")),
-            SettingsSearchEntry(tab: .shelf, title: "Quick Share Service", keywords: ["shelf", "share", "airdrop"], highlightID: SettingsTab.shelf.highlightID(for: "Quick Share Service")),
+            SettingsSearchEntry(tab: .shelf, title: "Quick Share Service", keywords: ["shelf", "share", "airdrop", "localsend"], highlightID: SettingsTab.shelf.highlightID(for: "Quick Share Service")),
+            SettingsSearchEntry(tab: .shelf, title: "LocalSend Device Picker Style", keywords: ["localsend", "glass", "picker", "material"], highlightID: SettingsTab.shelf.highlightID(for: "Device Picker Style")),
 
             // Appearance
             SettingsSearchEntry(tab: .appearance, title: "Main screen style", keywords: ["dynamic island", "pill", "non-notch", "display style", "notch style"], highlightID: SettingsTab.appearance.highlightID(for: "Main screen style")),
@@ -1609,7 +1610,7 @@ private struct HUDAndOSDSettingsView: View {
         VStack(spacing: 20) {
             HStack(spacing: 16) {
                 HUDSelectionCard(
-                    title: "Dynamic Island",
+                    title: String(localized: "Dynamic Island"),
                     isSelected: selectedTab == .hud,
                     action: {
                         selectedTab = .hud
@@ -1649,7 +1650,7 @@ private struct HUDAndOSDSettingsView: View {
                 }
 
                 HUDSelectionCard(
-                    title: "Custom OSD",
+                    title: String(localized: "Custom OSD"),
                     isSelected: selectedTab == .osd,
                     action: {
                         selectedTab = .osd
@@ -1691,7 +1692,7 @@ private struct HUDAndOSDSettingsView: View {
                 }
 
                 HUDSelectionCard(
-                    title: "Vertical Bar",
+                    title: String(localized: "Vertical Bar"),
                     isSelected: selectedTab == .vertical,
                     action: {
                         selectedTab = .vertical
@@ -1734,7 +1735,7 @@ private struct HUDAndOSDSettingsView: View {
                 }
 
                 HUDSelectionCard(
-                    title: "Circular",
+                    title: String(localized: "Circular"),
                     isSelected: selectedTab == .circular,
                     action: {
                         selectedTab = .circular
@@ -2530,9 +2531,11 @@ struct Media: View {
                     }
                 }
                 if showShuffleAndRepeat {
-                    Defaults.Toggle("Show \"Change Media Output\" control", key: .showMediaOutputControl)
-                        .settingsHighlight(id: highlightID("Show Change Media Output control"))
-                        .help("Adds the AirPlay/route picker button back to the customizable controls palette.")
+                    Defaults.Toggle(key: .showMediaOutputControl) {
+                        Text("Show \"Change Media Output\" control")
+                    }
+                    .settingsHighlight(id: highlightID("Show Change Media Output control"))
+                    .help("Adds the AirPlay/route picker button back to the customizable controls palette.")
                     MusicSlotConfigurationView()
                 } else {
                     Text("Turn on customizable controls to rearrange media buttons.")
@@ -2577,10 +2580,9 @@ struct Media: View {
                 )
                 .disabled(standardControlsSuppressed)
                 .help(standardControlsSuppressed ? "Standard notch media controls are hidden while this toggle is off." : "")
-                Defaults.Toggle(
-                    "Show floating media controls",
-                    key: .musicControlWindowEnabled
-                )
+                Defaults.Toggle(key: .musicControlWindowEnabled) {
+                    Text("Show floating media controls")
+                }
                 .disabled(!coordinator.musicLiveActivityEnabled || standardControlsSuppressed)
                 .help("Displays play/pause and skip buttons beside the notch while music is active. Disabled by default.")
                 Toggle("Enable sneak peek", isOn: $enableSneakPeek)
@@ -2633,9 +2635,11 @@ struct Media: View {
                 }
                 .disabled(!enableLockScreenMediaWidget)
                 if isAppleMusicActive {
-                    Defaults.Toggle("Show merged AirPlay and output devices", key: .lockScreenMusicMergedAirPlayOutput)
-                        .disabled(!enableLockScreenMediaWidget)
-                        .settingsHighlight(id: highlightID("Show merged AirPlay and output devices"))
+                    Defaults.Toggle(key: .lockScreenMusicMergedAirPlayOutput) {
+                        Text("Show merged AirPlay and output devices")
+                    }
+                    .disabled(!enableLockScreenMediaWidget)
+                    .settingsHighlight(id: highlightID("Show merged AirPlay and output devices"))
                 }
                 Defaults.Toggle(key: .lockScreenPanelShowsBorder) {
                     Text("Show panel border")
@@ -2985,10 +2989,9 @@ struct CalendarSettings: View {
                         }
                     }
 
-                    Defaults.Toggle(
-                        "Hide active event and show next upcoming event",
-                        key: .lockScreenShowCalendarEventAfterStartEnabled
-                    )
+                    Defaults.Toggle(key: .lockScreenShowCalendarEventAfterStartEnabled) {
+                        Text("Hide active event and show next upcoming event")
+                    }
                     .disabled(!lockScreenShowCalendarEvent || lockScreenShowCalendarEventEntireDuration)
                     .settingsHighlight(id: highlightID("Hide active event and show next upcoming event"))
 
@@ -3087,12 +3090,12 @@ struct CalendarSettings: View {
 
     private func statusText(for status: EKAuthorizationStatus) -> String {
         switch status {
-        case .fullAccess, .authorized: return "Full Access"
-        case .writeOnly: return "Write Only"
-        case .denied: return "Denied"
-        case .restricted: return "Restricted"
-        case .notDetermined: return "Not Determined"
-        @unknown default: return "Unknown"
+        case .fullAccess, .authorized: return String(localized: "Full Access")
+        case .writeOnly: return String(localized: "Write Only")
+        case .denied: return String(localized: "Denied")
+        case .restricted: return String(localized: "Restricted")
+        case .notDetermined: return String(localized: "Not Determined")
+        @unknown default: return String(localized: "Unknown")
         }
     }
 
@@ -3449,12 +3452,14 @@ struct Shelf: View {
                                 if let imgData = provider.imageData, let nsImg = NSImage(data: imgData) {
                                     Image(nsImage: nsImg)
                                         .resizable()
-                                        .aspectRatio(contentMode: .fit)
+                                        .scaledToFit()
+                                        .frame(width: 16, height: 16)
+                                        .clipShape(RoundedRectangle(cornerRadius: 3))
                                 } else {
                                     Image(systemName: "square.and.arrow.up")
+                                        .frame(width: 16, height: 16)
                                 }
                             }
-                            .frame(width: 16, height: 16)
                             .foregroundColor(.accentColor)
                             Text(provider.id)
                         }
@@ -3470,12 +3475,14 @@ struct Shelf: View {
                             if let imgData = selectedProvider.imageData, let nsImg = NSImage(data: imgData) {
                                 Image(nsImage: nsImg)
                                     .resizable()
-                                    .aspectRatio(contentMode: .fit)
+                                    .scaledToFit()
+                                    .frame(width: 16, height: 16)
+                                    .clipShape(RoundedRectangle(cornerRadius: 3))
                             } else {
                                 Image(systemName: "square.and.arrow.up")
+                                    .frame(width: 16, height: 16)
                             }
                         }
-                        .frame(width: 16, height: 16)
                         .foregroundColor(.accentColor)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Currently selected: \(selectedProvider.id)")
@@ -3497,12 +3504,51 @@ struct Shelf: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            
+            if quickShareProvider == "LocalSend" {
+                LocalSendSettingsSection(highlightID: highlightID)
+            }
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Shelf")
         .onAppear {
             fullDiskAccessPermission.refreshStatus()
             shelfFolderAccessPermission.refreshStatus()
+        }
+    }
+}
+
+// MARK: - LocalSend Settings Section
+
+private struct LocalSendSettingsSection: View {
+    let highlightID: (String) -> String
+    
+    @Default(.localSendDevicePickerGlassMode) private var glassMode
+    @Default(.localSendDevicePickerLiquidGlassVariant) private var liquidGlassVariant
+    
+    var body: some View {
+        Section {
+            Picker("Device Picker Style", selection: $glassMode) {
+                ForEach(LockScreenGlassCustomizationMode.allCases) { mode in
+                    Text(mode.localizedName).tag(mode)
+                }
+            }
+            .pickerStyle(.menu)
+            
+            if glassMode == .customLiquid {
+                Picker("Liquid Glass Variant", selection: $liquidGlassVariant) {
+                    ForEach(LiquidGlassVariant.allCases) { variant in
+                        Text("Variant \(variant.rawValue)").tag(variant)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+        } header: {
+            Text("LocalSend Device Picker")
+        } footer: {
+            Text("Customize the appearance of the LocalSend device selection popup that appears when you drop files.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -3564,12 +3610,12 @@ struct LiveActivitiesSettings: View {
             Section {
                 if !fullDiskAccessPermission.isAuthorized {
                     SettingsPermissionCallout(
-                        title: "Custom Focus metadata",
-                        message: "Full Disk Access unlocks custom Focus icons, colors, and labels. Standard Focus detection still works without it—grant access only if you need personalized indicators.",
+                        title: String(localized: "Custom Focus metadata"),
+                        message: String(localized: "Full Disk Access unlocks custom Focus icons, colors, and labels. Standard Focus detection still works without it—grant access only if you need personalized indicators."),
                         icon: "externaldrive.fill",
                         iconColor: .purple,
-                        requestButtonTitle: "Request Full Disk Access",
-                        openSettingsButtonTitle: "Open Privacy & Security",
+                        requestButtonTitle: String(localized: "Request Full Disk Access"),
+                        openSettingsButtonTitle: String(localized: "Open Privacy & Security"),
                         requestAction: { fullDiskAccessPermission.requestAccessPrompt() },
                         openSettingsAction: { fullDiskAccessPermission.openSystemSettings() }
                     )
@@ -3949,8 +3995,9 @@ struct Appearance: View {
                     Text("Enable colored spectrograms")
                 }
                 .settingsHighlight(id: highlightID("Enable colored spectrograms"))
-                Defaults
-                    .Toggle("Player tinting", key: .playerColorTinting)
+                Defaults.Toggle(key: .playerColorTinting) {
+                    Text("Enable colored spectograms")
+                }
                 Defaults.Toggle(key: .lightingEffect) {
                     Text("Enable blur effect behind album art")
                 }
@@ -4414,8 +4461,8 @@ struct Appearance: View {
                 }
 
                 let description = enableMinimalisticUI
-                ? "Width adjustments apply only to the standard notch layout. Disable Minimalistic UI to edit this value."
-                : "Recommended minimum width adjusts automatically based on the number of enabled tabs."
+                ? String(localized: "Width adjustments apply only to the standard notch layout. Disable Minimalistic UI to edit this value.")
+                : String(localized: "Recommended minimum width adjusts automatically based on the number of enabled tabs.")
 
                 Text(description)
                     .font(.caption)
@@ -4649,9 +4696,11 @@ struct LockScreenSettings: View {
                 .disabled(!enableLockScreenMediaWidget)
                 .settingsHighlight(id: highlightID("Show media app icon"))
                 if isAppleMusicActive {
-                    Defaults.Toggle("Show merged AirPlay and output devices", key: .lockScreenMusicMergedAirPlayOutput)
-                        .disabled(!enableLockScreenMediaWidget)
-                        .settingsHighlight(id: highlightID("Show merged AirPlay and output devices"))
+                    Defaults.Toggle(key: .lockScreenMusicMergedAirPlayOutput) {
+                        Text("Show merged AirPlay and output devices")
+                    }
+                    .disabled(!enableLockScreenMediaWidget)
+                    .settingsHighlight(id: highlightID("Show merged AirPlay and output devices"))
                 }
                 Defaults.Toggle(key: .lockScreenPanelShowsBorder) {
                     Text("Show panel border")
@@ -5259,9 +5308,9 @@ private struct LockScreenPositioningControls: View {
 
             HStack(alignment: .top, spacing: 24) {
                 offsetColumn(
-                    title: "Weather",
+                    title: String(localized: "Weather"),
                     value: weatherOffset,
-                    resetTitle: "Reset Weather",
+                    resetTitle: String(localized: "Reset Weather"),
                     resetAction: resetWeatherOffset
                 )
 
@@ -5269,9 +5318,9 @@ private struct LockScreenPositioningControls: View {
                     .frame(height: 64)
 
                 offsetColumn(
-                    title: "Timer",
+                    title: String(localized: "Timer"),
                     value: timerOffset,
-                    resetTitle: "Reset Timer",
+                    resetTitle: String(localized: "Reset Timer"),
                     resetAction: resetTimerOffset
                 )
 
@@ -5279,9 +5328,9 @@ private struct LockScreenPositioningControls: View {
                     .frame(height: 64)
 
                 offsetColumn(
-                    title: "Music",
+                    title: String(localized: "Music"),
                     value: musicOffset,
-                    resetTitle: "Reset Music",
+                    resetTitle: String(localized: "Reset Music"),
                     resetAction: resetMusicOffset
                 )
 
@@ -5293,21 +5342,21 @@ private struct LockScreenPositioningControls: View {
 
             VStack(alignment: .leading, spacing: 16) {
                 widthSlider(
-                    title: "Media Panel Width",
+                    title: String(localized: "Media Panel Width"),
                     value: musicWidthBinding,
                     range: musicWidthRange,
-                    resetTitle: "Reset Media Width",
+                    resetTitle: String(localized: "Reset Media Width"),
                     resetAction: resetMusicWidth,
-                    helpText: "Shrinks the lock screen media panel while keeping the expanded view full width."
+                    helpText: String(localized: "Shrinks the lock screen media panel while keeping the expanded view full width.")
                 )
 
                 widthSlider(
-                    title: "Timer Widget Width",
+                    title: String(localized: "Timer Widget Width"),
                     value: timerWidthBinding,
                     range: timerWidthRange,
-                    resetTitle: "Reset Timer Width",
+                    resetTitle: String(localized: "Reset Timer Width"),
                     resetAction: resetTimerWidth,
-                    helpText: "Adjusts the lock screen timer widget width without affecting button sizing."
+                    helpText: String(localized: "Adjusts the lock screen timer widget width without affecting button sizing.")
                 )
             }
         } header: {
@@ -6147,9 +6196,9 @@ struct TimerSettings: View {
                 Text("Default Custom Timer")
                     .font(.headline)
 
-                TimerDurationStepperRow(title: "Hours", value: $customHours, range: 0...23)
-                TimerDurationStepperRow(title: "Minutes", value: $customMinutes, range: 0...59)
-                TimerDurationStepperRow(title: "Seconds", value: $customSeconds, range: 0...59)
+                TimerDurationStepperRow(title: String(localized: "Hours"), value: $customHours, range: 0...23)
+                TimerDurationStepperRow(title: String(localized: "Minutes"), value: $customMinutes, range: 0...59)
+                TimerDurationStepperRow(title: String(localized: "Seconds"), value: $customSeconds, range: 0...59)
 
                 HStack {
                     Text("Current default:")
@@ -6489,9 +6538,9 @@ private struct TimerPresetEditorRow: View {
             }
 
             HStack(spacing: 16) {
-                TimerPresetComponentControl(title: "Hours", value: hoursBinding, range: 0...23)
-                TimerPresetComponentControl(title: "Minutes", value: minutesBinding, range: 0...59)
-                TimerPresetComponentControl(title: "Seconds", value: secondsBinding, range: 0...59)
+                TimerPresetComponentControl(title: String(localized: "Hours"), value: hoursBinding, range: 0...23)
+                TimerPresetComponentControl(title: String(localized: "Minutes"), value: minutesBinding, range: 0...59)
+                TimerPresetComponentControl(title: String(localized: "Seconds"), value: secondsBinding, range: 0...59)
             }
 
             ColorPicker("Accent colour", selection: colorBinding, supportsOpacity: false)

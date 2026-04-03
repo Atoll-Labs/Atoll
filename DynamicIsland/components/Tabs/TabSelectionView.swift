@@ -23,6 +23,7 @@
 import AtollExtensionKit
 import SwiftUI
 import Defaults
+import AppKit
 
 struct TabModel: Identifiable {
     let id: String
@@ -45,6 +46,9 @@ struct TabModel: Identifiable {
 struct TabSelectionView: View {
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject private var extensionNotchExperienceManager = ExtensionNotchExperienceManager.shared
+    @StateObject private var quickShareService = QuickShareService.shared
+    @Default(.quickShareProvider) private var quickShareProvider
+    @State private var showQuickSharePopover = false
     @Default(.enableTimerFeature) var enableTimerFeature
     @Default(.enableStatsFeature) var enableStatsFeature
     @Default(.enableColorPickerFeature) var enableColorPickerFeature
@@ -106,9 +110,11 @@ struct TabSelectionView: View {
     }
     var body: some View {
         HStack(spacing: 24) {
-            ForEach(tabs) { tab in
+            ForEach(Array(tabs.enumerated()), id: \.element.id) { idx, tab in
                 let isSelected = isSelected(tab)
                 let activeAccent = tab.accentColor ?? .white
+
+                // Render the tab button
                 TabButton(label: tab.label, icon: tab.icon, selected: isSelected) {
                     if tab.view == .extensionExperience {
                         coordinator.selectedExtensionExperienceID = tab.experienceID
@@ -117,6 +123,20 @@ struct TabSelectionView: View {
                 }
                 .frame(height: 26)
                 .foregroundStyle(isSelected ? activeAccent : .gray)
+                .background {
+                    if isSelected {
+                        Capsule()
+                            .fill((tab.accentColor ?? Color(nsColor: .secondarySystemFill)).opacity(0.25))
+                            .shadow(color: (tab.accentColor ?? .clear).opacity(0.4), radius: 8)
+                            .matchedGeometryEffect(id: "capsule", in: animation)
+                    } else {
+                        Capsule()
+                            .fill(Color.clear)
+                            .matchedGeometryEffect(id: "capsule", in: animation)
+                            .hidden()
+                    }
+                }
+
                 
             }
         }

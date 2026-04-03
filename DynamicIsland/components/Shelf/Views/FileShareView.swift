@@ -28,29 +28,49 @@ import UniformTypeIdentifiers
 struct FileShareView: View {
     @EnvironmentObject private var vm: DynamicIslandViewModel
     @StateObject private var quickShare = QuickShareService.shared
+    @StateObject private var localSend = LocalSendService.shared
     @Default(.quickShareProvider) var quickShareProvider: String
+    @State private var showQuickSharePopover = false
+    @State private var isSwitchHover = false
+    @State private var autoCloseToken = UUID()
 
     @State private var hostView: NSView?
     @State private var interactionNonce: UUID = .init()
     @State private var isProcessing = false
+    @State private var pendingDropProviders: [NSItemProvider]?
+    @State private var showLocalSendPicker = false
     
     private var selectedProvider: QuickShareProvider {
         quickShare.availableProviders.first(where: { $0.id == quickShareProvider }) ?? QuickShareProvider(id: "System Share Menu", imageData: nil, supportsRawText: true)
     }
 
+    private var notchToggleProviders: [QuickShareProvider] {
+        quickShare.availableProviders.filter { $0.id == "AirDrop" || $0.id == "LocalSend" }
+    }
+
     var body: some View {
         dropArea
             .background(NSViewHost(view: $hostView))
-            .onAppear { quickShare.ensureDiscovered() }
+            .onAppear {
+                quickShare.ensureDiscovered()
+                localSend.startDiscovery()
+            }
             .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data, .image], isTargeted: $vm.dropZoneTargeting) { providers in
                 interactionNonce = .init()
                 vm.dropEvent = true
-                Task { await handleDrop(providers) }
+                if selectedProvider.id == "LocalSend" {
+                    pendingDropProviders = providers
+                    showLocalSendPicker = true
+                } else {
+                    Task { await handleDrop(providers) }
+                }
                 return true
             }
             .onTapGesture {
-                Task {
-                    await handleClick()
+                guard quickShare.availableProviders.first(where: { $0.id == quickShareProvider }) != nil else { return }
+                // Only open picker on taps when AirDrop or LocalSend is selected
+                if quickShareProvider == "AirDrop" || quickShareProvider == "LocalSend" {
+                    Task { await handleClick() }
                 }
             }
     }
@@ -85,12 +105,16 @@ struct FileShareView: View {
                         if let imgData = selectedProvider.imageData, let nsImg = NSImage(data: imgData) {
                             Image(nsImage: nsImg)
                                 .resizable()
-                                .aspectRatio(contentMode: .fit)
+                                .scaledToFit()
+                                .frame(width: 34, height: 34)
+                                .clipped()
                         } else {
                             Image(systemName: "square.and.arrow.up")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 34, height: 34)
                         }
                     }
-                    .frame(width: 34, height: 34)
                         .foregroundStyle(
                             vm.dropZoneTargeting ? Color.accentColor : Color.gray
                         )
@@ -104,11 +128,116 @@ struct FileShareView: View {
                     .font(.system(.headline, design: .rounded))
                     .foregroundColor(.white.opacity(0.8))
                     .multilineTextAlignment(.center)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                     .frame(maxWidth: .infinity)
 
             }
             .padding(18)
             .frame(maxWidth: .infinity)
+
+            // Switch button pinned to top-right corner
+            VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        vm.setAutoCloseSuppression(true, token: autoCloseToken)
+                        quickShare.ensureDiscovered()
+                        showQuickSharePopover.toggle()
+                    } label: {
+                        Image(systemName: "switch.2")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 14, height: 14)
+                            .padding(8)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(isSwitchHover ? Color(.windowBackgroundColor).opacity(0.12) : Color.clear))
+                            .foregroundColor(isSwitchHover ? .accentColor : .gray)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .onHover { hovering in
+                        isSwitchHover = hovering
+                        vm.setAutoCloseSuppression(hovering, token: autoCloseToken)
+                    }
+                    .popover(isPresented: $showQuickSharePopover, arrowEdge: .bottom) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Quick Share")
+                                .font(.headline)
+
+                            Picker("Quick Share Service", selection: $quickShareProvider) {
+                                ForEach(quickShare.availableProviders, id: \.id) { provider in
+                                    HStack(spacing: 8) {
+                                        Group {
+                                            if let imgData = provider.imageData, let nsImg = NSImage(data: imgData) {
+                                                Image(nsImage: nsImg)
+                                                    .resizable()
+                                                    .scaledToFit()
+                                                    .frame(width: 16, height: 16)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 3))
+                                            } else {
+                                                Image(systemName: "square.and.arrow.up")
+                                                    .frame(width: 16, height: 16)
+                                            }
+                                        }
+                                        .foregroundColor(.accentColor)
+
+                                        Text(provider.id)
+                                            .lineLimit(1)
+                                            .truncationMode(.tail)
+                                            .layoutPriority(1)
+                                            .fixedSize(horizontal: true, vertical: false)
+                                    }
+                                    .tag(provider.id)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .frame(minWidth: 260)
+
+                            if let selected = quickShare.availableProviders.first(where: { $0.id == quickShareProvider }) {
+                                HStack(alignment: .top, spacing: 8) {
+                                    Group {
+                                        if let imgData = selected.imageData, let nsImg = NSImage(data: imgData) {
+                                            Image(nsImage: nsImg)
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: 20, height: 20)
+                                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                                        } else {
+                                            Image(systemName: "square.and.arrow.up")
+                                                .frame(width: 20, height: 20)
+                                        }
+                                    }
+                                    .foregroundColor(.accentColor)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Currently: \(selected.id)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                            .truncationMode(.tail)
+                                            .layoutPriority(1)
+                                            .fixedSize(horizontal: true, vertical: false)
+                                        Text("Files shared from the shelf will use this service")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                        .padding()
+                        .onAppear { vm.setAutoCloseSuppression(true, token: autoCloseToken) }
+                        .onDisappear {
+                            // Delay clearing suppression slightly so the close click doesn't immediately close the notch
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                vm.setAutoCloseSuppression(false, token: autoCloseToken)
+                            }
+                        }
+                        .onHover { hovering in vm.setAutoCloseSuppression(hovering, token: autoCloseToken) }
+                    }
+                    .padding(.trailing, 8)
+                    .padding(.top, 8)
+                }
+                Spacer()
+            }
             
             // Loading overlay
             if isProcessing || quickShare.isPickerOpen {
@@ -120,8 +249,63 @@ struct FileShareView: View {
                             .scaleEffect(0.8)
                     )
             }
+
+            if selectedProvider.id == "LocalSend" && localSend.isSending {
+                VStack {
+                    HStack {
+                        Spacer()
+                        ZStack {
+                            Circle()
+                                .stroke(Color.white.opacity(0.16), lineWidth: 3)
+
+                            Circle()
+                                .trim(from: 0, to: min(max(localSend.sendProgress, 0), 1))
+                                .stroke(
+                                    Color.white,
+                                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                                )
+                                .rotationEffect(.degrees(-90))
+                                .animation(.easeInOut(duration: 0.2), value: localSend.sendProgress)
+
+                            if localSend.sendProgress > 0.99 {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .frame(width: 24, height: 24)
+                        .padding(.top, 10)
+                        .padding(.trailing, 10)
+                    }
+                    Spacer()
+                }
+                .transition(.opacity)
+            }
         }
         .contentShape(RoundedRectangle(cornerRadius: 12))
+        .onChange(of: showLocalSendPicker) { _, show in
+            if show {
+                LocalSendDevicePickerWindowManager.shared.show(
+                    onDeviceSelected: { device in
+                        localSend.selectedDeviceID = device.id
+                        if let providers = pendingDropProviders {
+                            // Close the picker first since handleDrop will use quickShare properly
+                            showLocalSendPicker = false
+                            Task {
+                                await handleDrop(providers)
+                                pendingDropProviders = nil
+                            }
+                        }
+                    },
+                    onDismiss: {
+                        showLocalSendPicker = false
+                        pendingDropProviders = nil
+                    }
+                )
+            } else {
+                LocalSendDevicePickerWindowManager.shared.hide()
+            }
+        }
     }
 
     // MARK: - Actions

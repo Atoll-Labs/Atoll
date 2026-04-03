@@ -612,7 +612,7 @@ struct NotchHomeView: View {
             .combined(with: .blurReplace.animation(.smooth.speed(0.9)))
             .combined(with: .move(edge: .top)))
         .blur(radius: vm.notchState == .closed ? 30 : 0)
-        .padding(8) //Put the main padding here for consistency!!!
+        .padding(Defaults[.enableMinimalisticUI] ? 0 : 8) //Putting the main padding for home view here for consistency
     }
 
     private var minimalisticOverridePayload: ExtensionNotchExperiencePayload? {

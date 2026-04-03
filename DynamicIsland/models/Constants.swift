@@ -143,12 +143,14 @@ enum ExtensionPermissionScope: String, CaseIterable, Codable, Defaults.Serializa
     case liveActivities
     case lockScreenWidgets
     case notchExperiences
+    case fileSharing
 
     var displayName: String {
         switch self {
         case .liveActivities: return "Live Activities"
         case .lockScreenWidgets: return "Lock Screen Widgets"
         case .notchExperiences: return "Notch Experiences"
+        case .fileSharing: return "File Sharing"
         }
     }
 }
@@ -886,6 +888,9 @@ extension Defaults.Keys {
     static let dynamicShelf = Key<Bool>("dynamicShelf", default: true)
     static let openShelfByDefault = Key<Bool>("openShelfByDefault", default: true)
         static let quickShareProvider = Key<String>("quickShareProvider", default: "AirDrop")
+        static let localSendSelectedDeviceID = Key<String>("localSendSelectedDeviceID", default: "")
+        static let localSendDevicePickerGlassMode = Key<LockScreenGlassCustomizationMode>("localSendDevicePickerGlassMode", default: .standard)
+        static let localSendDevicePickerLiquidGlassVariant = Key<LiquidGlassVariant>("localSendDevicePickerLiquidGlassVariant", default: .v11)
         static let copyOnDrag = Key<Bool>("copyOnDrag", default: false)
         static let autoRemoveShelfItems = Key<Bool>("autoRemoveShelfItems", default: false)
         static let expandedDragDetection = Key<Bool>("expandedDragDetection", default: true)
@@ -1003,6 +1008,7 @@ extension Defaults.Keys {
     static let extensionLiveActivityCapacity = Key<Int>("extensionLiveActivityCapacity", default: 4)
     static let extensionLockScreenWidgetCapacity = Key<Int>("extensionLockScreenWidgetCapacity", default: 4)
     static let extensionNotchExperienceCapacity = Key<Int>("extensionNotchExperienceCapacity", default: 2)
+    static let enableExtensionFileSharing = Key<Bool>("enableExtensionFileSharing", default: true)
     
     // MARK: Keyboard Shortcuts
     static let enableShortcuts = Key<Bool>("enableShortcuts", default: true)
