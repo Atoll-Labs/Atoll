@@ -23,6 +23,7 @@
 import AtollExtensionKit
 import SwiftUI
 import Defaults
+import AppKit
 
 struct TabModel: Identifiable {
     let id: String
@@ -45,6 +46,9 @@ struct TabModel: Identifiable {
 struct TabSelectionView: View {
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject private var extensionNotchExperienceManager = ExtensionNotchExperienceManager.shared
+    @StateObject private var quickShareService = QuickShareService.shared
+    @Default(.quickShareProvider) private var quickShareProvider
+    @State private var showQuickSharePopover = false
     @Default(.enableTimerFeature) var enableTimerFeature
     @Default(.enableStatsFeature) var enableStatsFeature
     @Default(.enableColorPickerFeature) var enableColorPickerFeature
@@ -106,9 +110,11 @@ struct TabSelectionView: View {
     }
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(tabs) { tab in
+            ForEach(Array(tabs.enumerated()), id: \.element.id) { idx, tab in
                 let isSelected = isSelected(tab)
                 let activeAccent = tab.accentColor ?? .white
+
+                // Render the tab button
                 TabButton(label: tab.label, icon: tab.icon, selected: isSelected) {
                     if tab.view == .extensionExperience {
                         coordinator.selectedExtensionExperienceID = tab.experienceID
@@ -130,6 +136,8 @@ struct TabSelectionView: View {
                             .hidden()
                     }
                 }
+
+                
             }
         }
         .animation(.smooth(duration: 0.3), value: coordinator.currentView)

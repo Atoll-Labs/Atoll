@@ -793,7 +793,8 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .shelf, title: "Expanded drag detection area", keywords: ["shelf", "drag"], highlightID: SettingsTab.shelf.highlightID(for: "Expanded drag detection area")),
             SettingsSearchEntry(tab: .shelf, title: "Copy items on drag", keywords: ["shelf", "drag", "copy"], highlightID: SettingsTab.shelf.highlightID(for: "Copy items on drag")),
             SettingsSearchEntry(tab: .shelf, title: "Remove from shelf after dragging", keywords: ["shelf", "drag", "remove"], highlightID: SettingsTab.shelf.highlightID(for: "Remove from shelf after dragging")),
-            SettingsSearchEntry(tab: .shelf, title: "Quick Share Service", keywords: ["shelf", "share", "airdrop"], highlightID: SettingsTab.shelf.highlightID(for: "Quick Share Service")),
+            SettingsSearchEntry(tab: .shelf, title: "Quick Share Service", keywords: ["shelf", "share", "airdrop", "localsend"], highlightID: SettingsTab.shelf.highlightID(for: "Quick Share Service")),
+            SettingsSearchEntry(tab: .shelf, title: "LocalSend Device Picker Style", keywords: ["localsend", "glass", "picker", "material"], highlightID: SettingsTab.shelf.highlightID(for: "Device Picker Style")),
 
             // Appearance
             SettingsSearchEntry(tab: .appearance, title: "Main screen style", keywords: ["dynamic island", "pill", "non-notch", "display style", "notch style"], highlightID: SettingsTab.appearance.highlightID(for: "Main screen style")),
@@ -3438,12 +3439,14 @@ struct Shelf: View {
                                 if let imgData = provider.imageData, let nsImg = NSImage(data: imgData) {
                                     Image(nsImage: nsImg)
                                         .resizable()
-                                        .aspectRatio(contentMode: .fit)
+                                        .scaledToFit()
+                                        .frame(width: 16, height: 16)
+                                        .clipShape(RoundedRectangle(cornerRadius: 3))
                                 } else {
                                     Image(systemName: "square.and.arrow.up")
+                                        .frame(width: 16, height: 16)
                                 }
                             }
-                            .frame(width: 16, height: 16)
                             .foregroundColor(.accentColor)
                             Text(provider.id)
                         }
@@ -3459,12 +3462,14 @@ struct Shelf: View {
                             if let imgData = selectedProvider.imageData, let nsImg = NSImage(data: imgData) {
                                 Image(nsImage: nsImg)
                                     .resizable()
-                                    .aspectRatio(contentMode: .fit)
+                                    .scaledToFit()
+                                    .frame(width: 16, height: 16)
+                                    .clipShape(RoundedRectangle(cornerRadius: 3))
                             } else {
                                 Image(systemName: "square.and.arrow.up")
+                                    .frame(width: 16, height: 16)
                             }
                         }
-                        .frame(width: 16, height: 16)
                         .foregroundColor(.accentColor)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Currently selected: \(selectedProvider.id)")
@@ -3486,12 +3491,51 @@ struct Shelf: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            
+            if quickShareProvider == "LocalSend" {
+                LocalSendSettingsSection(highlightID: highlightID)
+            }
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Shelf")
         .onAppear {
             fullDiskAccessPermission.refreshStatus()
             shelfFolderAccessPermission.refreshStatus()
+        }
+    }
+}
+
+// MARK: - LocalSend Settings Section
+
+private struct LocalSendSettingsSection: View {
+    let highlightID: (String) -> String
+    
+    @Default(.localSendDevicePickerGlassMode) private var glassMode
+    @Default(.localSendDevicePickerLiquidGlassVariant) private var liquidGlassVariant
+    
+    var body: some View {
+        Section {
+            Picker("Device Picker Style", selection: $glassMode) {
+                ForEach(LockScreenGlassCustomizationMode.allCases) { mode in
+                    Text(mode.localizedName).tag(mode)
+                }
+            }
+            .pickerStyle(.menu)
+            
+            if glassMode == .customLiquid {
+                Picker("Liquid Glass Variant", selection: $liquidGlassVariant) {
+                    ForEach(LiquidGlassVariant.allCases) { variant in
+                        Text("Variant \(variant.rawValue)").tag(variant)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+        } header: {
+            Text("LocalSend Device Picker")
+        } footer: {
+            Text("Customize the appearance of the LocalSend device selection popup that appears when you drop files.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }

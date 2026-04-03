@@ -29,6 +29,7 @@ final class ExtensionRPCServer {
 
     private var listener: NWListener?
     private var connections: [UUID: RPCClientConnection] = [:]
+    private var shelfSubscribers: Set<String> = [] // bundleIdentifiers subscribed to shelf events
     private let port: UInt16 = 9020
     private let queue = DispatchQueue(label: "com.ebullioscopic.Atoll.rpc.server", qos: .userInitiated)
     private let decoder = JSONDecoder()
@@ -78,6 +79,7 @@ final class ExtensionRPCServer {
             conn.connection.cancel()
         }
         connections.removeAll()
+        shelfSubscribers.removeAll()
         logDiagnostics("RPC server stopped")
     }
 
@@ -125,6 +127,29 @@ final class ExtensionRPCServer {
                 "isAuthorized": .bool(isAuthorized)
             ]
         )
+    }
+
+    // MARK: - Shelf Event Subscriptions
+
+    func registerShelfSubscription(for bundleIdentifier: String) {
+        shelfSubscribers.insert(bundleIdentifier)
+        logDiagnostics("Registered shelf subscription for \(bundleIdentifier)")
+    }
+
+    func notifyShelfItemsChanged(itemIDs: [String], action: String) {
+        guard !shelfSubscribers.isEmpty else { return }
+        let params: [String: RPCValue] = [
+            "action": .string(action),
+            "itemIDs": .array(itemIDs.map { .string($0) })
+        ]
+        for subscriber in shelfSubscribers {
+            sendNotification(
+                to: subscriber,
+                method: "atoll.shelfItemsDidChange",
+                params: params
+            )
+        }
+        logDiagnostics("Notified \(shelfSubscribers.count) subscriber(s) of shelf change (\(action), \(itemIDs.count) items)")
     }
 
     // MARK: - Connection Handling

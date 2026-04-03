@@ -129,6 +129,10 @@ class QuickShareService: ObservableObject {
                 providers.insert(ad, at: 0)
             }
 
+            if !providers.contains(where: { $0.id == "LocalSend" }) {
+                providers.insert(QuickShareProvider(id: "LocalSend", imageData: nil, supportsRawText: true), at: min(1, providers.count))
+            }
+
             // System Share Menu fallback
             if !providers.contains(where: { $0.id == "System Share Menu" }) {
                 providers.append(QuickShareProvider(id: "System Share Menu", imageData: nil, supportsRawText: true))
@@ -137,10 +141,35 @@ class QuickShareService: ObservableObject {
             return (providers, services)
         }.value
 
+        var providers = result.providers
+        if let idx = providers.firstIndex(where: { $0.id == "LocalSend" }) {
+            providers[idx].imageData = localSendIconData()
+        }
+
         self.cachedServices = result.services
-        self.availableProviders = result.providers
+        self.availableProviders = providers
         self.hasDiscovered = true
         self.discoveryTask = nil
+    }
+
+    private func localSendIconData() -> Data? {
+        guard let icon = NSImage(named: NSImage.Name("LocalSend")) else {
+            return nil
+        }
+        let thumbSize = NSSize(width: 32, height: 32)
+        let thumb = NSImage(size: thumbSize)
+        thumb.lockFocus()
+        icon.draw(in: NSRect(origin: .zero, size: thumbSize),
+                  from: NSRect(origin: .zero, size: icon.size),
+                  operation: .copy,
+                  fraction: 1.0)
+        thumb.unlockFocus()
+
+        guard let tiff = thumb.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff)
+        else { return nil }
+
+        return bitmap.representation(using: .png, properties: [:])
     }
     
     // MARK: - File Picker
@@ -153,6 +182,9 @@ class QuickShareService: ObservableObject {
 
         isPickerOpen = true
         SharingStateManager.shared.beginInteraction()
+
+        // Improve interaction in dev/test builds where app activation can be flaky.
+        NSApp.activate(ignoringOtherApps: true)
 
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
@@ -174,8 +206,12 @@ class QuickShareService: ObservableObject {
             }
         }
 
-        let response = panel.runModal()
-        completion(response)
+        if let window = view?.window {
+            panel.beginSheetModal(for: window, completionHandler: completion)
+        } else {
+            let response = panel.runModal()
+            completion(response)
+        }
     }
     
     // MARK: - Sharing
@@ -186,6 +222,21 @@ class QuickShareService: ObservableObject {
         stopSharingAccessingURLs()
         // Start security-scoped access for all file URLs
         sharingAccessingURLs = fileURLs.filter { $0.startAccessingSecurityScopedResource() }
+
+        if provider.id == "LocalSend" {
+            SharingStateManager.shared.beginInteraction()
+            defer {
+                SharingStateManager.shared.endInteraction()
+            }
+
+            do {
+                try await LocalSendService.shared.send(items: items)
+            } catch {
+                NSAlert.popError(error)
+            }
+            stopSharingAccessingURLs()
+            return
+        }
 
         // Setup lifecycle delegate to keep notch open during picker/service
         let delegate = SharingStateManager.shared.makeDelegate { [weak self] in
@@ -210,6 +261,7 @@ class QuickShareService: ObservableObject {
     }
 
     private func stopSharingAccessingURLs() {
+        guard !sharingAccessingURLs.isEmpty else { return }
         NSLog("Stopping sharing access to URLs")
         for url in sharingAccessingURLs {
             url.stopAccessingSecurityScopedResource()

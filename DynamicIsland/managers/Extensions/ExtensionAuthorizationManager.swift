@@ -111,6 +111,8 @@ final class ExtensionAuthorizationManager: ObservableObject {
                 record.widgetTimestamps.append(now)
             case .notchExperiences:
                 record.notchExperienceTimestamps.append(now)
+            case .fileSharing:
+                record.activityTimestamps.append(now)
             }
             record.activityTimestamps = flushOldTimestamps(record.activityTimestamps)
             record.widgetTimestamps = flushOldTimestamps(record.widgetTimestamps)

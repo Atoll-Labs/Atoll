@@ -17,8 +17,10 @@
  */
 
 import Foundation
+import AppKit
 import Defaults
 import AtollExtensionKit
+import UniformTypeIdentifiers
 
 /// Handles JSON-RPC method calls for a single WebSocket connection.
 /// Mirrors the functionality of `ExtensionXPCService` but uses JSON-RPC transport.
@@ -93,6 +95,25 @@ final class ExtensionRPCService {
 
         case "atoll.dismissNotchExperience":
             result = handleDismissNotchExperience(params: request.params, id: request.id)
+
+        // MARK: File Sharing
+        case "atoll.getShelfItems":
+            result = handleGetShelfItems(params: request.params, id: request.id)
+
+        case "atoll.getShelfItemData":
+            result = handleGetShelfItemData(params: request.params, id: request.id)
+
+        case "atoll.showFilePicker":
+            result = handleShowFilePicker(params: request.params, id: request.id)
+
+        case "atoll.shareShelfItems":
+            result = handleShareShelfItems(params: request.params, id: request.id)
+
+        case "atoll.addFilesToShelf":
+            result = handleAddFilesToShelf(params: request.params, id: request.id)
+
+        case "atoll.subscribeShelfEvents":
+            result = handleSubscribeShelfEvents(params: request.params, id: request.id)
 
         default:
             result = RPCErrorResponse(
@@ -327,7 +348,7 @@ final class ExtensionRPCService {
         case .duplicateIdentifier: code = RPCErrorCode.descriptorInvalid
         }
         return RPCErrorResponse(
-            error: RPCErrorObject(code: code, message: error.localizedDescription ?? "Unknown error"),
+            error: RPCErrorObject(code: code, message: error.localizedDescription),
             id: id
         )
     }
@@ -335,6 +356,232 @@ final class ExtensionRPCService {
     private func logDiagnostics(_ message: String) {
         guard Defaults[.extensionDiagnosticsLoggingEnabled] else { return }
         Logger.log(message, category: .extensions)
+    }
+
+    // MARK: - File Sharing Authorization Check
+
+    private func checkFileSharingAuthorization(id: String) -> RPCErrorResponse? {
+        guard Defaults[.enableThirdPartyExtensions] else {
+            return errorResponse(code: RPCErrorCode.featureDisabled, message: "Extensions are disabled", id: id)
+        }
+        guard Defaults[.enableExtensionFileSharing] else {
+            return errorResponse(code: RPCErrorCode.featureDisabled, message: "Extension file sharing is disabled", id: id)
+        }
+        let entry = authorizationManager.authorizationEntry(for: bundleIdentifier)
+        guard entry?.isAuthorized == true else {
+            return errorResponse(code: RPCErrorCode.unauthorized, message: "Extension not authorized", id: id)
+        }
+        guard entry?.allowedScopes.contains(.fileSharing) == true else {
+            return errorResponse(code: RPCErrorCode.unauthorized, message: "File sharing scope not granted", id: id)
+        }
+        return nil
+    }
+
+    // MARK: - File Sharing Handlers
+
+    private func handleGetShelfItems(params: RPCParams?, id: String) -> Codable {
+        if let err = checkFileSharingAuthorization(id: id) { return err }
+
+        let items = ShelfStateViewModel.shared.items
+        var result: [RPCValue] = []
+
+        for item in items {
+            var entry: [String: RPCValue] = [
+                "id": .string(item.id.uuidString),
+                "name": .string(item.displayName)
+            ]
+            switch item.kind {
+            case .file(let bookmark):
+                entry["kind"] = .string("file")
+                if let url = Bookmark(data: bookmark).resolveURL() {
+                    entry["path"] = .string(url.path)
+                    if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+                       let size = attrs[.size] as? Int {
+                        entry["size"] = .int(size)
+                    }
+                }
+            case .text(let string):
+                entry["kind"] = .string("text")
+                entry["textContent"] = .string(string)
+            case .link(let url):
+                entry["kind"] = .string("link")
+                entry["url"] = .string(url.absoluteString)
+            }
+            result.append(.object(entry))
+        }
+
+        logDiagnostics("RPC: getShelfItems returned \(result.count) items for \(bundleIdentifier)")
+        return RPCSuccessResponse(result: ["items": .array(result)], id: id)
+    }
+
+    private func handleGetShelfItemData(params: RPCParams?, id: String) -> Codable {
+        if let err = checkFileSharingAuthorization(id: id) { return err }
+
+        guard let itemID = params?["itemID"]?.stringValue,
+              let uuid = UUID(uuidString: itemID) else {
+            return errorResponse(code: RPCErrorCode.invalidParams, message: "Missing or invalid itemID", id: id)
+        }
+
+        guard let item = ShelfStateViewModel.shared.items.first(where: { $0.id == uuid }) else {
+            return errorResponse(code: RPCErrorCode.invalidParams, message: "Item not found", id: id)
+        }
+
+        switch item.kind {
+        case .file(let bookmark):
+            guard let url = Bookmark(data: bookmark).resolveURL() else {
+                return errorResponse(code: RPCErrorCode.internalError, message: "Cannot resolve file bookmark", id: id)
+            }
+            guard let fileData = url.accessSecurityScopedResource(accessor: { try? Data(contentsOf: $0) }) else {
+                return errorResponse(code: RPCErrorCode.internalError, message: "Cannot read file data", id: id)
+            }
+            let base64 = fileData.base64EncodedString()
+            logDiagnostics("RPC: getShelfItemData returned \(fileData.count) bytes for \(bundleIdentifier)")
+            return RPCSuccessResponse(result: [
+                "data": .string(base64),
+                "fileName": .string(url.lastPathComponent),
+                "mimeType": .string(url.mimeType ?? "application/octet-stream")
+            ], id: id)
+        case .text(let string):
+            return RPCSuccessResponse(result: [
+                "data": .string(Data(string.utf8).base64EncodedString()),
+                "fileName": .string("text.txt"),
+                "mimeType": .string("text/plain")
+            ], id: id)
+        case .link(let url):
+            return RPCSuccessResponse(result: [
+                "data": .string(Data(url.absoluteString.utf8).base64EncodedString()),
+                "fileName": .string("link.url"),
+                "mimeType": .string("text/uri-list")
+            ], id: id)
+        }
+    }
+
+    private func handleShowFilePicker(params: RPCParams?, id: String) -> Codable {
+        if let err = checkFileSharingAuthorization(id: id) { return err }
+
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.title = "Select files to share"
+
+        let response = panel.runModal()
+        guard response == .OK, !panel.urls.isEmpty else {
+            return RPCSuccessResponse(result: ["itemIDs": .array([])], id: id)
+        }
+
+        var newItemIDs: [RPCValue] = []
+        var newItems: [ShelfItem] = []
+
+        for url in panel.urls {
+            if let bookmark = try? Bookmark(url: url) {
+                let item = ShelfItem(kind: .file(bookmark: bookmark.data))
+                newItems.append(item)
+                newItemIDs.append(.string(item.id.uuidString))
+            }
+        }
+
+        ShelfStateViewModel.shared.add(newItems)
+        logDiagnostics("RPC: showFilePicker added \(newItems.count) items for \(bundleIdentifier)")
+        return RPCSuccessResponse(result: ["itemIDs": .array(newItemIDs)], id: id)
+    }
+
+    private func handleShareShelfItems(params: RPCParams?, id: String) -> Codable {
+        if let err = checkFileSharingAuthorization(id: id) { return err }
+
+        guard let itemIDsValue = params?["itemIDs"],
+              case .array(let itemIDArray) = itemIDsValue else {
+            return errorResponse(code: RPCErrorCode.invalidParams, message: "Missing itemIDs array", id: id)
+        }
+
+        let provider = params?["provider"]?.stringValue ?? "AirDrop"
+        let itemIDs = itemIDArray.compactMap { $0.stringValue }.compactMap { UUID(uuidString: $0) }
+        let items = ShelfStateViewModel.shared.items.filter { itemIDs.contains($0.id) }
+
+        guard !items.isEmpty else {
+            return errorResponse(code: RPCErrorCode.invalidParams, message: "No matching shelf items found", id: id)
+        }
+
+        let urls = ShelfStateViewModel.shared.resolveFileURLs(for: items)
+        guard !urls.isEmpty else {
+            return errorResponse(code: RPCErrorCode.internalError, message: "Could not resolve file URLs", id: id)
+        }
+
+        // Find and invoke the sharing service
+        QuickShareService.shared.ensureDiscovered()
+        if let shareProvider = QuickShareService.shared.availableProviders.first(where: { $0.id == provider }) {
+            Task {
+                await QuickShareService.shared.shareFilesOrText(urls, using: shareProvider, from: nil)
+            }
+            logDiagnostics("RPC: shareShelfItems sharing \(urls.count) files via \(provider) for \(bundleIdentifier)")
+            return RPCSuccessResponse(result: ["success": .bool(true), "fileCount": .int(urls.count)], id: id)
+        } else {
+            return errorResponse(code: RPCErrorCode.invalidParams, message: "Provider '\(provider)' not found", id: id)
+        }
+    }
+
+    private func handleAddFilesToShelf(params: RPCParams?, id: String) -> Codable {
+        if let err = checkFileSharingAuthorization(id: id) { return err }
+
+        var newItems: [ShelfItem] = []
+        var newItemIDs: [RPCValue] = []
+
+        // Handle file paths
+        if let pathsValue = params?["paths"],
+           case .array(let pathArray) = pathsValue {
+            for pathValue in pathArray {
+                guard let path = pathValue.stringValue else { continue }
+                let url = URL(fileURLWithPath: path)
+                guard FileManager.default.fileExists(atPath: path) else { continue }
+                if let bookmark = try? Bookmark(url: url) {
+                    let item = ShelfItem(kind: .file(bookmark: bookmark.data))
+                    newItems.append(item)
+                    newItemIDs.append(.string(item.id.uuidString))
+                }
+            }
+        }
+
+        // Handle base64-encoded file data
+        if let filesValue = params?["files"],
+           case .array(let filesArray) = filesValue {
+            for fileValue in filesArray {
+                guard case .object(let fileObj) = fileValue,
+                      let dataStr = fileObj["data"]?.stringValue,
+                      let fileName = fileObj["fileName"]?.stringValue,
+                      let fileData = Data(base64Encoded: dataStr) else { continue }
+
+                let tempDir = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("AtollExtensionFiles", isDirectory: true)
+                try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+                let fileURL = tempDir.appendingPathComponent(fileName)
+                guard (try? fileData.write(to: fileURL)) != nil else { continue }
+
+                if let bookmark = try? Bookmark(url: fileURL) {
+                    let item = ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: true)
+                    newItems.append(item)
+                    newItemIDs.append(.string(item.id.uuidString))
+                }
+            }
+        }
+
+        // Handle text content
+        if let text = params?["text"]?.stringValue, !text.isEmpty {
+            let item = ShelfItem(kind: .text(string: text))
+            newItems.append(item)
+            newItemIDs.append(.string(item.id.uuidString))
+        }
+
+        ShelfStateViewModel.shared.add(newItems)
+        logDiagnostics("RPC: addFilesToShelf added \(newItems.count) items for \(bundleIdentifier)")
+        return RPCSuccessResponse(result: ["itemIDs": .array(newItemIDs)], id: id)
+    }
+
+    private func handleSubscribeShelfEvents(params: RPCParams?, id: String) -> Codable {
+        if let err = checkFileSharingAuthorization(id: id) { return err }
+
+        server?.registerShelfSubscription(for: bundleIdentifier)
+        logDiagnostics("RPC: subscribeShelfEvents registered for \(bundleIdentifier)")
+        return RPCSuccessResponse(result: ["subscribed": .bool(true)], id: id)
     }
 
     // MARK: - Client JSON Transformation
@@ -450,5 +697,14 @@ final class ExtensionRPCService {
         }
 
         return [typeName: inner]
+    }
+}
+
+// MARK: - URL MIME Type Helper
+
+private extension URL {
+    var mimeType: String? {
+        guard let uti = UTType(filenameExtension: self.pathExtension) else { return nil }
+        return uti.preferredMIMEType
     }
 }

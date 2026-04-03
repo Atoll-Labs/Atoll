@@ -52,6 +52,7 @@ struct ContentView: View {
     @ObservedObject var capsLockManager = CapsLockManager.shared
     @ObservedObject var extensionLiveActivityManager = ExtensionLiveActivityManager.shared
     @ObservedObject var extensionNotchExperienceManager = ExtensionNotchExperienceManager.shared
+    @ObservedObject var localSendService = LocalSendService.shared
     @State private var downloadManager = DownloadManager.shared
     
     @Default(.enableStatsFeature) var enableStatsFeature
@@ -292,6 +293,19 @@ struct ContentView: View {
     /// regular `.onHover` hit-testing may not trigger reliably.
     private var shouldUseHiddenEdgeHoverPolling: Bool {
         shouldHideUntilHover && !lockScreenManager.isLocked
+    }
+    
+    /// Whether the LocalSend live activity should be shown
+    private var localSendLiveActivityActive: Bool {
+        localSendService.isSending || 
+        localSendService.transferState == .completed ||
+        isLocalSendFailedOrRejected
+    }
+    
+    private var isLocalSendFailedOrRejected: Bool {
+        if case .failed = localSendService.transferState { return true }
+        if case .rejected = localSendService.transferState { return true }
+        return false
     }
 
     /// Pill shape for Dynamic Island mode with animated corner radius transitions.
@@ -737,6 +751,9 @@ struct ContentView: View {
                           RecordingLiveActivity()
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .download) && vm.notchState == .closed && downloadManager.isDownloading && Defaults[.enableDownloadListener] && !vm.hideOnClosed {
                           DownloadLiveActivity()
+                              .transition(.blurReplace.animation(.interactiveSpring(dampingFraction: 1.2)))
+                      } else if !coordinator.expandingView.show && vm.notchState == .closed && localSendLiveActivityActive && !vm.hideOnClosed {
+                          LocalSendLiveActivity()
                               .transition(.blurReplace.animation(.interactiveSpring(dampingFraction: 1.2)))
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .doNotDisturb) && vm.notchState == .closed && Defaults[.enableDoNotDisturbDetection] && Defaults[.showDoNotDisturbIndicator] && (doNotDisturbManager.isDoNotDisturbActive || doNotDisturbManager.isFocusToastDismissing) && !vm.hideOnClosed && !lockScreenManager.isLocked {
                           DoNotDisturbLiveActivity()
@@ -1549,7 +1566,6 @@ struct ContentView: View {
                         coordinator.currentView = .shelf
                         openNotch()
                     } else if !isTargeted {
-                        print("DROP EVENT", vm.dropEvent)
                         if vm.dropEvent {
                             vm.dropEvent = false
                             return
