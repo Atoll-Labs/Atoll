@@ -14698,6 +14698,9 @@
         }
       }
     },
+    "Enable real-time waveform" : {
+
+    },
     "Enable reminder live activity" : {
       "localizations" : {
         "ru" : {
@@ -22984,6 +22987,9 @@
           }
         }
       }
+    },
+    "Music Visualizer" : {
+
     },
     "muted" : {
       "localizations" : {
@@ -37227,6 +37233,9 @@
           }
         }
       }
+    },
+    "When enabled, the music visualizer displays real-time audio spectrum data synced to your music. Requires macOS 14.2+ and uses minimal CPU/GPU resources via the Accelerate framework." : {
+
     },
     "When enabled, the notch slides up and hides on external (non-notch) displays until you hover over it." : {
       "comment" : "A description of the feature that hides the notch on non-notch displays.",

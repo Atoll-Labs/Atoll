@@ -476,7 +476,7 @@ struct ExtensionEdgeContentView: View {
                 .fill((colorDescriptor.isAccent ? accent : colorDescriptor.swiftUIColor).gradient)
                 .frame(width: 48, height: 14)
                 .mask {
-                    AudioSpectrumView(isPlaying: .constant(true))
+                    AudioVisualizerView(isPlaying: .constant(true))
                         .frame(width: 16, height: 12)
                 }
         case let .animation(data, size):

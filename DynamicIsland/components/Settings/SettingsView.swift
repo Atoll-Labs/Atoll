@@ -2616,6 +2616,20 @@ struct Media: View {
             }
 
             Section {
+                Defaults.Toggle(key: .enableRealTimeWaveform) {
+                    HStack {
+                        Text("Enable real-time waveform")
+                        customBadge(text: "Beta")
+                    }
+                }
+                .settingsHighlight(id: highlightID("Enable real-time waveform"))
+            } header: {
+                Text("Music Visualizer")
+            } footer: {
+                Text("When enabled, the music visualizer displays real-time audio spectrum data synced to your music. Requires macOS 14.2+ and uses minimal CPU/GPU resources via the Accelerate framework.")
+            }
+
+            Section {
                 Defaults.Toggle(key: .enableLockScreenMediaWidget) {
                     Text("Show lock screen media panel")
                 }

@@ -110,7 +110,7 @@ struct MinimalisticMusicView: View {
                 .fill(Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor).gradient : Color.gray.gradient)
                 .frame(width: 50, alignment: .center)
                 .mask {
-                    AudioSpectrumView(isPlaying: $musicManager.isPlaying)
+                    AudioVisualizerView(isPlaying: $musicManager.isPlaying)
                         .frame(width: 16, height: 12)
                 }
                 .frame(width: max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12)),

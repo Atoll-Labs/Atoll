@@ -640,7 +640,7 @@ private struct MinimalisticReminderDetailsView: View {
         Rectangle()
             .fill(Defaults[.coloredSpectrogram] ? Color(nsColor: MusicManager.shared.avgColor).gradient : Color.gray.gradient)
             .mask {
-                AudioSpectrumView(isPlaying: .constant(MusicManager.shared.isPlaying))
+                AudioVisualizerView(isPlaying: .constant(MusicManager.shared.isPlaying))
                     .frame(width: 20, height: 16)
             }
             .frame(width: 20, height: 16)

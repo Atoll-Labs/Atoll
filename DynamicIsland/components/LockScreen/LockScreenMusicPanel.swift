@@ -326,7 +326,7 @@ struct LockScreenMusicPanel: View {
             Rectangle()
                 .fill(Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor).gradient : Color.gray.gradient)
                 .mask {
-                    AudioSpectrumView(isPlaying: .constant(musicManager.isPlaying))
+                    AudioVisualizerView(isPlaying: .constant(musicManager.isPlaying))
                         .frame(width: width, height: height)
                 }
                 .frame(width: width, height: height)
