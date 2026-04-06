@@ -3061,12 +3061,9 @@ struct CalendarSettings: View {
                 Section {
                     Defaults.Toggle(key: .enableThirdPartyCalendarApp) {
                         HStack {
-                            AppIconImage(
-                                bundleIdentifiers: selectedCalendarApp.bundleIdentifiers,
-                                symbolFallback: selectedCalendarApp.fallbackIconName,
-                                symbolColor: selectedCalendarApp.fallbackIconColor,
-                                size: 20
-                            )
+                            Image(systemName: "ellipsis.calendar")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 20, height: 20)
                             Text("Enable third-party calendar app launch")
                         }
                     }
