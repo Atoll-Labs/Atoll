@@ -1010,6 +1010,16 @@ enum ConferenceProvider: CaseIterable {
         }
     }
     
+    var nativeURLScheme: String? {
+        switch self {
+        case .zoom: return "zoommtg"
+        case .teams: return "msteams"
+        case .facetime: return "facetime"
+        case .discord: return "discord"
+        default: return nil
+        }
+    }
+
     static func detect(from url: URL) -> ConferenceProvider {
         let host = url.host?.lowercased() ?? ""
         return allCases.first { provider in
@@ -1035,7 +1045,17 @@ struct ConferenceJoinButton: View {
     }
     
     var body: some View {
-        Button(action: { openURL(url) }) {
+        Button(action: {
+            if let scheme = provider.nativeURLScheme,
+               var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+                components.scheme = scheme
+                if let nativeURL = components.url {
+                    openURL(nativeURL)
+                    return
+                }
+            }
+            openURL(url)
+        }) {
             HStack(spacing: 4) {
                 Image(systemName: "video.fill")
                     .font(.system(size: 9))

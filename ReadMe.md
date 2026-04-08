@@ -112,7 +112,12 @@ Atoll builds upon the work of several open-source projects and draws inspiration
 
 - [**SkyLightWindow**](https://github.com/Lakr233/SkyLightWindow) - window rendering for Lock Screen Widgets
 
+- [**rtaudio**](https://github.com/ZephyrCodesStuff/rtaudio) - Live music visualizer using C++ was adapted from this project
+
+- [**SwiftTerm**](https://github.com/migueldeicaza/SwiftTerm) - Terminal tab implementation in the standard mode was adapted from this project
+
 - Wick - Thanks Nate for allowing us to replicate the iOS like Timer design for the Lock Screen Widget
+
 ## Contributors
 
 <a href="https://github.com/Ebullioscopic/Atoll/graphs/contributors">

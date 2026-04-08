@@ -256,6 +256,54 @@ enum CalendarSelectionState: Codable, Defaults.Serializable {
     case selected(Set<String>)
 }
 
+enum FantasticalViewStyle: String, CaseIterable, Codable, Defaults.Serializable {
+    case mini = "mini"
+    case calendar = "calendar"
+    
+    var displayName: String {
+        switch self {
+        case .mini: return "Mini View"
+        case .calendar: return "Full Calendar"
+        }
+    }
+}
+
+enum ThirdPartyCalendarApp: String, CaseIterable, Codable, Defaults.Serializable, Identifiable {
+    case fantastical = "fantastical"
+    case notionCalendar = "notionCalendar"
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .fantastical: return "Fantastical"
+        case .notionCalendar: return "Notion Calendar"
+        }
+    }
+    
+    /// Bundle identifiers to try when looking up the app icon (first match wins).
+    var bundleIdentifiers: [String] {
+        switch self {
+        case .fantastical: return ["com.flexibits.fantastical2.mac", "com.flexibits.fantastical"]
+        case .notionCalendar: return ["com.cron.electron"]
+        }
+    }
+    
+    var fallbackIconName: String {
+        switch self {
+        case .fantastical: return "calendar.badge.clock"
+        case .notionCalendar: return "calendar.badge.plus"
+        }
+    }
+    
+    var fallbackIconColor: Color {
+        switch self {
+        case .fantastical: return .red
+        case .notionCalendar: return .blue
+        }
+    }
+}
+
 enum ClipboardDisplayMode: String, CaseIterable, Codable, Defaults.Serializable {
     case popover = "popover"     // Traditional popover attached to button
     case panel = "panel"         // Floating panel near notch
@@ -328,6 +376,14 @@ enum ThirdPartyDDCProvider: String, CaseIterable, Codable, Defaults.Serializable
             return "BetterDisplay"
         case .lunar:
             return "Lunar"
+        }
+    }
+    
+    /// Bundle identifiers to try when looking up the app icon.
+    var bundleIdentifiers: [String] {
+        switch self {
+        case .betterDisplay: return ["pro.betterdisplay.BetterDisplay"]
+        case .lunar: return ["fyi.lunar.Lunar"]
         }
     }
 }
@@ -853,6 +909,11 @@ extension Defaults.Keys {
     static let lockScreenShowCalendarTimeRemaining = Key<Bool>("lockScreenShowCalendarTimeRemaining", default: true)
     static let lockScreenShowCalendarStartTimeAfterBegins = Key<Bool>("lockScreenShowCalendarStartTimeAfterBegins", default: true)
     static let lockScreenWeatherWidgetRowOrder = Key<String>("lockScreenWeatherWidgetRowOrder", default: "weather_calendar_focus")
+    
+    // MARK: Third-party Calendar Integration
+    static let enableThirdPartyCalendarApp = Key<Bool>("enableThirdPartyCalendarApp", default: false)
+    static let selectedCalendarApp = Key<ThirdPartyCalendarApp>("selectedCalendarApp", default: .fantastical)
+    static let fantasticalDefaultView = Key<FantasticalViewStyle>("fantasticalDefaultView", default: .mini)
     
         // MARK: Battery
     static let showPowerStatusNotifications = Key<Bool>("showPowerStatusNotifications", default: true)

@@ -21,6 +21,8 @@
  */
 
 import Foundation
+import Defaults
+import AppKit
 
 struct EventModel: Equatable, Identifiable {
     let id: String
@@ -97,7 +99,20 @@ extension EventModel {
     var isMeeting: Bool { !participants.isEmpty }
 
     func calendarAppURL() -> URL? {
-
+        // Check if a third-party calendar app is enabled
+        if Defaults[.enableThirdPartyCalendarApp] {
+            switch Defaults[.selectedCalendarApp] {
+            case .fantastical:
+                return fantasticalURL()
+            case .notionCalendar:
+                return notionCalendarURL()
+            }
+        }
+        return appleCalendarURL()
+    }
+    
+    /// Returns URL to open event in Apple Calendar
+    private func appleCalendarURL() -> URL? {
         guard let id = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             return nil
         }
@@ -122,6 +137,76 @@ extension EventModel {
             date =  ""
         }
         return URL(string: "ical://ekevent\(date)/\(id)?method=show&options=more")
+    }
+    
+    /// Returns URL to open date in Fantastical
+    private func fantasticalURL() -> URL? {
+        // Reminders still use Apple's Reminders app
+        guard !type.isReminder else {
+            return URL(string: "x-apple-reminderkit://remcdreminder/\(id)")
+        }
+        
+        let viewStyle = Defaults[.fantasticalDefaultView]
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateString = dateFormatter.string(from: start)
+        
+        // x-fantastical3://show/mini/yyyy-MM-dd or x-fantastical3://show/calendar/yyyy-MM-dd
+        return URL(string: "x-fantastical3://show/\(viewStyle.rawValue)/\(dateString)")
+    }
+    
+    /// Returns URL to open Fantastical at current date (for general calendar access)
+    static func fantasticalShowURL(for date: Date? = nil) -> URL? {
+        let viewStyle = Defaults[.fantasticalDefaultView]
+        if let date = date {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let dateString = dateFormatter.string(from: date)
+            return URL(string: "x-fantastical3://show/\(viewStyle.rawValue)/\(dateString)")
+        }
+        return URL(string: "x-fantastical3://show/\(viewStyle.rawValue)")
+    }
+    
+    /// Returns URL to open event in Notion Calendar (formerly Cron)
+    private func notionCalendarURL() -> URL? {
+        // Reminders still use Apple's Reminders app
+        guard !type.isReminder else {
+            return URL(string: "x-apple-reminderkit://remcdreminder/\(id)")
+        }
+        
+        let formatter = ISO8601DateFormatter()
+        
+        var components = URLComponents()
+        components.scheme = "cron"
+        components.host = "showEvent"
+        components.queryItems = [
+            URLQueryItem(name: "accountEmail", value: calendar.accountName),
+            URLQueryItem(name: "iCalUID", value: id),
+            URLQueryItem(name: "startDate", value: formatter.string(from: start)),
+            URLQueryItem(name: "endDate", value: formatter.string(from: end)),
+            URLQueryItem(name: "title", value: title)
+        ]
+        
+        if let url = components.url {
+            return url
+        }
+        
+        // Fallback: just launch Notion Calendar app
+        Self.launchNotionCalendar()
+        return nil
+    }
+    
+    /// Launches Notion Calendar app directly (fallback or general access)
+    static func launchNotionCalendar() {
+        // Launch via bundle identifier (Notion Calendar's bundle ID is "com.cron.electron")
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.cron.electron") {
+            let config = NSWorkspace.OpenConfiguration()
+            NSWorkspace.shared.openApplication(at: url, configuration: config) { _, error in
+                if let error = error {
+                    print("Error launching Notion Calendar: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 }
 
