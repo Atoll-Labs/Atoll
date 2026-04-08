@@ -1,13 +1,13 @@
 /*
  * Atoll (DynamicIsland)
- * Copyright (C) 2024-2026 Atoll Contributors
+ * Copyright (C) 2024-2026 Atoll Contributors and zeph
  *
  * CoreAudio tap for capturing real-time audio from music applications.
  * Uses macOS 14.2+ Process Tap API for efficient audio capture.
- * Adapted from rtaudio project.
+ * Adapted from rtaudio project (https://github.com/ZephyrCodesStuff/rtaudio)
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  */

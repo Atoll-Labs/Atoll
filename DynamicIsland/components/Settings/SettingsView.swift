@@ -2074,7 +2074,15 @@ private struct ExternalDisplayIntegrationsSection: View {
                 if enableThirdPartyDDCIntegration {
                     Picker("Provider", selection: $thirdPartyDDCProvider) {
                         ForEach(ThirdPartyDDCProvider.allCases) { provider in
-                            Text(provider.displayName).tag(provider)
+                            HStack {
+                                AppIconImage(
+                                    bundleIdentifiers: provider.bundleIdentifiers,
+                                    symbolFallback: "display",
+                                    symbolColor: .secondary
+                                )
+                                Text(provider.displayName)
+                            }
+                            .tag(provider)
                         }
                     }
                     .settingsHighlight(id: highlightID("Third-party DDC provider"))
@@ -2752,6 +2760,9 @@ struct CalendarSettings: View {
     @Default(.lockScreenCalendarSelectionMode) private var lockScreenCalendarSelectionMode
     @Default(.lockScreenSelectedCalendarIDs) private var lockScreenSelectedCalendarIDs
     @Default(.lockScreenShowCalendarEventAfterStartEnabled) private var lockScreenShowCalendarEventAfterStartEnabled
+    @Default(.enableThirdPartyCalendarApp) private var enableThirdPartyCalendarApp
+    @Default(.selectedCalendarApp) private var selectedCalendarApp
+    @Default(.fantasticalDefaultView) private var fantasticalDefaultView
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.calendar.highlightID(for: title)
@@ -3044,6 +3055,49 @@ struct CalendarSettings: View {
                     }
                     .disabled(!lockScreenShowCalendarEvent)
                     .settingsHighlight(id: highlightID("Show start time after event begins"))
+                }
+                
+                // MARK: - Third-party Calendar Integration
+                Section {
+                    Defaults.Toggle(key: .enableThirdPartyCalendarApp) {
+                        HStack {
+                            Image(systemName: "ellipsis.calendar")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 20, height: 20)
+                            Text("Enable third-party calendar app launch")
+                        }
+                    }
+                    .settingsHighlight(id: highlightID("Enable third-party calendar app launch"))
+                    
+                    if enableThirdPartyCalendarApp {
+                        Picker("Calendar App", selection: $selectedCalendarApp) {
+                            ForEach(ThirdPartyCalendarApp.allCases) { app in
+                                HStack {
+                                    AppIconImage(
+                                        bundleIdentifiers: app.bundleIdentifiers,
+                                        symbolFallback: app.fallbackIconName,
+                                        symbolColor: app.fallbackIconColor
+                                    )
+                                    Text(app.displayName)
+                                }
+                                .tag(app)
+                            }
+                        }
+                        .settingsHighlight(id: highlightID("Calendar App"))
+                        
+                        if selectedCalendarApp == .fantastical {
+                            Picker("Default View", selection: $fantasticalDefaultView) {
+                                ForEach(FantasticalViewStyle.allCases, id: \.self) { style in
+                                    Text(style.displayName).tag(style)
+                                }
+                            }
+                            .settingsHighlight(id: highlightID("Fantastical Default View"))
+                        }
+                    }
+                } header: {
+                    Text("Third-party Calendar Integration")
+                } footer: {
+                    Text("When enabled, clicking on calendar events will open the selected third-party calendar app instead of Apple Calendar.")
                 }
 
                 Section(header: Text("Select Calendars")) {
@@ -3462,19 +3516,7 @@ struct Shelf: View {
                 Picker("Quick Share Service", selection: $quickShareProvider) {
                     ForEach(quickShareService.availableProviders, id: \.id) { provider in
                         HStack {
-                            Group {
-                                if let imgData = provider.imageData, let nsImg = NSImage(data: imgData) {
-                                    Image(nsImage: nsImg)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 16, height: 16)
-                                        .clipShape(RoundedRectangle(cornerRadius: 3))
-                                } else {
-                                    Image(systemName: "square.and.arrow.up")
-                                        .frame(width: 16, height: 16)
-                                }
-                            }
-                            .foregroundColor(.accentColor)
+                            QuickShareProviderIconImage(provider: provider, size: 16)
                             Text(provider.id)
                         }
                         .tag(provider.id)
@@ -3485,19 +3527,7 @@ struct Shelf: View {
 
                 if let selectedProvider {
                     HStack {
-                        Group {
-                            if let imgData = selectedProvider.imageData, let nsImg = NSImage(data: imgData) {
-                                Image(nsImage: nsImg)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 16, height: 16)
-                                    .clipShape(RoundedRectangle(cornerRadius: 3))
-                            } else {
-                                Image(systemName: "square.and.arrow.up")
-                                    .frame(width: 16, height: 16)
-                            }
-                        }
-                        .foregroundColor(.accentColor)
+                        QuickShareProviderIconImage(provider: selectedProvider, size: 16)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Currently selected: \(selectedProvider.id)")
                                 .font(.caption)
@@ -7931,5 +7961,111 @@ struct TerminalSettings: View {
             }
         }
         .navigationTitle("Terminal")
+    }
+}
+
+// MARK: - Reusable App Icon View
+
+/// Fetches the real app icon from the system using bundle identifiers,
+/// falling back to an asset catalog image or an SF Symbol.
+struct AppIconImage: View {
+    let bundleIdentifiers: [String]
+    var assetFallback: String? = nil
+    var symbolFallback: String = "app.fill"
+    var symbolColor: Color = .accentColor
+    var size: CGFloat = 16
+
+    var body: some View {
+        Group {
+            if let nsImage = resolvedIcon() {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.2))
+            } else if let assetFallback, let nsImage = NSImage(named: NSImage.Name(assetFallback)) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.2))
+            } else {
+                Image(systemName: symbolFallback)
+                    .foregroundColor(symbolColor)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+
+    private func resolvedIcon() -> NSImage? {
+        for bundleID in bundleIdentifiers {
+            if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+                let icon = NSWorkspace.shared.icon(forFile: appURL.path)
+                // NSWorkspace returns a valid icon even for generic apps;
+                // resize to keep memory low.
+                let thumb = NSImage(size: NSSize(width: 32, height: 32))
+                thumb.lockFocus()
+                icon.draw(in: NSRect(origin: .zero, size: NSSize(width: 32, height: 32)),
+                          from: NSRect(origin: .zero, size: icon.size),
+                          operation: .copy, fraction: 1.0)
+                thumb.unlockFocus()
+                return thumb
+            }
+        }
+        return nil
+    }
+}
+
+private struct QuickShareProviderIconImage: View {
+    let provider: QuickShareProvider
+    var size: CGFloat = 16
+
+    var body: some View {
+        Group {
+            if let imgData = provider.imageData, let nsImg = NSImage(data: imgData) {
+                Image(nsImage: nsImg)
+                    .resizable()
+                    .scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.2))
+            } else {
+                AppIconImage(
+                    bundleIdentifiers: provider.bundleIdentifiersFallback,
+                    assetFallback: provider.assetFallbackName,
+                    symbolFallback: provider.symbolFallbackName,
+                    symbolColor: .accentColor,
+                    size: size
+                )
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+private extension QuickShareProvider {
+    var bundleIdentifiersFallback: [String] {
+        switch id {
+        case "LocalSend":
+            return ["org.localsend.localsend_app", "org.localsend.localsend"]
+        case "AirDrop":
+            return ["com.apple.finder"]
+        case "Mail":
+            return ["com.apple.mail"]
+        case "Messages":
+            return ["com.apple.MobileSMS", "com.apple.iChat"]
+        case "Notes":
+            return ["com.apple.Notes"]
+        case "Reminders":
+            return ["com.apple.reminders"]
+        case "Add to Safari Reading List":
+            return ["com.apple.Safari"]
+        default:
+            return []
+        }
+    }
+
+    var assetFallbackName: String? {
+        id == "LocalSend" ? "LocalSend" : nil
+    }
+
+    var symbolFallbackName: String {
+        id == "System Share Menu" ? "square.and.arrow.up.on.square" : "square.and.arrow.up"
     }
 }
