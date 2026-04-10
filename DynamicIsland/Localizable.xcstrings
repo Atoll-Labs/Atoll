@@ -5217,7 +5217,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "확장 실시간 현황 허용"
+            "value" : "실시간 현황 확장 허용"
           }
         },
         "ru" : {
@@ -19683,7 +19683,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "전체 접근 권한"
+            "value" : "전체 접근 가능"
           }
         },
         "zh-Hans" : {
@@ -20398,7 +20398,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "글래스"
+            "value" : "Glass"
           }
         },
         "ru" : {
@@ -20420,7 +20420,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "글래스 모드"
+            "value" : "Glass 모드"
           }
         },
         "pt-BR" : {
@@ -23820,7 +23820,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "잠금 화면 글래스"
+            "value" : "잠금 화면 Glass"
           }
         },
         "pt-BR" : {
@@ -23848,7 +23848,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "잠금 화면 글래스 모드"
+            "value" : "잠금 화면 Glass 모드"
           }
         },
         "pt-BR" : {
@@ -36229,8 +36229,8 @@
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "바로가기들"
+            "state" : "translated",
+            "value" : "바로가기"
           }
         },
         "pl" : {
@@ -41562,7 +41562,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "타이머 글래스 Material"
+            "value" : "타이머 Glass Material"
           }
         },
         "pt-BR" : {
