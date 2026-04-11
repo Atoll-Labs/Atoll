@@ -1330,7 +1330,7 @@ struct ContentView: View {
                                 .fill(Color.black.opacity(isHoveringClosedMusicWaveformControl ? 0.24 : 0.02))
 
                             Image(systemName: musicManager.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(.white.opacity(isHoveringClosedMusicWaveformControl ? 0.98 : 0.0))
                                 .contentTransition(.symbolEffect(.replace))
                         }
