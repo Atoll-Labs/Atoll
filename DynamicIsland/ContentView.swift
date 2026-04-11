@@ -152,6 +152,7 @@ struct ContentView: View {
     @State private var hoverClickLocalMonitor: Any?
     @State private var stickyTerminalClickMonitor: Any?
     @State private var hiddenEdgeHoverPollingTask: Task<Void, Never>?
+    @State private var isHoveringClosedMusicWaveformControl: Bool = false
 
     @State private var gestureProgress: CGFloat = .zero
     @State private var skipGestureActiveDirection: MusicManager.SkipDirection?
@@ -399,6 +400,9 @@ struct ContentView: View {
                             handleHover(hovering)
                         }
                         .onTapGesture {
+                            if handleClosedMusicWaveformTapIfNeeded() {
+                                return
+                            }
                             if vm.notchState == .closed && Defaults[.enableHaptics] {
                                 triggerHapticIfAllowed()
                             }
@@ -456,6 +460,9 @@ struct ContentView: View {
                         withAnimation {
                             isHovering = false
                         }
+                    }
+                    if newState != .closed {
+                        isHoveringClosedMusicWaveformControl = false
                     }
                     if newState == .closed {
                         removeStickyTerminalClickMonitor()
@@ -655,6 +662,7 @@ struct ContentView: View {
             cancelMusicControlVisibilityTimer()
             clearMusicControlVisibilityDeadline()
             musicControlSuppressionTask?.cancel()
+            isHoveringClosedMusicWaveformControl = false
         }
     }
 
@@ -1065,6 +1073,18 @@ struct ContentView: View {
 
             musicRightWing(for: secondary, notchHeight: notchContentHeight, trailingWidth: rightWingWidth)
                 .frame(width: rightWingWidth, height: notchContentHeight, alignment: .center)
+                .contentShape(Rectangle())
+                .onHover { hovering in
+                    guard shouldShowClosedMusicWaveformPlayPauseOverlay(for: secondary) else {
+                        if isHoveringClosedMusicWaveformControl {
+                            isHoveringClosedMusicWaveformControl = false
+                        }
+                        return
+                    }
+                    withAnimation(.smooth(duration: 0.16)) {
+                        isHoveringClosedMusicWaveformControl = hovering
+                    }
+                }
                 .id(secondary?.id ?? "music-spectrum")
                 .contentTransition(.symbolEffect(.replace))
         }
@@ -1280,12 +1300,19 @@ struct ContentView: View {
         case .extensionPayload(let payload):
             ExtensionMusicWingView(payload: payload, notchHeight: notchHeight, trailingWidth: trailingWidth)
         case .none:
-            spectrumView(forceSpectrum: false)
+            spectrumView(
+                forceSpectrum: false,
+                enableClosedPlayPauseOverlay: shouldShowClosedMusicWaveformPlayPauseOverlay(for: secondary)
+            )
         }
     }
 
     @ViewBuilder
-    private func spectrumView(forceSpectrum: Bool, trailingInset: CGFloat = 0) -> some View {
+    private func spectrumView(
+        forceSpectrum: Bool,
+        trailingInset: CGFloat = 0,
+        enableClosedPlayPauseOverlay: Bool = false
+    ) -> some View {
         if useMusicVisualizer || forceSpectrum {
             Rectangle()
                 .fill(Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor).gradient : Color.gray.gradient)
@@ -1295,8 +1322,27 @@ struct ContentView: View {
                     AudioVisualizerView(isPlaying: $musicManager.isPlaying)
                         .frame(width: 16, height: 12)
                 }
+                .blur(radius: (enableClosedPlayPauseOverlay && isHoveringClosedMusicWaveformControl) ? 2.4 : 0)
+                .overlay {
+                    if enableClosedPlayPauseOverlay {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.black.opacity(isHoveringClosedMusicWaveformControl ? 0.24 : 0.02))
+
+                            Image(systemName: musicManager.isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.white.opacity(isHoveringClosedMusicWaveformControl ? 0.98 : 0.0))
+                                .contentTransition(.symbolEffect(.replace))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .allowsHitTesting(false)
+                    }
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.trailing, trailingInset)
+                .animation(.smooth(duration: 0.16), value: isHoveringClosedMusicWaveformControl)
+                .animation(.smooth(duration: 0.2), value: musicManager.isPlaying)
         } else {
             LottieAnimationView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1589,6 +1635,35 @@ struct ContentView: View {
         }
     }
 
+    private func shouldShowClosedMusicWaveformPlayPauseOverlay(for secondary: MusicSecondaryLiveActivity?) -> Bool {
+        guard secondary == nil else { return false }
+        return isClosedMusicGestureContext && !Defaults[.openNotchOnHover]
+    }
+
+    private var isClosedMusicGestureContext: Bool {
+        vm.notchState == .closed
+            && coordinator.musicLiveActivityEnabled
+            && closedMusicContentEnabled
+            && !vm.hideOnClosed
+            && !lockScreenManager.isLocked
+            && !coordinator.expandingView.show
+            && (!musicManager.isPlayerIdle || musicManager.bundleIdentifier != nil)
+            && !coordinator.firstLaunch
+    }
+
+    private func handleClosedMusicWaveformTapIfNeeded() -> Bool {
+        guard shouldShowClosedMusicWaveformPlayPauseOverlay(for: nil),
+              isHoveringClosedMusicWaveformControl else {
+            return false
+        }
+
+        if Defaults[.enableHaptics] {
+            triggerHapticIfAllowed()
+        }
+        musicManager.playPause()
+        return true
+    }
+
     private func hiddenHoverActivationContainsMouse(_ location: NSPoint = NSEvent.mouseLocation) -> Bool {
         guard let screen = NSScreen.screens.first(where: { $0.localizedName == currentScreenName }) else {
             return false
@@ -1632,6 +1707,7 @@ struct ContentView: View {
     }
 
     private func startHoverClickMonitor() {
+        guard Defaults[.openNotchOnHover] else { return }
         guard hoverClickMonitor == nil else { return }
 
         let handleClick: @Sendable () -> Void = { [weak vm, weak lockScreenManager] in
@@ -1640,6 +1716,7 @@ struct ContentView: View {
                 guard !lockScreenManager.isLocked else { return }
                 guard vm.notchState == .closed else { return }
                 guard self.isHovering else { return }
+                guard !self.handleClosedMusicWaveformTapIfNeeded() else { return }
                 if Defaults[.enableHaptics] {
                     self.triggerHapticIfAllowed()
                 }
@@ -1702,6 +1779,11 @@ struct ContentView: View {
             removeStickyTerminalClickMonitor()
         } else {
             stopHoverClickMonitor()
+            if isHoveringClosedMusicWaveformControl {
+                withAnimation(.smooth(duration: 0.16)) {
+                    isHoveringClosedMusicWaveformControl = false
+                }
+            }
         }
 
         if hovering {
@@ -1968,9 +2050,11 @@ struct ContentView: View {
     }
 
     private func canPerformSkipGesture() -> Bool {
-        enableHorizontalMusicGestures
-            && vm.notchState == .open
-            && coordinator.currentView == .home
+        let canSkipInOpenHome = vm.notchState == .open && coordinator.currentView == .home
+        let canSkipInClosedMusic = !Defaults[.openNotchOnHover] && isClosedMusicGestureContext
+
+        return enableHorizontalMusicGestures
+            && (canSkipInOpenHome || canSkipInClosedMusic)
             && (!musicManager.isPlayerIdle || musicManager.bundleIdentifier != nil)
             && !lockScreenManager.isLocked
             && !hasAnyActivePopovers()
