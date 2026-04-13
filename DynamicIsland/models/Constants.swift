@@ -405,6 +405,7 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
     case appleMusic = "Apple Music"
     case spotify = "Spotify"
     case youtubeMusic = "Youtube Music"
+    case amazonMusic = "Amazon Music"
     
     var id: String { self.rawValue }
     
@@ -414,6 +415,7 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
         case .appleMusic: return String(localized: "Apple Music")
         case .spotify: return String(localized: "Spotify")
         case .youtubeMusic: return String(localized: "Youtube Music")
+        case .amazonMusic: return String(localized: "Amazon Music")
         }
     }
 }
@@ -794,7 +796,6 @@ extension Defaults.Keys {
         //static let alwaysShowTabs = Key<Bool>("alwaysShowTabs", default: true)
     static let showMirror = Key<Bool>("showMirror", default: false)
     static let mirrorShape = Key<MirrorShapeEnum>("mirrorShape", default: MirrorShapeEnum.rectangle)
-    static let selectedCameraID = Key<String>("selectedCameraID", default: "")
     static let settingsIconInNotch = Key<Bool>("settingsIconInNotch", default: true)
     static let lightingEffect = Key<Bool>("lightingEffect", default: true)
     static let accentColor = Key<Color>("accentColor", default: Color.blue)

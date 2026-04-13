@@ -2497,9 +2497,12 @@ struct Media: View {
                             .foregroundColor(.blue) // Ensures it's visibly a link
                     }
                 } else {
-                    Text("'Now Playing' was the only option on previous versions and works with all media apps.")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(String(localized: "'Now Playing' was the only option on previous versions and works with all media apps."))
+                        Text(String(localized: "Uses macOS Now Playing when the Amazon Music app is the active media source. Playback controls follow the system Now Playing target. Scrubbing the timeline may not work if the Amazon Music app does not support remote seek."))
+                    }
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
                 }
             }
             Section {
@@ -3830,9 +3833,7 @@ struct LiveActivitiesSettings: View {
 
 struct Appearance: View {
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
-    @ObservedObject var webcamManager = WebcamManager.shared
     @Default(.mirrorShape) var mirrorShape
-    @Default(.selectedCameraID) var selectedCameraID
     @Default(.sliderColor) var sliderColor
     @Default(.useMusicVisualizer) var useMusicVisualizer
     @Default(.customVisualizers) var customVisualizers
@@ -4239,22 +4240,6 @@ struct Appearance: View {
                         .tag(MirrorShapeEnum.rectangle)
                 }
                 .settingsHighlight(id: highlightID("Mirror shape"))
-
-                if webcamManager.cameraAvailable {
-                    Picker("Mirror Camera", selection: $selectedCameraID) {
-                        ForEach(webcamManager.availableCameras, id: \.uniqueID) { device in
-                            Text(device.localizedName)
-                                .tag(device.uniqueID)
-                        }
-                    }
-                    .onChange(of: selectedCameraID) { _, _ in
-                        if Defaults[.showMirror] {
-                            webcamManager.stopSession()
-                            webcamManager.startSession()
-                        }
-                    }
-                    .settingsHighlight(id: highlightID("Mirror Camera"))
-                }
                 Defaults.Toggle(key: .showNotHumanFace) {
                     Text("Idle Animation")
                 }
