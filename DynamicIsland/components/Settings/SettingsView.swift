@@ -2487,11 +2487,7 @@ struct Media: View {
             } header: {
                 Text("Media Source")
             } footer: {
-                if mediaController == .all {
-                    Text("All Music detects every active media source and shows them in a switchable list below the main player.")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                } else if MusicManager.shared.isNowPlayingDeprecated {
+                if MusicManager.shared.isNowPlayingDeprecated {
                     HStack {
                         Text("YouTube Music requires this third-party app to be installed: ")
                             .foregroundStyle(.secondary)
