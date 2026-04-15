@@ -358,6 +358,7 @@ struct ModelSelectionView: View {
 
 // MARK: - Provider Card
 struct ProviderCard: View {
+    private let wideCardMinHeight: CGFloat = 110
     let provider: AIModelProvider
     let isSelected: Bool
     let onSelect: () -> Void
@@ -402,7 +403,7 @@ struct ProviderCard: View {
             onSelect()
         }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
-        .frame(maxWidth: .infinity, minHeight: isWide ? 110 : nil)
+        .frame(maxWidth: .infinity, minHeight: isWide ? wideCardMinHeight : nil)
     }
     
     private func iconForProvider(_ provider: AIModelProvider) -> String {

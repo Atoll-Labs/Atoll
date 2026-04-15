@@ -459,9 +459,13 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         
         // Get selected model or default to llama-3.3-70b-versatile
         let selectedModel = Defaults[.selectedAIModel]
-        let modelId = selectedModel?.id.flatMap { selectedId in
-            AIModelProvider.groq.supportedModels.contains(where: { $0.id == selectedId }) ? selectedId : nil
-        } ?? "llama-3.3-70b-versatile"
+        let modelId: String
+        if let selectedId = selectedModel?.id,
+           AIModelProvider.groq.supportedModels.contains(where: { $0.id == selectedId }) {
+            modelId = selectedId
+        } else {
+            modelId = "llama-3.3-70b-versatile"
+        }
         
         guard let url = URL(string: "https://api.groq.com/openai/v1/chat/completions") else {
             print("❌ ScreenAssistant: Invalid Groq API URL")
