@@ -309,9 +309,7 @@ struct ModelSelectionView: View {
     private func loadCurrentConfiguration() {
         selectedProvider = Defaults[.selectedAIProvider]
         selectedModel = Defaults[.selectedAIModel]
-        if selectedModel == nil || !selectedProvider.supportedModels.contains(where: { $0.id == selectedModel?.id }) {
-            selectedModel = selectedProvider.supportedModels.first
-        }
+        ensureValidModelSelection()
         enableThinking = Defaults[.enableThinkingMode]
         
         geminiApiKey = Defaults[.geminiApiKey]
@@ -322,9 +320,7 @@ struct ModelSelectionView: View {
     }
     
     private func saveConfiguration() {
-        if selectedModel == nil || !selectedProvider.supportedModels.contains(where: { $0.id == selectedModel?.id }) {
-            selectedModel = selectedProvider.supportedModels.first
-        }
+        ensureValidModelSelection()
 
         Defaults[.selectedAIProvider] = selectedProvider
         Defaults[.selectedAIModel] = selectedModel
@@ -344,8 +340,12 @@ struct ModelSelectionView: View {
 
     private func selectProvider(_ provider: AIModelProvider) {
         selectedProvider = provider
-        if !provider.supportedModels.contains(where: { $0.id == selectedModel?.id }) {
-            selectedModel = provider.supportedModels.first
+        ensureValidModelSelection()
+    }
+
+    private func ensureValidModelSelection() {
+        if selectedModel == nil || !selectedProvider.supportedModels.contains(where: { $0.id == selectedModel?.id }) {
+            selectedModel = selectedProvider.supportedModels.first
         }
     }
     
