@@ -670,7 +670,7 @@ enum AIModelProvider: String, CaseIterable, Identifiable, Defaults.Serializable 
             return [
                 AIModel(id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile", supportsThinking: false),
                 AIModel(id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant", supportsThinking: false),
-                AIModel(id: "qwen-qwq-32b", name: "Qwen QWQ 32B", supportsThinking: true),
+                AIModel(id: "qwen-qwq-32b", name: "Qwen QWQ 32B", supportsThinking: false),
                 AIModel(id: "mixtral-8x7b-32768", name: "Mixtral 8x7B", supportsThinking: false)
             ]
         }
