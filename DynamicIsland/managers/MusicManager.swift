@@ -478,7 +478,9 @@ class MusicManager: ObservableObject {
     private var explicitLookupTask: Task<Void, Never>?
     private var explicitLookupKey: String?
 
-    private var artworkData: Data? = nil
+    private(set) var artworkData: Data? = nil
+
+    @Published var videoArtworkURL: URL? = nil
 
     private var liveStreamUnknownDurationCount: Int = 0
     private var liveStreamEdgeObservationCount: Int = 0
@@ -709,6 +711,11 @@ class MusicManager: ObservableObject {
             || bundleChanged
             || contentIdentifierChanged
             || contentURLChanged
+        let liveArtworkChanged = state.liveArtworkURL != self.videoArtworkURL
+
+        if liveArtworkChanged {
+            self.videoArtworkURL = state.liveArtworkURL
+        }
 
         // Handle artwork and visual transitions for changed content
         let shouldAutoPeekOnTrackChange = Defaults[.showSneakPeekOnTrackChange]
@@ -735,8 +742,13 @@ class MusicManager: ObservableObject {
             self.lastArtworkContentIdentifier = state.contentIdentifier
             self.lastArtworkContentURL = state.contentURL
 
-            // Fetch lyrics for new track whenever content changes
             self.fetchLyrics()
+            if let liveArtworkURL = state.liveArtworkURL {
+                self.videoArtworkURL = liveArtworkURL
+            } else {
+                self.fetchVideoArtwork()
+            }
+
             self.refreshExplicitFlag(for: state)
 
             // Only update sneak peek if there's actual content and something changed
@@ -1422,6 +1434,76 @@ class MusicManager: ObservableObject {
     private func stopLyricSync() {
         lyricSyncTask?.cancel()
         lyricSyncTask = nil
+    }
+
+    // MARK: - Video Artwork
+
+    func fetchVideoArtwork() {
+        guard Defaults[.lockScreenMusicFullscreenVideoArtwork] else {
+            videoArtworkURL = nil
+            return
+        }
+        guard bundleIdentifier == "com.apple.Music" else {
+            return
+        }
+
+        let title = songTitle
+        let artist = artistName
+
+        Task {
+            let url = await fetchAnimatedArtworkURL(title: title, artist: artist)
+            await MainActor.run {
+                self.videoArtworkURL = url
+            }
+        }
+    }
+
+    private func fetchAnimatedArtworkURL(title: String, artist: String) async -> URL? {
+        guard !title.isEmpty, !artist.isEmpty else { return nil }
+
+        let query = "\(title) \(artist)"
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let searchURL = URL(string: "https://itunes.apple.com/search?term=\(encoded)&media=music&entity=musicVideo&limit=5")
+        else { return nil }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: searchURL)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let results = json["results"] as? [[String: Any]],
+                  let first = results.first,
+                  let previewURLString = first["previewUrl"] as? String,
+                  let previewURL = URL(string: previewURLString)
+            else { return nil }
+
+            return previewURL
+        } catch {
+            return nil
+        }
+    }
+
+    func fetchHighResArtworkURL() async -> URL? {
+        let title = songTitle
+        let artist = artistName
+        guard !title.isEmpty, !artist.isEmpty else { return nil }
+
+        let query = "\(title) \(artist)"
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let searchURL = URL(string: "https://itunes.apple.com/search?term=\(encoded)&media=music&entity=song&limit=5")
+        else { return nil }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: searchURL)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let results = json["results"] as? [[String: Any]],
+                  let first = results.first,
+                  let artworkURLString = first["artworkUrl100"] as? String
+            else { return nil }
+
+            let highRes = artworkURLString.replacingOccurrences(of: "100x100", with: "3000x3000")
+            return URL(string: highRes)
+        } catch {
+            return nil
+        }
     }
 
     func toggleLyrics() {

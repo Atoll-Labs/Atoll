@@ -46,6 +46,7 @@ struct LockScreenMusicPanel: View {
     @State private var isExpanded = false
     @State private var isVolumeSliderVisible = false
     @State private var isAirPlayPopoverPresented = false
+    @State private var isArtworkFullscreen = false
     
     @State private var collapseWorkItem: DispatchWorkItem?
     @State private var parallaxResumeWorkItem: DispatchWorkItem?
@@ -66,6 +67,8 @@ struct LockScreenMusicPanel: View {
     @Default(.enableLyrics) private var enableLyrics
     @Default(.lockScreenMusicAlbumParallaxEnabled) private var lockScreenParallaxEnabled
     @Default(.lockScreenMusicPanelWidth) private var collapsedPanelWidth
+    @Default(.lockScreenMusicFullscreenArtworkEnabled) private var fullscreenArtworkEnabled
+    @Default(.lockScreenMusicFullscreenVideoArtwork) private var fullscreenVideoArtwork
 
     init(animator: LockScreenPanelAnimator) {
         _animator = ObservedObject(wrappedValue: animator)
@@ -162,6 +165,11 @@ struct LockScreenMusicPanel: View {
             parallaxResumeWorkItem?.cancel()
             parallaxResumeWorkItem = nil
             isParallaxSuspended = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .atollArtworkWallpaperDismissed)) { _ in
+            withAnimation(.easeInOut(duration: 0.28)) {
+                isArtworkFullscreen = false
+            }
         }
         .onChange(of: isExpanded) { _, expanded in
             updatePanelSize()
@@ -329,30 +337,43 @@ struct LockScreenMusicPanel: View {
     }
 
     private func albumArtButton(size: CGFloat, cornerRadius: CGFloat) -> some View {
-        Button(action: toggleExpanded) {
-                ZStack(alignment: .bottomTrailing) {
-                    albumArtImage(size: size, cornerRadius: cornerRadius)
-                    if showAppIcon, let icon = lockScreenAppIcon {
-                        icon
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: appIconSize, height: appIconSize)
-
-                            .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 4)
-                            .offset(x: appIconOffset, y: appIconOffset)
-                            .transition(.scale.combined(with: .opacity))
-                    }
+        ZStack(alignment: .bottomTrailing) {
+            if isArtworkFullscreen {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+                    .overlay(
+                        Image(systemName: "photo.fill")
+                            .font(.system(size: size * 0.3, weight: .light))
+                            .foregroundColor(.white.opacity(0.2))
+                    )
+            } else {
+                albumArtImage(size: size, cornerRadius: cornerRadius)
+                if showAppIcon, let icon = lockScreenAppIcon {
+                    icon
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: appIconSize, height: appIconSize)
+                        .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 4)
+                        .offset(x: appIconOffset, y: appIconOffset)
+                        .transition(.scale.combined(with: .opacity))
                 }
-                .albumArtFlip(angle: musicManager.flipAngle)
-                .parallax3D(enableOverride: lockScreenParallaxEnabled, suspended: isParallaxSuspended)
-                .frame(width: size)
-                .background(albumArtBackground(cornerRadius: cornerRadius))
-                .clipShape(RoundedRectangle(cornerRadius: musicManager.albumArt.size.width/musicManager.albumArt.size.height > 1.0 ? appIconCornerRadius/3 : appIconCornerRadius, style: .continuous))
+            }
         }
-        .buttonStyle(PlainButtonStyle())
+        .albumArtFlip(angle: isArtworkFullscreen ? 0 : musicManager.flipAngle)
+        .parallax3D(enableOverride: lockScreenParallaxEnabled && !isArtworkFullscreen, suspended: isParallaxSuspended)
+        .frame(width: size)
+        .background(albumArtBackground(cornerRadius: cornerRadius))
+        .clipShape(RoundedRectangle(cornerRadius: musicManager.albumArt.size.width/musicManager.albumArt.size.height > 1.0 ? appIconCornerRadius/3 : appIconCornerRadius, style: .continuous))
         .opacity(musicManager.isPlaying ? 1 : 0.4)
         .scaleEffect(musicManager.isPlaying ? 1 : 0.85)
         .animation(.easeInOut(duration: 0.2), value: musicManager.isPlaying)
+        .animation(.easeInOut(duration: 0.28), value: isArtworkFullscreen)
+        .onTapGesture {
+            toggleExpanded()
+        }
+        .onRightClick {
+            expandArtworkToFullscreen()
+        }
     }
 
     @ViewBuilder
@@ -382,6 +403,41 @@ struct LockScreenMusicPanel: View {
             logPanelAppearance(event: "⬇️ Collapsed")
             cancelCollapseTimer()
         }
+    }
+
+    private func expandArtworkToFullscreen() {
+        guard fullscreenArtworkEnabled else { return }
+
+        if FullScreenArtworkWindowManager.shared.isShowing {
+            FullScreenArtworkWindowManager.shared.hide()
+            withAnimation(.easeInOut(duration: 0.28)) {
+                isArtworkFullscreen = false
+            }
+            return
+        }
+
+        guard musicManager.hasActiveSession else { return }
+
+        let artwork = musicManager.albumArt
+        let videoURL = musicManager.videoArtworkURL
+
+        withAnimation(.easeInOut(duration: 0.28)) {
+            isArtworkFullscreen = true
+        }
+
+        FullScreenArtworkWindowManager.shared.onDismiss = {
+            Task { @MainActor in
+                withAnimation(.easeInOut(duration: 0.28)) {
+                    NotificationCenter.default.post(name: .atollArtworkWallpaperDismissed, object: nil)
+                }
+            }
+        }
+
+        FullScreenArtworkWindowManager.shared.show(
+            artwork: artwork,
+            videoURL: fullscreenVideoArtwork ? videoURL : nil,
+            allowLiveWallpaper: fullscreenVideoArtwork
+        )
     }
 
     private func registerInteraction() {
@@ -1383,4 +1439,49 @@ private struct GlassTextBackdrop: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
+}
+
+// MARK: - Right Click Gesture
+
+private struct RightClickOverlay: ViewModifier {
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        content.overlay(
+            RightClickReceiverView(action: action)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        )
+    }
+}
+
+private struct RightClickReceiverView: NSViewRepresentable {
+    let action: () -> Void
+
+    func makeNSView(context: Context) -> RightClickNSView {
+        let view = RightClickNSView()
+        view.onRightClick = action
+        return view
+    }
+
+    func updateNSView(_ nsView: RightClickNSView, context: Context) {
+        nsView.onRightClick = action
+    }
+}
+
+private extension View {
+    func onRightClick(perform action: @escaping () -> Void) -> some View {
+        modifier(RightClickOverlay(action: action))
+    }
+}
+
+final class RightClickNSView: NSView {
+    var onRightClick: (() -> Void)?
+
+    override func rightMouseDown(with event: NSEvent) {
+        onRightClick?()
+    }
+}
+
+extension Notification.Name {
+    static let atollArtworkWallpaperDismissed = Notification.Name("atollArtworkWallpaperDismissed")
 }
