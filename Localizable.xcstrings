@@ -11870,6 +11870,136 @@
         }
       }
     },
+    "Amazon Music": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amazon Music"
+          }
+        },
+        "en-GB": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "fi": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "gu": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "ta": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        }
+      }
+    },
     "Animation": {
       "localizations": {
         "ar": {
@@ -88862,6 +88992,136 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用事件驱动的私有 API 进行实时屏幕录制检测"
+          }
+        }
+      }
+    },
+    "Uses macOS Now Playing when the Amazon Music app is the active media source. Playback controls follow the system Now Playing target. Scrubbing the timeline may not work if the Amazon Music app does not support remote seek.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uses macOS Now Playing when the Amazon Music app is the active media source. Playback controls follow the system Now Playing target. Scrubbing the timeline may not work if the Amazon Music app does not support remote seek."
+          }
+        },
+        "en-GB": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "fi": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "gu": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "ta": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "new",
+            "value": ""
           }
         }
       }
