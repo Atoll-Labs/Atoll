@@ -613,6 +613,7 @@ enum AIModelProvider: String, CaseIterable, Identifiable, Defaults.Serializable 
     case openai = "OpenAI GPT"
     case claude = "Claude"
     case local = "Local Model"
+    case groq = "Groq"
     
     var id: String { self.rawValue }
     
@@ -626,6 +627,7 @@ enum AIModelProvider: String, CaseIterable, Identifiable, Defaults.Serializable 
         case .openai: return "OpenAI's GPT models with advanced reasoning"
         case .claude: return "Anthropic's Claude with strong analytical skills"
         case .local: return "Local AI model (Ollama or similar)"
+        case .groq: return "Groq's fast inference for OpenAI-compatible models"
         }
     }
     
@@ -665,6 +667,13 @@ enum AIModelProvider: String, CaseIterable, Identifiable, Defaults.Serializable 
             return [
                 AIModel(id: "llama3.2", name: "Llama 3.2", supportsThinking: false),
                 AIModel(id: "qwen2.5", name: "Qwen 2.5", supportsThinking: false)
+            ]
+        case .groq:
+            return [
+                AIModel(id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile", supportsThinking: false),
+                AIModel(id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant", supportsThinking: false),
+                AIModel(id: "qwen-qwq-32b", name: "Qwen QWQ 32B", supportsThinking: false),
+                AIModel(id: "mixtral-8x7b-32768", name: "Mixtral 8x7B", supportsThinking: false)
             ]
         }
     }
@@ -1054,6 +1063,7 @@ extension Defaults.Keys {
     static let geminiApiKey = Key<String>("geminiApiKey", default: "")
     static let openaiApiKey = Key<String>("openaiApiKey", default: "")
     static let claudeApiKey = Key<String>("claudeApiKey", default: "")
+    static let groqApiKey = Key<String>("groqApiKey", default: "")
     static let selectedAIProvider = Key<AIModelProvider>("selectedAIProvider", default: .gemini)
     static let selectedAIModel = Key<AIModel?>("selectedAIModel", default: nil)
     static let enableThinkingMode = Key<Bool>("enableThinkingMode", default: false)

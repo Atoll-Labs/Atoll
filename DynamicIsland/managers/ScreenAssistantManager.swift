@@ -397,6 +397,8 @@ class ScreenAssistantManager: NSObject, ObservableObject {
             sendToClaudeAPI(message: message, files: files)
         case .local:
             sendToLocalAPI(message: message, files: files)
+        case .groq:
+            sendToGroqAPI(message: message, files: files)
         }
     }
     
@@ -444,6 +446,40 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         }
         
         performOpenAIRequest(url: url, requestBody: buildOpenAIRequestBody(message: message, files: files, model: modelId), apiKey: apiKey)
+    }
+
+    private func sendToGroqAPI(message: String, files: [ScreenAssistantFile]) {
+        let apiKey = Defaults[.groqApiKey]
+        guard !apiKey.isEmpty else {
+            print("❌ ScreenAssistant: No Groq API key configured")
+            addAssistantMessage("Error: No Groq API key configured. Please set your API key in model settings.")
+            isLoading = false
+            return
+        }
+        
+        // Get selected model or default to llama-3.3-70b-versatile
+        let selectedModel = Defaults[.selectedAIModel]
+        let modelId: String
+        if let selectedId = selectedModel?.id,
+           AIModelProvider.groq.supportedModels.contains(where: { $0.id == selectedId }) {
+            modelId = selectedId
+        } else {
+            modelId = "llama-3.3-70b-versatile"
+        }
+        
+        guard let url = URL(string: "https://api.groq.com/openai/v1/chat/completions") else {
+            print("❌ ScreenAssistant: Invalid Groq API URL")
+            addAssistantMessage("Error: Invalid API URL")
+            isLoading = false
+            return
+        }
+        
+        performOpenAIRequest(
+            url: url,
+            requestBody: buildOpenAIRequestBody(message: message, files: files, model: modelId),
+            apiKey: apiKey,
+            provider: .groq
+        )
     }
     
     private func sendToClaudeAPI(message: String, files: [ScreenAssistantFile]) {
@@ -682,7 +718,7 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         task?.resume()
     }
     
-    private func performOpenAIRequest(url: URL, requestBody: [String: Any], apiKey: String) {
+    private func performOpenAIRequest(url: URL, requestBody: [String: Any], apiKey: String, provider: AIModelProvider = .openai) {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -710,7 +746,7 @@ class ScreenAssistantManager: NSObject, ObservableObject {
                 self.isLoading = false
                 self.activeRequest = nil
                 
-                self.handleResponse(data: data, response: response, error: error, provider: .openai)
+                self.handleResponse(data: data, response: response, error: error, provider: provider)
             }
         }
         
@@ -790,7 +826,7 @@ class ScreenAssistantManager: NSObject, ObservableObject {
         switch provider {
         case .gemini:
             parseGeminiResponse(data: data)
-        case .openai:
+        case .openai, .groq:
             parseOpenAIResponse(data: data)
         case .claude:
             parseClaudeResponse(data: data)

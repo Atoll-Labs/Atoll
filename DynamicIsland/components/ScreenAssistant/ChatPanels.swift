@@ -450,6 +450,7 @@ struct ChatInputView: View {
         case .openai: return "brain.head.profile"
         case .claude: return "doc.text"
         case .local: return "server.rack"
+        case .groq: return "bolt.fill"
         }
     }
     
@@ -472,6 +473,8 @@ struct ChatInputView: View {
         case .local:
             // Local models don't need API keys
             apiKey = "local"
+        case .groq:
+            apiKey = Defaults[.groqApiKey]
         }
         
         if apiKey.isEmpty {
