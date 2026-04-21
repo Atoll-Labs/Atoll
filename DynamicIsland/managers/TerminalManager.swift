@@ -216,7 +216,10 @@ class TerminalManager: ObservableObject {
         // Cursor style
         let cursorStyle = TerminalCursorStyleOption(rawValue: Defaults[.terminalCursorStyle])
             ?? .blinkBlock
-        view.getTerminal().options.cursorStyle = cursorStyle.swiftTermStyle
+        view.getTerminal().setCursorStyle(cursorStyle.swiftTermStyle)
+
+        // Keep drawing the selected cursor style when TerminalView.hasFocus is false; SwiftTerm
+        view.caretViewTracksFocus = false
 
         // Scrollback
         let scrollback = Defaults[.terminalScrollbackLines]
@@ -254,7 +257,7 @@ class TerminalManager: ObservableObject {
     /// Updates cursor style on the live terminal view.
     func applyCursorStyle(_ style: TerminalCursorStyleOption) {
         guard let view = terminalView else { return }
-        view.getTerminal().options.cursorStyle = style.swiftTermStyle
+        view.getTerminal().setCursorStyle(style.swiftTermStyle)
         view.setNeedsDisplay(view.bounds)
     }
 
