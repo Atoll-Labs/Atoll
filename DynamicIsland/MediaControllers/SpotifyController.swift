@@ -208,8 +208,6 @@ class SpotifyController: MediaControllerProtocol {
         }
     }
 
-    // MARK: - Private Methods
-
     private func scheduleCanvasFetchIfNeeded(for trackURI: String) {
         guard !trackURI.isEmpty else { return }
         guard playbackState.liveArtworkURL == nil else { return }
@@ -243,7 +241,6 @@ class SpotifyController: MediaControllerProtocol {
             }
         }
     }
-
     private func executeCommand(_ command: String) async {
         let script = "tell application \"Spotify\" to \(command)"
         try? await AppleScriptHelper.executeVoid(script)

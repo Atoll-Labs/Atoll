@@ -703,6 +703,7 @@ class MusicManager: ObservableObject {
 
         // Check for artwork changes
         let artworkChanged = state.artwork != nil && state.artwork != self.artworkData
+
         let hasContentChange =
             titleChanged
             || artistChanged
@@ -750,6 +751,7 @@ class MusicManager: ObservableObject {
             }
 
             self.refreshExplicitFlag(for: state)
+
 
             // Only update sneak peek if there's actual content and something changed
             if shouldAutoPeekOnTrackChange && !state.title.isEmpty && !state.artist.isEmpty && state.isPlaying {
@@ -1443,6 +1445,8 @@ class MusicManager: ObservableObject {
             videoArtworkURL = nil
             return
         }
+        // Se il player non è Apple Music, non toccare videoArtworkURL:
+        // SpotifyController gestisce il canvas in modo autonomo tramite liveArtworkURL.
         guard bundleIdentifier == "com.apple.Music" else {
             return
         }
