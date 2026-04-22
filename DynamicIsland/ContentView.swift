@@ -546,7 +546,7 @@ struct ContentView: View {
             maxHeight: dynamicNotchSize.height + currentShadowPadding + (isDynamicIslandMode ? dynamicIslandTopOffset : 0),
             alignment: .top
         )
-        .frame(maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environmentObject(privacyManager)
         .background(dragDetector)
         .environmentObject(vm)
@@ -970,15 +970,17 @@ struct ContentView: View {
 
     @ViewBuilder
     func DynamicIslandFaceAnimation() -> some View {
+        let sideSize = max(0, vm.effectiveClosedNotchHeight - 12)
         HStack {
             HStack {
                 Rectangle()
                     .fill(.clear)
-                    .frame(width: max(0, vm.effectiveClosedNotchHeight - 12), height: max(0, vm.effectiveClosedNotchHeight - 12))
+                    .frame(width: sideSize, height: sideSize)
                 Rectangle()
                     .fill(.black)
                     .frame(width: vm.closedNotchSize.width - 20)
                 IdleAnimationView()
+                    .frame(width: sideSize, height: sideSize)
             }
         }.frame(height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
     }

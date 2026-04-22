@@ -65,7 +65,6 @@ private struct AnimationContentView: View {
             .rotationEffect(.degrees(config.rotation))
             .opacity(config.opacity)
             .padding(.bottom, config.paddingBottom)
-            .frame(width: config.expandWithAnimation ? nil : 30, height: 20)
             .clipped()
             
         case .lottieURL(let url):
@@ -83,7 +82,6 @@ private struct AnimationContentView: View {
             .rotationEffect(.degrees(config.rotation))
             .opacity(config.opacity)
             .padding(.bottom, config.paddingBottom)
-            .frame(width: config.expandWithAnimation ? nil : 30, height: 20)
             .clipped()
         }
     }
