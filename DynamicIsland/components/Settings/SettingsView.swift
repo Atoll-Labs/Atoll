@@ -2671,6 +2671,12 @@ struct Media: View {
                 }
                 .disabled(!enableLockScreenMediaWidget)
                 if lockScreenGlassCustomizationMode == .customLiquid {
+                    Defaults.Toggle(key: .lockScreenMusicUsesEnhancedLiquidBorder) {
+                        Text("Use enhanced liquid border")
+                    }
+                    .disabled(!enableLockScreenMediaWidget)
+                }
+                if lockScreenGlassCustomizationMode == .customLiquid {
                     customLiquidBlurRow
                         .opacity(enableLockScreenMediaWidget ? 1 : 0.5)
                         .settingsHighlight(id: highlightID("Enable media panel blur"))
@@ -4772,6 +4778,13 @@ struct LockScreenSettings: View {
                 }
                 .disabled(!enableLockScreenMediaWidget)
                 .settingsHighlight(id: highlightID("Show panel border"))
+                if lockScreenGlassCustomizationMode == .customLiquid {
+                    Defaults.Toggle(key: .lockScreenMusicUsesEnhancedLiquidBorder) {
+                        Text("Use enhanced liquid border")
+                    }
+                    .disabled(!enableLockScreenMediaWidget)
+                    .settingsHighlight(id: highlightID("Use enhanced liquid border"))
+                }
                 if lockScreenGlassCustomizationMode == .customLiquid {
                     variantSlider(
                         title: "Music panel variant",

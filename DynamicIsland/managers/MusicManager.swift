@@ -43,6 +43,354 @@ let defaultImage: NSImage = .init(
     accessibilityDescription: "Album Art"
 )!
 
+private struct ITunesExplicitnessSearchResponse: Decodable {
+    let results: [ITunesExplicitnessTrack]
+}
+
+private struct ITunesExplicitnessTrack: Decodable {
+    let trackName: String?
+    let artistName: String?
+    let collectionName: String?
+    let trackExplicitness: String?
+}
+
+private actor MusicExplicitnessResolver {
+    struct LookupKey: Hashable, Sendable {
+        let title: String
+        let artist: String
+        let album: String
+
+        init(title: String, artist: String, album: String) {
+            self.title = MusicExplicitnessResolver.normalize(title)
+            self.artist = MusicExplicitnessResolver.normalize(artist)
+            self.album = MusicExplicitnessResolver.normalize(album)
+        }
+
+        var canResolve: Bool {
+            !title.isEmpty && !artist.isEmpty
+        }
+    }
+
+    static let shared = MusicExplicitnessResolver()
+
+    private let session = URLSession(configuration: .ephemeral)
+    private var cache: [LookupKey: Bool] = [:]
+    private var inFlightTasks: [LookupKey: Task<Bool, Never>] = [:]
+
+    func resolve(title: String, artist: String, album: String) async -> Bool {
+        let key = LookupKey(title: title, artist: artist, album: album)
+        guard key.canResolve else { return false }
+
+        if let cached = cache[key] {
+            return cached
+        }
+
+        if let inFlightTask = inFlightTasks[key] {
+            return await inFlightTask.value
+        }
+
+        let task = Task<Bool, Never> { [session] in
+            await Self.fetchExplicitness(for: key, using: session)
+        }
+
+        inFlightTasks[key] = task
+        let result = await task.value
+        cache[key] = result
+        inFlightTasks[key] = nil
+        return result
+    }
+
+    private static func fetchExplicitness(for key: LookupKey, using session: URLSession) async -> Bool {
+        let query = "\(key.title) \(key.artist)"
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(
+                string: "https://itunes.apple.com/search?term=\(encoded)&media=music&entity=song&limit=15")
+        else {
+            return false
+        }
+
+        do {
+            let (data, _) = try await session.data(from: url)
+            let response = try JSONDecoder().decode(ITunesExplicitnessSearchResponse.self, from: data)
+
+            let bestMatch = response.results
+                .map { track in (track, matchScore(for: track, key: key)) }
+                .max { lhs, rhs in lhs.1 < rhs.1 }
+
+            guard let bestMatch,
+                  bestMatch.1 >= 8
+            else {
+                return false
+            }
+
+            return bestMatch.0.trackExplicitness?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                == "explicit"
+        } catch {
+            return false
+        }
+    }
+
+    private static func matchScore(for track: ITunesExplicitnessTrack, key: LookupKey) -> Int {
+        let trackTitle = canonicalTitle(track.trackName ?? "")
+        guard !trackTitle.isEmpty else { return Int.min }
+
+        let keyTitle = canonicalTitle(key.title)
+        let trackArtist = normalize(track.artistName ?? "")
+        let trackAlbum = normalize(track.collectionName ?? "")
+
+        var score = 0
+
+        if trackTitle == keyTitle {
+            score += 6
+        } else if trackTitle.contains(keyTitle) || keyTitle.contains(trackTitle) {
+            score += 4
+        } else {
+            return Int.min
+        }
+
+        if !key.artist.isEmpty {
+            if trackArtist == key.artist {
+                score += 4
+            } else if trackArtist.contains(key.artist) || key.artist.contains(trackArtist) {
+                score += 2
+            }
+        }
+
+        if !key.album.isEmpty {
+            if trackAlbum == key.album {
+                score += 2
+            } else if !trackAlbum.isEmpty && (trackAlbum.contains(key.album) || key.album.contains(trackAlbum)) {
+                score += 1
+            }
+        }
+
+        return score
+    }
+
+    private static func canonicalTitle(_ value: String) -> String {
+        var title = value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        title = title.replacingOccurrences(
+            of: #"\([^)]*\)|\[[^\]]*\]"#,
+            with: " ",
+            options: .regularExpression
+        )
+        title = title.replacingOccurrences(
+            of: #"\s-\s(?:\d{4}\s)?(?:remaster(?:ed)?|live|edit|mix|version|mono|stereo).*$"#,
+            with: " ",
+            options: .regularExpression
+        )
+        return normalize(title)
+    }
+
+    private static func normalize(_ value: String) -> String {
+        let folded = value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        let stripped = folded.replacingOccurrences(
+            of: #"[^a-z0-9]+"#,
+            with: " ",
+            options: .regularExpression
+        )
+        return stripped
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+private actor SpotifyExplicitnessResolver {
+    struct LookupKey: Hashable, Sendable {
+        let trackID: String
+
+        init?(contentIdentifier: String?, contentURL: String?) {
+            guard let trackID = SpotifyExplicitnessResolver.extractTrackID(from: contentIdentifier)
+                ?? SpotifyExplicitnessResolver.extractTrackID(from: contentURL)
+            else {
+                return nil
+            }
+
+            self.trackID = trackID
+        }
+    }
+
+    static let shared = SpotifyExplicitnessResolver()
+
+    private let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpAdditionalHeaders = [
+            "User-Agent": "Mozilla/5.0",
+            "Accept-Language": "en-US,en;q=0.9"
+        ]
+        return URLSession(configuration: configuration)
+    }()
+
+    private var cache: [LookupKey: Bool] = [:]
+    private var inFlightTasks: [LookupKey: Task<Bool?, Never>] = [:]
+
+    func resolve(key: LookupKey) async -> Bool? {
+        if let cached = cache[key] {
+            return cached
+        }
+
+        if let inFlightTask = inFlightTasks[key] {
+            return await inFlightTask.value
+        }
+
+        let task = Task<Bool?, Never> { [session] in
+            await Self.fetchExplicitness(for: key, using: session)
+        }
+
+        inFlightTasks[key] = task
+        let result = await task.value
+        if let result {
+            cache[key] = result
+        }
+        inFlightTasks[key] = nil
+        return result
+    }
+
+    private static func fetchExplicitness(for key: LookupKey, using session: URLSession) async -> Bool? {
+        guard let url = URL(string: "https://open.spotify.com/embed/track/\(key.trackID)") else {
+            return nil
+        }
+
+        do {
+            let (data, response) = try await session.data(from: url)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode),
+                  let html = String(data: data, encoding: .utf8)
+            else {
+                return nil
+            }
+
+            if let isExplicit = parseIsExplicitDirectly(from: html) {
+                return isExplicit
+            }
+
+            if let nextDataJSON = extractNextDataJSON(from: html),
+               let isExplicit = parseIsExplicit(from: nextDataJSON) {
+                return isExplicit
+            }
+
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
+    private static func extractNextDataJSON(from html: String) -> String? {
+        let pattern = #"<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>"#
+        guard let regex = try? NSRegularExpression(
+            pattern: pattern,
+            options: [.dotMatchesLineSeparators, .caseInsensitive]
+        ) else {
+            return nil
+        }
+
+        let range = NSRange(html.startIndex..<html.endIndex, in: html)
+        guard let match = regex.firstMatch(in: html, options: [], range: range),
+              match.numberOfRanges > 1,
+              let jsonRange = Range(match.range(at: 1), in: html)
+        else {
+            return nil
+        }
+
+        return String(html[jsonRange])
+    }
+
+    private static func parseIsExplicitDirectly(from html: String) -> Bool? {
+        if let value = captureFirstMatch(
+            in: html,
+            pattern: #""isExplicit"\s*:\s*(true|false)"#
+        ) {
+            return value == "true"
+        }
+
+        if let label = captureFirstMatch(
+            in: html,
+            pattern: #""label"\s*:\s*"([A-Z_]+)""#
+        ) {
+            switch label {
+            case "EXPLICIT":
+                return true
+            case "NON_EXPLICIT":
+                return false
+            default:
+                break
+            }
+        }
+
+        return nil
+    }
+
+    private static func captureFirstMatch(in source: String, pattern: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+
+        let range = NSRange(source.startIndex..<source.endIndex, in: source)
+        guard let match = regex.firstMatch(in: source, options: [], range: range),
+              match.numberOfRanges > 1,
+              let valueRange = Range(match.range(at: 1), in: source)
+        else {
+            return nil
+        }
+
+        return String(source[valueRange]).lowercased()
+    }
+
+    private static func parseIsExplicit(from nextDataJSON: String) -> Bool? {
+        guard let data = nextDataJSON.data(using: .utf8),
+              let rootObject = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let props = rootObject["props"] as? [String: Any],
+              let pageProps = props["pageProps"] as? [String: Any],
+              let state = pageProps["state"] as? [String: Any],
+              let dataObject = state["data"] as? [String: Any],
+              let entity = dataObject["entity"] as? [String: Any]
+        else {
+            return nil
+        }
+
+        if let isExplicit = entity["isExplicit"] as? Bool {
+            return isExplicit
+        }
+
+        if let contentRating = entity["contentRating"] as? [String: Any],
+           let label = contentRating["label"] as? String {
+            return label.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == "EXPLICIT"
+        }
+
+        return nil
+    }
+
+    private static func extractTrackID(from rawValue: String?) -> String? {
+        guard let rawValue else { return nil }
+
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if trimmed.hasPrefix("spotify:track:") {
+            return validatedTrackID(String(trimmed.split(separator: ":").last ?? ""))
+        }
+
+        if let url = URL(string: trimmed) {
+            let pathComponents = url.pathComponents.filter { $0 != "/" && !$0.isEmpty }
+            if let trackIndex = pathComponents.firstIndex(of: "track"),
+               trackIndex + 1 < pathComponents.count {
+                return validatedTrackID(pathComponents[trackIndex + 1])
+            }
+        }
+
+        return validatedTrackID(trimmed)
+    }
+
+    private static func validatedTrackID<S: StringProtocol>(_ candidate: S) -> String? {
+        let value = String(candidate).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard value.range(of: #"^[A-Za-z0-9]{22}$"#, options: .regularExpression) != nil else {
+            return nil
+        }
+
+        return value
+    }
+}
+
 class MusicManager: ObservableObject {
     enum SkipDirection: Equatable {
         case backward
@@ -82,6 +430,7 @@ class MusicManager: ObservableObject {
     @Published var isPlaying = false
     @Published var album: String = "Self Love"
     @Published var isPlayerIdle: Bool = true
+    @Published var isCurrentTrackExplicit: Bool = false
 
     /// Whether there is an active music session with real metadata.
     /// Returns `false` only when the metadata is still placeholder/fallback defaults
@@ -126,6 +475,8 @@ class MusicManager: ObservableObject {
 
     // Task used to periodically sync displayed lyric with playback position
     private var lyricSyncTask: Task<Void, Never>?
+    private var explicitLookupTask: Task<Void, Never>?
+    private var explicitLookupKey: String?
 
     private var artworkData: Data? = nil
 
@@ -139,6 +490,8 @@ class MusicManager: ObservableObject {
     private var lastArtworkArtist: String = "Me"
     private var lastArtworkAlbum: String = "Self Love"
     private var lastArtworkBundleIdentifier: String? = nil
+    private var lastArtworkContentIdentifier: String? = nil
+    private var lastArtworkContentURL: String? = nil
 
     @Published var flipAngle: Double = 0
     @Published var lastFlipDirection: SkipDirection = .forward
@@ -227,6 +580,7 @@ class MusicManager: ObservableObject {
     
     public func destroy() {
         debounceIdleTask?.cancel()
+        explicitLookupTask?.cancel()
         cancellables.removeAll()
         controllerCancellables.removeAll()
         transitionWorkItem?.cancel()
@@ -342,10 +696,19 @@ class MusicManager: ObservableObject {
         let artistChanged = state.artist != self.lastArtworkArtist
         let albumChanged = state.album != self.lastArtworkAlbum
         let bundleChanged = state.bundleIdentifier != self.lastArtworkBundleIdentifier
+        let contentIdentifierChanged = state.contentIdentifier != self.lastArtworkContentIdentifier
+        let contentURLChanged = state.contentURL != self.lastArtworkContentURL
 
         // Check for artwork changes
         let artworkChanged = state.artwork != nil && state.artwork != self.artworkData
-        let hasContentChange = titleChanged || artistChanged || albumChanged || artworkChanged || bundleChanged
+        let hasContentChange =
+            titleChanged
+            || artistChanged
+            || albumChanged
+            || artworkChanged
+            || bundleChanged
+            || contentIdentifierChanged
+            || contentURLChanged
 
         // Handle artwork and visual transitions for changed content
         let shouldAutoPeekOnTrackChange = Defaults[.showSneakPeekOnTrackChange]
@@ -369,14 +732,19 @@ class MusicManager: ObservableObject {
             self.lastArtworkArtist = state.artist
             self.lastArtworkAlbum = state.album
             self.lastArtworkBundleIdentifier = state.bundleIdentifier
+            self.lastArtworkContentIdentifier = state.contentIdentifier
+            self.lastArtworkContentURL = state.contentURL
 
             // Fetch lyrics for new track whenever content changes
             self.fetchLyrics()
+            self.refreshExplicitFlag(for: state)
 
             // Only update sneak peek if there's actual content and something changed
             if shouldAutoPeekOnTrackChange && !state.title.isEmpty && !state.artist.isEmpty && state.isPlaying {
                 self.updateSneakPeek()
             }
+        } else if state.isExplicit != nil {
+            self.refreshExplicitFlag(for: state)
         }
 
         let timeChanged = state.currentTime != self.elapsedTime
@@ -432,6 +800,122 @@ class MusicManager: ObservableObject {
             startLyricSync()
         } else {
             stopLyricSync()
+        }
+    }
+
+    @MainActor
+    private func refreshExplicitFlag(for state: PlaybackState) {
+        if let explicitValue = state.isExplicit {
+            explicitLookupTask?.cancel()
+            explicitLookupTask = nil
+            explicitLookupKey = nil
+
+            if isCurrentTrackExplicit != explicitValue {
+                isCurrentTrackExplicit = explicitValue
+            }
+            return
+        }
+
+        if state.bundleIdentifier == SpotifyController.bundleIdentifier,
+           let spotifyLookupKey = SpotifyExplicitnessResolver.LookupKey(
+               contentIdentifier: state.contentIdentifier,
+               contentURL: state.contentURL
+           ) {
+            let lookupIdentifier = "spotify|\(spotifyLookupKey.trackID)"
+            let fallbackTitle = state.title
+            let fallbackArtist = state.artist
+            let fallbackAlbum = state.album
+            guard explicitLookupKey != lookupIdentifier else { return }
+
+            explicitLookupTask?.cancel()
+            explicitLookupKey = lookupIdentifier
+
+            if isCurrentTrackExplicit {
+                isCurrentTrackExplicit = false
+            }
+
+            explicitLookupTask = Task { [weak self] in
+                let isExplicit = await SpotifyExplicitnessResolver.shared.resolve(key: spotifyLookupKey)
+
+                guard !Task.isCancelled else { return }
+
+                await MainActor.run {
+                    guard let self,
+                          self.explicitLookupKey == lookupIdentifier
+                    else {
+                        return
+                    }
+
+                    self.explicitLookupTask = nil
+
+                    if let isExplicit {
+                        self.isCurrentTrackExplicit = isExplicit
+                    } else {
+                        self.explicitLookupKey = nil
+                        self.refreshGenericExplicitFlag(
+                            title: fallbackTitle,
+                            artist: fallbackArtist,
+                            album: fallbackAlbum
+                        )
+                    }
+                }
+            }
+            return
+        }
+
+        refreshGenericExplicitFlag(title: state.title, artist: state.artist, album: state.album)
+    }
+
+    @MainActor
+    private func refreshGenericExplicitFlag(title: String, artist: String, album: String) {
+        let lookupKey = MusicExplicitnessResolver.LookupKey(
+            title: title,
+            artist: artist,
+            album: album
+        )
+        let lookupIdentifier = "generic|\(lookupKey.title)|\(lookupKey.artist)|\(lookupKey.album)"
+
+        guard lookupKey.canResolve,
+              !Self.placeholderTitles.contains(lookupKey.title),
+              !Self.placeholderArtists.contains(lookupKey.artist)
+        else {
+            explicitLookupTask?.cancel()
+            explicitLookupTask = nil
+            explicitLookupKey = nil
+            if isCurrentTrackExplicit {
+                isCurrentTrackExplicit = false
+            }
+            return
+        }
+
+        guard explicitLookupKey != lookupIdentifier else { return }
+
+        explicitLookupTask?.cancel()
+        explicitLookupKey = lookupIdentifier
+
+        if isCurrentTrackExplicit {
+            isCurrentTrackExplicit = false
+        }
+
+        explicitLookupTask = Task { [weak self] in
+            let isExplicit = await MusicExplicitnessResolver.shared.resolve(
+                title: title,
+                artist: artist,
+                album: album
+            )
+
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                guard let self,
+                      self.explicitLookupKey == lookupIdentifier
+                else {
+                    return
+                }
+
+                self.isCurrentTrackExplicit = isExplicit
+                self.explicitLookupTask = nil
+            }
         }
     }
 

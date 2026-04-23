@@ -116,3 +116,157 @@ struct MarqueeText: View {
         
     }
 }
+
+struct MusicExplicitBadge: View {
+    var label: String = "E"
+    var fontSize: CGFloat = 9
+    var height: CGFloat = 14
+    var horizontalPadding: CGFloat = 4
+    var minWidth: CGFloat? = nil
+    var foregroundColor: Color = .white.opacity(0.92)
+    var backgroundColor: Color = .white.opacity(0.18)
+    var cornerRadius: CGFloat? = nil
+    var body: some View {
+        Text(label)
+            .font(.system(size: fontSize, weight: .bold, design: .rounded))
+            .foregroundColor(foregroundColor)
+            .padding(.horizontal, max(horizontalPadding, height * 0.2))
+            .frame(minWidth: minWidth, minHeight: height)
+            .background(
+                RoundedRectangle(
+                    cornerRadius: cornerRadius ?? max(4, height * 0.28),
+                    style: .continuous
+                )
+                .fill(backgroundColor)
+            )
+            .fixedSize()
+    }
+}
+
+struct MusicTitleMarqueeView: View {
+    let text: String
+    let isExplicit: Bool
+    let font: Font
+    let nsFont: NSFont.TextStyle
+    let textColor: Color
+    let backgroundColor: Color
+    let minDuration: Double
+    let frameWidth: CGFloat
+    let alignment: Alignment
+    let badgeSpacing: CGFloat
+    let badgeLabel: String
+    let badgeFontSize: CGFloat?
+    let badgeHeight: CGFloat?
+    let badgeForegroundColor: Color
+    let badgeBackgroundColor: Color
+    let badgeHorizontalPadding: CGFloat
+    let badgeMinWidth: CGFloat?
+    let badgeCornerRadius: CGFloat?
+
+    init(
+        text: String,
+        isExplicit: Bool,
+        font: Font = .body,
+        nsFont: NSFont.TextStyle = .body,
+        textColor: Color = .primary,
+        backgroundColor: Color = .clear,
+        minDuration: Double = 3.0,
+        frameWidth: CGFloat = 200,
+        alignment: Alignment = .leading,
+        badgeSpacing: CGFloat = 6,
+        badgeLabel: String = "E",
+        badgeFontSize: CGFloat? = nil,
+        badgeHeight: CGFloat? = nil,
+        badgeForegroundColor: Color = .white.opacity(0.92),
+        badgeBackgroundColor: Color = .white.opacity(0.18),
+        badgeHorizontalPadding: CGFloat = 4,
+        badgeMinWidth: CGFloat? = nil,
+        badgeCornerRadius: CGFloat? = nil
+    ) {
+        self.text = text
+        self.isExplicit = isExplicit
+        self.font = font
+        self.nsFont = nsFont
+        self.textColor = textColor
+        self.backgroundColor = backgroundColor
+        self.minDuration = minDuration
+        self.frameWidth = frameWidth
+        self.alignment = alignment
+        self.badgeSpacing = badgeSpacing
+        self.badgeLabel = badgeLabel
+        self.badgeFontSize = badgeFontSize
+        self.badgeHeight = badgeHeight
+        self.badgeForegroundColor = badgeForegroundColor
+        self.badgeBackgroundColor = badgeBackgroundColor
+        self.badgeHorizontalPadding = badgeHorizontalPadding
+        self.badgeMinWidth = badgeMinWidth
+        self.badgeCornerRadius = badgeCornerRadius
+    }
+
+    private var resolvedBadgeHeight: CGFloat {
+        badgeHeight ?? max(12, NSFont.preferredFont(forTextStyle: nsFont).pointSize * 1.12)
+    }
+
+    private var resolvedBadgeFontSize: CGFloat {
+        badgeFontSize ?? max(8, resolvedBadgeHeight * 0.6)
+    }
+
+    private var reservedBadgeWidth: CGFloat {
+        guard isExplicit else { return 0 }
+        return resolvedBadgeHeight + (resolvedBadgeHeight * 0.7) + badgeSpacing
+    }
+
+    private var titleFrameWidth: CGFloat {
+        max(0, frameWidth - reservedBadgeWidth)
+    }
+
+    private var measurementFont: NSFont {
+        NSFont.preferredFont(forTextStyle: nsFont)
+    }
+
+    private var measuredTextWidth: CGFloat {
+        let attributes: [NSAttributedString.Key: Any] = [.font: measurementFont]
+        return ceil((text as NSString).size(withAttributes: attributes).width)
+    }
+
+    private var needsScrolling: Bool {
+        measuredTextWidth > titleFrameWidth
+    }
+
+    var body: some View {
+        HStack(spacing: badgeSpacing) {
+            if needsScrolling {
+                MarqueeText(
+                    .constant(text),
+                    font: font,
+                    nsFont: nsFont,
+                    textColor: textColor,
+                    backgroundColor: backgroundColor,
+                    minDuration: minDuration,
+                    frameWidth: titleFrameWidth
+                )
+            } else {
+                Text(text)
+                    .font(font)
+                    .foregroundColor(textColor)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+
+            if isExplicit {
+                MusicExplicitBadge(
+                    label: badgeLabel,
+                    fontSize: resolvedBadgeFontSize,
+                    height: resolvedBadgeHeight,
+                    horizontalPadding: badgeHorizontalPadding,
+                    minWidth: badgeMinWidth,
+                    foregroundColor: badgeForegroundColor,
+                    backgroundColor: badgeBackgroundColor,
+                    cornerRadius: badgeCornerRadius
+                )
+            }
+        }
+        .frame(width: frameWidth, alignment: alignment)
+    }
+}

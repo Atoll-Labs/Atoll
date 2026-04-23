@@ -904,6 +904,10 @@ extension Defaults.Keys {
     )
     static let lockScreenShowAppIcon = Key<Bool>("lockScreenShowAppIcon", default: false)
     static let lockScreenPanelShowsBorder = Key<Bool>("lockScreenPanelShowsBorder", default: false)
+    static let lockScreenMusicUsesEnhancedLiquidBorder = Key<Bool>(
+        "lockScreenMusicUsesEnhancedLiquidBorder",
+        default: true
+    )
     static let lockScreenPanelUsesBlur = Key<Bool>("lockScreenPanelUsesBlur", default: true)
     static let lockScreenMusicMergedAirPlayOutput = Key<Bool>("lockScreenMusicMergedAirPlayOutput", default: true)
     static let lockScreenTimerWidgetUsesBlur = Key<Bool>("lockScreenTimerWidgetUsesBlur", default: false)

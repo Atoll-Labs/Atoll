@@ -23,6 +23,28 @@
 import SwiftUI
 import AppKit
 
+private struct ShelfBackgroundClickCatcher: NSViewRepresentable {
+    let onClick: () -> Void
+
+    func makeNSView(context: Context) -> BackgroundClickView {
+        let view = BackgroundClickView()
+        view.onClick = onClick
+        return view
+    }
+
+    func updateNSView(_ nsView: BackgroundClickView, context: Context) {
+        nsView.onClick = onClick
+    }
+
+    final class BackgroundClickView: NSView {
+        var onClick: (() -> Void)?
+
+        override func mouseUp(with event: NSEvent) {
+            onClick?()
+        }
+    }
+}
+
 struct ShelfView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     @StateObject var tvm = ShelfStateViewModel.shared
@@ -82,14 +104,20 @@ struct ShelfView: View {
                 style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [10])
             )
             .overlay {
-                content
-                    .padding()
+                ZStack {
+                    ShelfBackgroundClickCatcher {
+                        guard !selection.isDragging else { return }
+                        selection.clear()
+                    }
+
+                    content
+                        .padding()
+                }
             }
             .transaction { transaction in
                 transaction.animation = vm.animation
             }
             .contentShape(Rectangle())
-            .onTapGesture { selection.clear() }
     }
 
     var content: some View {

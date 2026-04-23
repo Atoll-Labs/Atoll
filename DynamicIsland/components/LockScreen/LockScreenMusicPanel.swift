@@ -56,6 +56,7 @@ struct LockScreenMusicPanel: View {
     @Default(.lockScreenMusicLiquidGlassVariant) private var musicGlassVariant
     @Default(.lockScreenShowAppIcon) var showAppIcon
     @Default(.lockScreenPanelShowsBorder) var showPanelBorder
+    @Default(.lockScreenMusicUsesEnhancedLiquidBorder) private var useEnhancedLiquidBorder
     @Default(.lockScreenPanelUsesBlur) var enableBlur
     @Default(.showMediaOutputControl) private var showMediaOutputControl
     @Default(.showShuffleAndRepeat) private var showShuffleAndRepeat
@@ -113,6 +114,10 @@ struct LockScreenMusicPanel: View {
     private var usesLiquidGlass: Bool {
         usesCustomLiquidGlass || usesStandardLiquidGlass
     }
+
+    private var usesEnhancedCustomLiquidBorder: Bool {
+        usesCustomLiquidGlass && useEnhancedLiquidBorder
+    }
     
     var body: some View {
         if isActive && musicManager.hasActiveSession {
@@ -131,9 +136,8 @@ struct LockScreenMusicPanel: View {
         .frame(width: currentSize.width, height: currentSize.height, alignment: .topLeading)
         .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
         .overlay {
-            if showPanelBorder && !usesLiquidGlass {
-                RoundedRectangle(cornerRadius: panelCornerRadius)
-                    .stroke(Color.white.opacity(0.35), lineWidth: 1.4)
+            if showPanelBorder {
+                panelBorderOverlay
             }
         }
         .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)
@@ -255,19 +259,34 @@ struct LockScreenMusicPanel: View {
         HStack(alignment: .center, spacing: 16) {
             albumArtButton(size: 60, cornerRadius: collapsedAlbumArtCornerRadius)
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(musicManager.songTitle.isEmpty ? "No Music Playing" : musicManager.songTitle)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
+            GeometryReader { geo in
+                VStack(alignment: .leading, spacing: 1) {
+                    MusicTitleMarqueeView(
+                        text: musicManager.songTitle.isEmpty ? "No Music Playing" : musicManager.songTitle,
+                        isExplicit: !musicManager.songTitle.isEmpty && musicManager.isCurrentTrackExplicit,
+                        font: .system(size: 12, weight: .semibold),
+                        nsFont: .subheadline,
+                        textColor: .white,
+                        minDuration: 0.45,
+                        frameWidth: geo.size.width,
+                        badgeSpacing: 5,
+                        badgeLabel: "E",
+                        badgeHeight: 13,
+                        badgeForegroundColor: Color.black.opacity(0.72),
+                        badgeBackgroundColor: Color.white.opacity(0.46),
+                        badgeHorizontalPadding: 4,
+                        badgeMinWidth: 14,
+                        badgeCornerRadius: 4
+                    )
 
-                Text(musicManager.artistName.isEmpty ? "Unknown Artist" : musicManager.artistName)
-                    .font(.system(size: 10, weight: .regular))
-                    .foregroundColor(Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray)
-                    .lineLimit(1)
+                    Text(musicManager.artistName.isEmpty ? "Unknown Artist" : musicManager.artistName)
+                        .font(.system(size: 10, weight: .regular))
+                        .foregroundColor(Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray)
+                        .lineLimit(1)
+                }
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .leading)
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30, alignment: .leading)
 
             visualizer(width: 20, height: 16)
         }
@@ -276,19 +295,34 @@ struct LockScreenMusicPanel: View {
 
     private var expandedHeader: some View {
         HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(musicManager.songTitle.isEmpty ? "No Music Playing" : musicManager.songTitle)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-                    .lineLimit(2)
+            GeometryReader { geo in
+                VStack(alignment: .leading, spacing: 6) {
+                    MusicTitleMarqueeView(
+                        text: musicManager.songTitle.isEmpty ? "No Music Playing" : musicManager.songTitle,
+                        isExplicit: !musicManager.songTitle.isEmpty && musicManager.isCurrentTrackExplicit,
+                        font: .system(size: 18, weight: .semibold),
+                        nsFont: .title3,
+                        textColor: .white,
+                        minDuration: 0.55,
+                        frameWidth: geo.size.width,
+                        badgeSpacing: 6,
+                        badgeLabel: "E",
+                        badgeHeight: 16,
+                        badgeForegroundColor: Color.black.opacity(0.74),
+                        badgeBackgroundColor: Color.white.opacity(0.5),
+                        badgeHorizontalPadding: 5,
+                        badgeMinWidth: 17,
+                        badgeCornerRadius: 5
+                    )
 
-                Text(musicManager.artistName.isEmpty ? "Unknown Artist" : musicManager.artistName)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.7) : .gray)
-                    .lineLimit(2)
+                    Text(musicManager.artistName.isEmpty ? "Unknown Artist" : musicManager.artistName)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Defaults[.playerColorTinting] ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.7) : .gray)
+                        .lineLimit(2)
+                }
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .leading)
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
 
             visualizer(width: 24, height: 20)
         }
@@ -1045,6 +1079,53 @@ struct LockScreenMusicPanel: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var panelBorderOverlay: some View {
+        if usesEnhancedCustomLiquidBorder {
+            ZStack {
+                RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .stroke(
+                        Color.white.opacity(0.22),
+                        lineWidth: 1.05
+                    )
+
+                RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .inset(by: 0.85)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.28),
+                                Color.white.opacity(0.1),
+                                Color.black.opacity(0.18)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.9
+                    )
+
+                RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .inset(by: 1.55)
+                    .stroke(
+                        Color.black.opacity(0.16),
+                        lineWidth: 0.55
+                    )
+            }
+            .allowsHitTesting(false)
+        } else if usesLiquidGlass {
+            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                .stroke(
+                    Color.white.opacity(usesCustomLiquidGlass ? 0.15 : 0.14),
+                    lineWidth: usesCustomLiquidGlass ? 0.95 : 0.9
+                )
+                .allowsHitTesting(false)
+        } else {
+            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                .stroke(Color.white.opacity(0.35), lineWidth: 1.4)
+                .allowsHitTesting(false)
+        }
     }
 
     private func albumArtImage(size: CGFloat, cornerRadius: CGFloat) -> some View {

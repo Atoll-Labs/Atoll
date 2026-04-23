@@ -28,7 +28,10 @@ final class ShelfStateViewModel: ObservableObject {
     static let shared = ShelfStateViewModel()
 
     @Published private(set) var items: [ShelfItem] = [] {
-        didSet { ShelfPersistenceService.shared.save(items) }
+        didSet {
+            ShelfPersistenceService.shared.save(items)
+            ShelfSelectionModel.shared.reconcileSelection(with: items)
+        }
     }
 
     @Published var isLoading: Bool = false

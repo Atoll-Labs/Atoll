@@ -234,6 +234,64 @@ struct ContentView: View {
     private var closedMusicContentEnabled: Bool {
         enableMinimalisticUI || showStandardMediaControls
     }
+
+    private var isMusicHUDDeferredAfterUnlock: Bool {
+        lockScreenManager.shouldDelayPostUnlockMusicHUD
+    }
+
+    private var interactionsEnabled: Bool {
+        !lockScreenManager.isLocked
+    }
+
+    private var isIslandMode: Bool {
+        isDynamicIslandMode
+    }
+
+    private var notchHorizontalPadding: CGFloat {
+        guard vm.notchState == .open else {
+            return activeCornerRadiusInsets.closed.bottom
+        }
+        if Defaults[.cornerRadiusScaling] {
+            return activeCornerRadiusInsets.opened.top - 5
+        }
+        return activeCornerRadiusInsets.opened.bottom - 5
+    }
+
+    private var bodyHoverAreaPadding: CGFloat {
+        if vm.notchState == .open && Defaults[.extendHoverArea] {
+            return 0
+        }
+        return vm.effectiveClosedNotchHeight == 0 ? zeroHeightHoverPadding : 0
+    }
+
+    private var notchBottomPadding: CGFloat {
+        currentShadowPadding + bodyHoverAreaPadding
+    }
+
+    private var pillTopOffset: CGFloat {
+        isIslandMode ? dynamicIslandTopOffset : 0
+    }
+
+    private func closedMusicPairingEligible(hasActiveMusicSnapshot: Bool) -> Bool {
+        vm.notchState == .closed
+            && hasActiveMusicSnapshot
+            && coordinator.musicLiveActivityEnabled
+            && closedMusicContentEnabled
+            && !vm.hideOnClosed
+            && !lockScreenManager.isLocked
+            && !isMusicHUDDeferredAfterUnlock
+    }
+
+    private var closedLiveActivitySwapTransition: AnyTransition {
+        .asymmetric(
+            insertion: .opacity
+                .combined(with: .scale(scale: 0.965, anchor: .center))
+                .animation(.spring(response: 0.34, dampingFraction: 0.88)),
+            removal: .opacity
+                .combined(with: .scale(scale: 0.92, anchor: .center))
+                .animation(.smooth(duration: 0.22))
+        )
+    }
     
     // Use minimalistic corner radius ONLY when opened, keep normal when closed
     private var activeCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) {
@@ -334,212 +392,200 @@ struct ContentView: View {
     }
 
     var body: some View {
-        let interactionsEnabled = !lockScreenManager.isLocked
-        let isIslandMode = isDynamicIslandMode
-        let notchHorizontalPadding: CGFloat = {
-            guard vm.notchState == .open else {
-                return activeCornerRadiusInsets.closed.bottom
-            }
-            if Defaults[.cornerRadiusScaling] {
-                return activeCornerRadiusInsets.opened.top - 5
-            }
-            return activeCornerRadiusInsets.opened.bottom - 5
-        }()
-        let hoverAreaPadding: CGFloat = {
-            if vm.notchState == .open && Defaults[.extendHoverArea] {
-                return 0
-            }
-            return vm.effectiveClosedNotchHeight == 0 ? zeroHeightHoverPadding : 0
-        }()
-        let notchBottomPadding = currentShadowPadding + hoverAreaPadding
-        // Extra top padding to detach pill from screen edge in Dynamic Island mode
-        let pillTopOffset: CGFloat = isIslandMode ? dynamicIslandTopOffset : 0
+        installRootLifecycleHandlers(on: rootBodyView)
+    }
 
-        ZStack(alignment: .top) {
-            let mainLayout = NotchLayout()
-                .frame(alignment: .top)
-                .padding(.horizontal, notchHorizontalPadding)
-                .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
-                .background(.black)
-                .clipShape(resolvedClipShape)
-                .compositingGroup()
-                .shadow(
-                    color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
-                        ? .black.opacity(0.6)
-                        : .clear,
-                    radius: Defaults[.cornerRadiusScaling] ? 10 : 5
-                )
-                // Extra horizontal inset for Dynamic Island mode so the shadow
-                // is not clipped by the outer frame constraint
-                .padding(.horizontal, isIslandMode ? dynamicIslandShadowInset : 0)
-                .padding(.top, pillTopOffset)
+    private var mainLayoutBase: some View {
+        NotchLayout()
+            .frame(alignment: .top)
+            .padding(.horizontal, notchHorizontalPadding)
+            .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
+            .background(.black)
+            .clipShape(resolvedClipShape)
+            .compositingGroup()
+            .shadow(
+                color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
+                    ? .black.opacity(0.6)
+                    : .clear,
+                radius: Defaults[.cornerRadiusScaling] ? 10 : 5
+            )
+            // Extra horizontal inset for Dynamic Island mode so the shadow
+            // is not clipped by the outer frame constraint
+            .padding(.horizontal, isIslandMode ? dynamicIslandShadowInset : 0)
+            .padding(.top, pillTopOffset)
+    }
 
-            mainLayout
-                .conditionalModifier(!useModernCloseAnimation) { view in
-                    let hoverAnimation = Animation.bouncy.speed(1.2)
-                    let notchStateAnimation = Animation.spring.speed(1.2)
-                    return view
-                        .animation(hoverAnimation, value: isHovering)
-                        .animation(notchStateAnimation, value: vm.notchState)
-                        .animation(.smooth, value: gestureProgress)
-                        .transition(.blurReplace.animation(.interactiveSpring(dampingFraction: 1.2)))
-                }
-                .conditionalModifier(useModernCloseAnimation) { view in
-                    let hoverAnimation = Animation.bouncy.speed(1.2)
-                    let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
-                    let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
-                    let notchAnimation = vm.notchState == .open ? openAnimation : closeAnimation
-                    return view
-                        .animation(hoverAnimation, value: isHovering)
-                        .animation(notchAnimation, value: vm.notchState)
-                        .animation(.smooth, value: gestureProgress)
-                }
-                .conditionalModifier(interactionsEnabled) { view in
-                    view
-                        .contentShape(resolvedClipShape)
-                        .onHover { hovering in
-                            handleHover(hovering)
+    private var configuredMainLayout: some View {
+        mainLayoutBase
+            .conditionalModifier(!useModernCloseAnimation) { view in
+                let hoverAnimation = Animation.bouncy.speed(1.2)
+                let notchStateAnimation = Animation.spring.speed(1.2)
+                return view
+                    .animation(hoverAnimation, value: isHovering)
+                    .animation(notchStateAnimation, value: vm.notchState)
+                    .animation(.smooth, value: gestureProgress)
+                    .transition(.blurReplace.animation(.interactiveSpring(dampingFraction: 1.2)))
+            }
+            .conditionalModifier(useModernCloseAnimation) { view in
+                let hoverAnimation = Animation.bouncy.speed(1.2)
+                let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
+                let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
+                let notchAnimation = vm.notchState == .open ? openAnimation : closeAnimation
+                return view
+                    .animation(hoverAnimation, value: isHovering)
+                    .animation(notchAnimation, value: vm.notchState)
+                    .animation(.smooth, value: gestureProgress)
+            }
+            .conditionalModifier(interactionsEnabled) { view in
+                view
+                    .contentShape(resolvedClipShape)
+                    .onHover { hovering in
+                        handleHover(hovering)
+                    }
+                    .onTapGesture {
+                        if handleClosedMusicWaveformTapIfNeeded() {
+                            return
                         }
-                        .onTapGesture {
-                            if handleClosedMusicWaveformTapIfNeeded() {
-                                return
+                        if vm.notchState == .closed && Defaults[.enableHaptics] {
+                            triggerHapticIfAllowed()
+                        }
+                        openNotch()
+                    }
+                    .conditionalModifier(Defaults[.enableGestures]) { view in
+                        view
+                            .panGesture(direction: .down) { translation, phase in
+                                handleDownGesture(translation: translation, phase: phase)
                             }
-                            if vm.notchState == .closed && Defaults[.enableHaptics] {
-                                triggerHapticIfAllowed()
+                            .panGesture(direction: .left) { translation, phase in
+                                handleSkipGesture(direction: .forward, translation: translation, phase: phase)
                             }
+                            .panGesture(direction: .right) { translation, phase in
+                                handleSkipGesture(direction: .backward, translation: translation, phase: phase)
+                            }
+                    }
+            }
+            .conditionalModifier((Defaults[.closeGestureEnabled] || Defaults[.reverseScrollGestures]) && Defaults[.enableGestures] && interactionsEnabled) { view in
+                view
+                    .panGesture(direction: .up) { translation, phase in
+                        handleUpGesture(translation: translation, phase: phase)
+                    }
+            }
+            // Shadow bottom padding and hide-until-hover offset applied AFTER
+            // interaction modifiers so .contentShape / .onHover only covers
+            // the actual notch content, not the shadow clearance below it.
+            .padding(.bottom, notchBottomPadding)
+            .offset(y: shouldHideUntilHover && !isHovering
+                ? -(vm.closedNotchSize.height + pillTopOffset + currentShadowPadding + 10)
+                : 0
+            )
+            .onAppear(perform: {
+                if coordinator.firstLaunch {
+                    // Single open during first launch; closeHello() handles the timed close.
+                    runAfter(1) {
+                        withAnimation(vm.animation) {
                             openNotch()
                         }
-                        .conditionalModifier(Defaults[.enableGestures]) { view in
-                            view
-                                .panGesture(direction: .down) { translation, phase in
-                                    handleDownGesture(translation: translation, phase: phase)
-                                }
-                                .panGesture(direction: .left) { translation, phase in
-                                    handleSkipGesture(direction: .forward, translation: translation, phase: phase)
-                                }
-                                .panGesture(direction: .right) { translation, phase in
-                                    handleSkipGesture(direction: .backward, translation: translation, phase: phase)
-                                }
-                        }
-                }
-                .conditionalModifier((Defaults[.closeGestureEnabled] || Defaults[.reverseScrollGestures]) && Defaults[.enableGestures] && interactionsEnabled) { view in
-                    view
-                        .panGesture(direction: .up) { translation, phase in
-                            handleUpGesture(translation: translation, phase: phase)
-                        }
-                }
-                // Shadow bottom padding and hide-until-hover offset applied AFTER
-                // interaction modifiers so .contentShape / .onHover only covers
-                // the actual notch content, not the shadow clearance below it.
-                .padding(.bottom, notchBottomPadding)
-                .offset(y: shouldHideUntilHover && !isHovering
-                    ? -(vm.closedNotchSize.height + pillTopOffset + currentShadowPadding + 10)
-                    : 0
-                )
-                .onAppear(perform: {
-                    if coordinator.firstLaunch {
-                        // Single open during first launch; closeHello() handles the timed close.
-                        runAfter(1) {
-                            withAnimation(vm.animation) {
-                                openNotch()
-                            }
-                        }
-                    }
-                })
-                .onChange(of: vm.notchState) { _, newState in
-                    // Update smart monitoring based on notch state
-                    if enableStatsFeature {
-                        let currentViewString = coordinator.currentView == .stats ? "stats" : "other"
-                        statsManager.updateMonitoringState(
-                            notchIsOpen: newState == .open,
-                            currentView: currentViewString
-                        )
-                    }
-                    
-                    // Reset hover state when notch state changes
-                    if newState == .closed && isHovering {
-                        withAnimation {
-                            isHovering = false
-                        }
-                    }
-                    if newState != .closed {
-                        isHoveringClosedMusicWaveformControl = false
-                    }
-                    if newState == .closed {
-                        removeStickyTerminalClickMonitor()
-                    }
-                    #if os(macOS)
-                    if newState == .open {
-                        TimerControlWindowManager.shared.hide()
-                    }
-                    #endif
-                }
-                .onChange(of: vm.isBatteryPopoverActive) { _, newPopoverState in
-                    runAfter(0.1) {
-                        if !newPopoverState && !isHovering && vm.notchState == .open && !shouldPreventAutoClose() {
-                            vm.close()
-                        }
                     }
                 }
-                .onChange(of: vm.isStatsPopoverActive) { _, newPopoverState in
-                    runAfter(0.1) {
-                        if !newPopoverState && !isHovering && vm.notchState == .open && !shouldPreventAutoClose() {
-                            vm.close()
-                        }
-                    }
-                }
-                .onChange(of: vm.shouldRecheckHover) { _, _ in
-                    // Recheck hover state when popovers are closed
-                    runAfter(0.1) {
-                        if vm.notchState == .open && !shouldPreventAutoClose() && !isHovering {
-                            vm.close()
-                        }
-                    }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .sharingDidFinish)) { _ in
-                    runAfter(0.1) {
-                        if vm.notchState == .open && !isHovering && !shouldPreventAutoClose() {
-                            vm.close()
-                        }
-                    }
-                }
-                .onChange(of: coordinator.sneakPeek.show) { _, sneakPeekShowing in
-                    // When sneak peek finishes, check if user is still hovering and open notch if needed
-                    if !sneakPeekShowing {
-                        runAfter(0.2) {
-                            if isHovering && vm.notchState == .closed {
-                                openNotch()
-                            }
-                        }
-                    }
-                }
-                .onChange(of: coordinator.currentView) { _, newValue in
-                    if enableStatsFeature {
-                        let currentViewString = newValue == .stats ? "stats" : "other"
-                        statsManager.updateMonitoringState(
-                            notchIsOpen: vm.notchState == .open,
-                            currentView: currentViewString
-                        )
-                    }
-                    syncStickyTerminalOutsideClickMonitor()
-                }
-                .sensoryFeedback(.alignment, trigger: haptics)
-                .contextMenu {
-                    Button("Settings") {
-                        SettingsWindowController.shared.showWindow()
-                    }
-//                    Button("Edit") { // Doesnt work....
-//                        let dn = DynamicNotch(content: EditPanelView())
-//                        dn.toggle()
-//                    }
-//                    #if DEBUG
-//                    .disabled(false)
-//                    #else
-//                    .disabled(true)
-//                    #endif
-//                    .keyboardShortcut("E", modifiers: .command)
+            })
+            .onChange(of: vm.notchState) { _, newState in
+                // Update smart monitoring based on notch state
+                if enableStatsFeature {
+                    let currentViewString = coordinator.currentView == .stats ? "stats" : "other"
+                    statsManager.updateMonitoringState(
+                        notchIsOpen: newState == .open,
+                        currentView: currentViewString
+                    )
                 }
 
+                // Reset hover state when notch state changes
+                if newState == .closed && isHovering {
+                    withAnimation {
+                        isHovering = false
+                    }
+                }
+                if newState != .closed {
+                    isHoveringClosedMusicWaveformControl = false
+                }
+                if newState == .closed {
+                    removeStickyTerminalClickMonitor()
+                }
+                #if os(macOS)
+                if newState == .open {
+                    TimerControlWindowManager.shared.hide()
+                }
+                #endif
+            }
+            .onChange(of: vm.isBatteryPopoverActive) { _, newPopoverState in
+                runAfter(0.1) {
+                    if !newPopoverState && !isHovering && vm.notchState == .open && !shouldPreventAutoClose() {
+                        vm.close()
+                    }
+                }
+            }
+            .onChange(of: vm.isStatsPopoverActive) { _, newPopoverState in
+                runAfter(0.1) {
+                    if !newPopoverState && !isHovering && vm.notchState == .open && !shouldPreventAutoClose() {
+                        vm.close()
+                    }
+                }
+            }
+            .onChange(of: vm.shouldRecheckHover) { _, _ in
+                // Recheck hover state when popovers are closed
+                runAfter(0.1) {
+                    if vm.notchState == .open && !shouldPreventAutoClose() && !isHovering {
+                        vm.close()
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .sharingDidFinish)) { _ in
+                runAfter(0.1) {
+                    if vm.notchState == .open && !isHovering && !shouldPreventAutoClose() {
+                        vm.close()
+                    }
+                }
+            }
+            .onChange(of: coordinator.sneakPeek.show) { _, sneakPeekShowing in
+                // When sneak peek finishes, check if user is still hovering and open notch if needed
+                if !sneakPeekShowing {
+                    runAfter(0.2) {
+                        if isHovering && vm.notchState == .closed {
+                            openNotch()
+                        }
+                    }
+                }
+            }
+            .onChange(of: coordinator.currentView) { _, newValue in
+                if enableStatsFeature {
+                    let currentViewString = newValue == .stats ? "stats" : "other"
+                    statsManager.updateMonitoringState(
+                        notchIsOpen: vm.notchState == .open,
+                        currentView: currentViewString
+                    )
+                }
+                syncStickyTerminalOutsideClickMonitor()
+            }
+            .sensoryFeedback(.alignment, trigger: haptics)
+            .contextMenu {
+                Button("Settings") {
+                    SettingsWindowController.shared.showWindow()
+                }
+//                Button("Edit") { // Doesnt work....
+//                    let dn = DynamicNotch(content: EditPanelView())
+//                    dn.toggle()
+//                }
+//                #if DEBUG
+//                .disabled(false)
+//                #else
+//                .disabled(true)
+//                #endif
+//                .keyboardShortcut("E", modifiers: .command)
+            }
+    }
+
+    private var rootBodyView: some View {
+        ZStack(alignment: .top) {
+            configuredMainLayout
         }
         .frame(
             maxWidth: dynamicNotchSize.width + (isDynamicIslandMode ? dynamicIslandShadowInset * 2 : 0),
@@ -551,118 +597,143 @@ struct ContentView: View {
         .background(dragDetector)
         .environmentObject(vm)
         .environmentObject(webcamManager)
-        .onAppear {
-            isMusicControlWindowSuppressed = vm.notchState != .closed || lockScreenManager.isLocked
-            if musicManager.isPlaying || !musicManager.isPlayerIdle {
-                clearMusicControlVisibilityDeadline()
-            }
-            if let deadline = musicControlVisibilityDeadline, Date() > deadline {
-                clearMusicControlVisibilityDeadline()
-            }
-            enqueueMusicControlWindowSync(forceRefresh: true)
-            startHiddenEdgeHoverPolling()
-        }
-        .onChange(of: terminalStickyMode) { _, _ in
-            syncStickyTerminalOutsideClickMonitor()
-        }
-        .onChange(of: vm.notchState) { _, state in
-            if state == .open {
-                suppressMusicControlWindowUpdates()
-                cancelMusicControlWindowSync()
-                hideMusicControlWindow()
-            } else {
-                releaseMusicControlWindowUpdates(after: musicControlResumeDelay)
-                enqueueMusicControlWindowSync(forceRefresh: true, delay: 0.05)
-            }
+    }
 
-        }
-        .onChange(of: musicControlWindowEnabled) { _, enabled in
-            if enabled {
+    private func installRootLifecycleHandlers<Content: View>(on view: Content) -> some View {
+        installSecondaryRootLifecycleHandlers(
+            on: installPrimaryRootLifecycleHandlers(on: view)
+        )
+    }
+
+    private func installPrimaryRootLifecycleHandlers<Content: View>(on view: Content) -> some View {
+        view
+            .onAppear {
+                isMusicControlWindowSuppressed = vm.notchState != .closed
+                    || lockScreenManager.isLocked
+                    || isMusicHUDDeferredAfterUnlock
                 if musicManager.isPlaying || !musicManager.isPlayerIdle {
                     clearMusicControlVisibilityDeadline()
                 }
+                if let deadline = musicControlVisibilityDeadline, Date() > deadline {
+                    clearMusicControlVisibilityDeadline()
+                }
                 enqueueMusicControlWindowSync(forceRefresh: true)
-            } else {
+                startHiddenEdgeHoverPolling()
+            }
+            .onChange(of: terminalStickyMode) { _, _ in
+                syncStickyTerminalOutsideClickMonitor()
+            }
+            .onChange(of: vm.notchState) { _, state in
+                if state == .open {
+                    suppressMusicControlWindowUpdates()
+                    cancelMusicControlWindowSync()
+                    hideMusicControlWindow()
+                } else {
+                    releaseMusicControlWindowUpdates(after: musicControlResumeDelay)
+                    enqueueMusicControlWindowSync(forceRefresh: true, delay: 0.05)
+                }
+            }
+            .onChange(of: musicControlWindowEnabled) { _, enabled in
+                if enabled {
+                    if musicManager.isPlaying || !musicManager.isPlayerIdle {
+                        clearMusicControlVisibilityDeadline()
+                    }
+                    enqueueMusicControlWindowSync(forceRefresh: true)
+                } else {
+                    cancelMusicControlWindowSync()
+                    hideMusicControlWindow()
+                    clearMusicControlVisibilityDeadline()
+                    hasPendingMusicControlSync = false
+                    pendingMusicControlForceRefresh = false
+                }
+            }
+            .onChange(of: coordinator.musicLiveActivityEnabled) { _, enabled in
+                if enabled {
+                    enqueueMusicControlWindowSync(forceRefresh: true)
+                } else {
+                    cancelMusicControlWindowSync()
+                    hideMusicControlWindow()
+                    clearMusicControlVisibilityDeadline()
+                    hasPendingMusicControlSync = false
+                    pendingMusicControlForceRefresh = false
+                }
+            }
+            .onChange(of: vm.hideOnClosed) { _, hidden in
+                if hidden {
+                    cancelMusicControlWindowSync()
+                    hideMusicControlWindow()
+                } else {
+                    enqueueMusicControlWindowSync(forceRefresh: true, delay: 0.05)
+                }
+            }
+            .onChange(of: lockScreenManager.isLocked) { _, locked in
+                if locked {
+                    suppressMusicControlWindowUpdates()
+                    cancelMusicControlWindowSync()
+                    hideMusicControlWindow()
+                } else {
+                    releaseMusicControlWindowUpdates(after: musicControlResumeDelay)
+                    enqueueMusicControlWindowSync(forceRefresh: true, delay: 0.05)
+                }
+            }
+            .onChange(of: lockScreenManager.shouldDelayPostUnlockMusicHUD) { _, deferred in
+                if deferred {
+                    suppressMusicControlWindowUpdates()
+                    cancelMusicControlWindowSync()
+                    hideMusicControlWindow()
+                } else {
+                    releaseMusicControlWindowUpdates(after: 0)
+                    enqueueMusicControlWindowSync(forceRefresh: true, delay: 0.05)
+                }
+            }
+    }
+
+    private func installSecondaryRootLifecycleHandlers<Content: View>(on view: Content) -> some View {
+        view
+            .onChange(of: showStandardMediaControls) { _, _ in
+                handleStandardMediaControlsAvailabilityChange()
+            }
+            .onChange(of: enableMinimalisticUI) { _, _ in
+                handleStandardMediaControlsAvailabilityChange()
+            }
+            .onChange(of: gestureProgress) { _, _ in
+                if shouldShowMusicControlWindow() {
+                    enqueueMusicControlWindowSync(forceRefresh: true, delay: 0.05)
+                }
+            }
+            .onChange(of: isHovering) { _, hovering in
+                if shouldShowMusicControlWindow() {
+                    enqueueMusicControlWindowSync(forceRefresh: true, delay: hovering ? 0.05 : 0.12)
+                }
+            }
+            .onChange(of: musicManager.isPlaying) { _, isPlaying in
+                handleMusicControlPlaybackChange(isPlaying: isPlaying)
+            }
+            .onChange(of: musicManager.isPlayerIdle) { _, isIdle in
+                handleMusicControlIdleChange(isIdle: isIdle)
+            }
+            .onChange(of: vm.closedNotchSize) { _, _ in
+                if shouldShowMusicControlWindow() {
+                    enqueueMusicControlWindowSync(forceRefresh: true)
+                }
+            }
+            .onChange(of: vm.effectiveClosedNotchHeight) { _, _ in
+                if shouldShowMusicControlWindow() {
+                    enqueueMusicControlWindowSync(forceRefresh: true)
+                }
+            }
+            .onDisappear {
+                hoverTask?.cancel()
+                stopHoverClickMonitor()
+                removeStickyTerminalClickMonitor()
+                stopHiddenEdgeHoverPolling()
                 cancelMusicControlWindowSync()
                 hideMusicControlWindow()
+                cancelMusicControlVisibilityTimer()
                 clearMusicControlVisibilityDeadline()
-                hasPendingMusicControlSync = false
-                pendingMusicControlForceRefresh = false
+                musicControlSuppressionTask?.cancel()
+                isHoveringClosedMusicWaveformControl = false
             }
-        }
-        .onChange(of: coordinator.musicLiveActivityEnabled) { _, enabled in
-            if enabled {
-                enqueueMusicControlWindowSync(forceRefresh: true)
-            } else {
-                cancelMusicControlWindowSync()
-                hideMusicControlWindow()
-                clearMusicControlVisibilityDeadline()
-                hasPendingMusicControlSync = false
-                pendingMusicControlForceRefresh = false
-            }
-        }
-        .onChange(of: vm.hideOnClosed) { _, hidden in
-            if hidden {
-                cancelMusicControlWindowSync()
-                hideMusicControlWindow()
-            } else {
-                enqueueMusicControlWindowSync(forceRefresh: true, delay: 0.05)
-            }
-        }
-        .onChange(of: lockScreenManager.isLocked) { _, locked in
-            if locked {
-                suppressMusicControlWindowUpdates()
-                cancelMusicControlWindowSync()
-                hideMusicControlWindow()
-            } else {
-                releaseMusicControlWindowUpdates(after: musicControlResumeDelay)
-                enqueueMusicControlWindowSync(forceRefresh: true, delay: 0.05)
-            }
-        }
-        .onChange(of: showStandardMediaControls) { _, _ in
-            handleStandardMediaControlsAvailabilityChange()
-        }
-        .onChange(of: enableMinimalisticUI) { _, _ in
-            handleStandardMediaControlsAvailabilityChange()
-        }
-        .onChange(of: gestureProgress) { _, _ in
-            if shouldShowMusicControlWindow() {
-                enqueueMusicControlWindowSync(forceRefresh: true, delay: 0.05)
-            }
-        }
-        .onChange(of: isHovering) { _, hovering in
-            if shouldShowMusicControlWindow() {
-                enqueueMusicControlWindowSync(forceRefresh: true, delay: hovering ? 0.05 : 0.12)
-            }
-        }
-        .onChange(of: musicManager.isPlaying) { _, isPlaying in
-            handleMusicControlPlaybackChange(isPlaying: isPlaying)
-        }
-        .onChange(of: musicManager.isPlayerIdle) { _, isIdle in
-            handleMusicControlIdleChange(isIdle: isIdle)
-        }
-        .onChange(of: vm.closedNotchSize) { _, _ in
-            if shouldShowMusicControlWindow() {
-                enqueueMusicControlWindowSync(forceRefresh: true)
-            }
-        }
-        .onChange(of: vm.effectiveClosedNotchHeight) { _, _ in
-            if shouldShowMusicControlWindow() {
-                enqueueMusicControlWindowSync(forceRefresh: true)
-            }
-        }
-        .onDisappear {
-            hoverTask?.cancel()
-            stopHoverClickMonitor()
-            removeStickyTerminalClickMonitor()
-            stopHiddenEdgeHoverPolling()
-            cancelMusicControlWindowSync()
-            hideMusicControlWindow()
-            cancelMusicControlVisibilityTimer()
-            clearMusicControlVisibilityDeadline()
-            musicControlSuppressionTask?.cancel()
-            isHoveringClosedMusicWaveformControl = false
-        }
     }
 
     @ViewBuilder
@@ -683,12 +754,7 @@ struct ContentView: View {
                           if musicManager.isPlaying { return true }
                           return !musicManager.isPlayerIdle && hasMusicMetadata
                       }()
-                      let musicPairingEligible = vm.notchState == .closed
-                          && hasActiveMusicSnapshot
-                          && coordinator.musicLiveActivityEnabled
-                          && closedMusicContentEnabled
-                          && !vm.hideOnClosed
-                          && !lockScreenManager.isLocked
+                      let musicPairingEligible = closedMusicPairingEligible(hasActiveMusicSnapshot: hasActiveMusicSnapshot)
                       let musicSecondary = resolveMusicSecondaryLiveActivity(isMusicPairingEligible: musicPairingEligible)
                       let extensionSecondaryPayloadID = extensionSecondaryPayloadID(for: musicSecondary)
                       let extensionStandalonePayload = resolvedExtensionStandalonePayload(excluding: extensionSecondaryPayloadID)
@@ -750,6 +816,8 @@ struct ContentView: View {
                               .transition(AnyTransition.move(edge: .trailing).combined(with: .opacity))
                       } else if canShowMusicDuringExpansion && musicPairingEligible {
                           MusicLiveActivity(secondary: musicSecondary)
+                              .id("closed-music-live-activity")
+                              .transition(closedLiveActivitySwapTransition)
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .timer) && vm.notchState == .closed && timerManager.isTimerActive && coordinator.timerLiveActivityEnabled && !vm.hideOnClosed {
                           TimerLiveActivity()
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .reminder) && vm.notchState == .closed && reminderManager.isActive && enableReminderLiveActivity && !vm.hideOnClosed {
@@ -766,6 +834,8 @@ struct ContentView: View {
                           DoNotDisturbLiveActivity()
                     } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .lockScreen) && vm.notchState == .closed && (lockScreenManager.isLocked || !lockScreenManager.isLockIdle) && Defaults[.enableLockScreenLiveActivity] && !vm.hideOnClosed {
                         LockScreenLiveActivity()
+                            .id("lock-screen-live-activity")
+                            .transition(closedLiveActivitySwapTransition)
                     } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .privacy) && vm.notchState == .closed && privacyManager.hasAnyIndicator && (Defaults[.enableCameraDetection] || Defaults[.enableMicrophoneDetection]) && !vm.hideOnClosed {
                         PrivacyLiveActivity()
                       } else if let extensionPayload = extensionStandalonePayload {
@@ -1036,11 +1106,13 @@ struct ContentView: View {
                 .overlay(
                     HStack(alignment: .top) {
                         if(coordinator.expandingView.show && coordinator.expandingView.type == .music) {
-                            MarqueeText(
-                                .constant(musicManager.songTitle),
+                            MusicTitleMarqueeView(
+                                text: musicManager.songTitle,
+                                isExplicit: musicManager.isCurrentTrackExplicit,
                                 textColor: Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor) : Color.gray,
                                 minDuration: 0.4,
-                                frameWidth: max(0, (effectiveCenterWidth - vm.closedNotchSize.width) / 2 - 12)
+                                frameWidth: max(0, (effectiveCenterWidth - vm.closedNotchSize.width) / 2 - 12),
+                                badgeHeight: 13
                             )
                             .padding(.leading, 8)
                             .opacity((coordinator.expandingView.show && Defaults[.enableSneakPeek] && Defaults[.sneakPeekStyles] == .inline) ? 1 : 0)
@@ -1436,6 +1508,15 @@ struct ContentView: View {
             return nil
         }
 
+        guard !isMusicHUDDeferredAfterUnlock else {
+            ExtensionRoutingDiagnostics.shared.logSuppression(
+                .music,
+                reason: "waiting for lock screen unlock animation to finish",
+                pendingCount: candidates.count
+            )
+            return nil
+        }
+
         guard coordinator.musicLiveActivityEnabled else {
             ExtensionRoutingDiagnostics.shared.logSuppression(
                 .music,
@@ -1647,6 +1728,7 @@ struct ContentView: View {
             && closedMusicContentEnabled
             && !vm.hideOnClosed
             && !lockScreenManager.isLocked
+            && !isMusicHUDDeferredAfterUnlock
             && !coordinator.expandingView.show
             && (!musicManager.isPlayerIdle || musicManager.bundleIdentifier != nil)
             && !coordinator.firstLaunch
@@ -2185,7 +2267,7 @@ struct ContentView: View {
             guard !Task.isCancelled else { return }
 
             await MainActor.run {
-                if vm.notchState == .closed && !lockScreenManager.isLocked {
+                if vm.notchState == .closed && !lockScreenManager.isLocked && !isMusicHUDDeferredAfterUnlock {
                     isMusicControlWindowSuppressed = false
                     triggerPendingMusicControlSyncIfNeeded()
                 } else {
@@ -2208,7 +2290,10 @@ struct ContentView: View {
     }
 
     private func shouldDeferMusicControlSync() -> Bool {
-        vm.notchState != .closed || lockScreenManager.isLocked || isMusicControlWindowSuppressed
+        vm.notchState != .closed
+            || lockScreenManager.isLocked
+            || isMusicHUDDeferredAfterUnlock
+            || isMusicControlWindowSuppressed
     }
 
     private func enqueueMusicControlWindowSync(forceRefresh: Bool, delay: TimeInterval = 0) {
@@ -2232,6 +2317,7 @@ struct ContentView: View {
               vm.notchState == .closed,
               !vm.hideOnClosed,
               !lockScreenManager.isLocked,
+              !isMusicHUDDeferredAfterUnlock,
               !isMusicControlWindowSuppressed else {
             return false
         }
@@ -2250,7 +2336,7 @@ struct ContentView: View {
             return
         }
 
-        if !bypassSuppression && (isMusicControlWindowSuppressed || lockScreenManager.isLocked) {
+        if !bypassSuppression && (isMusicControlWindowSuppressed || lockScreenManager.isLocked || isMusicHUDDeferredAfterUnlock) {
             hasPendingMusicControlSync = true
             if forceRefresh {
                 pendingMusicControlForceRefresh = true

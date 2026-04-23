@@ -26,6 +26,8 @@ import AVFoundation
 enum LockScreenAnimationTimings {
     static let lockExpand: TimeInterval = 0.45
     static let unlockCollapse: TimeInterval = 0.82
+    static let postUnlockMusicHUDPause: TimeInterval = 1.0
+    static let postUnlockMusicHUDReveal: TimeInterval = 0.34
 }
 
 @MainActor
@@ -39,11 +41,13 @@ class LockScreenManager: ObservableObject {
     // MARK: - Published Properties
     @Published var isLocked: Bool = false
     @Published var isLockIdle: Bool = true
+    @Published var shouldDelayPostUnlockMusicHUD: Bool = false
     @Published var lastUpdated: Date = .distantPast
     
     // MARK: - Private Properties
     private var debounceIdleTask: Task<Void, Never>?
     private var collapseTask: Task<Void, Never>?
+    private var postUnlockMusicHUDTask: Task<Void, Never>?
     
     // MARK: - Helpers
     
@@ -63,6 +67,7 @@ class LockScreenManager: ObservableObject {
         DistributedNotificationCenter.default().removeObserver(self)
         debounceIdleTask?.cancel()
         collapseTask?.cancel()
+        postUnlockMusicHUDTask?.cancel()
     }
     
     // MARK: - Setup
@@ -102,6 +107,8 @@ class LockScreenManager: ObservableObject {
         // Update state SYNCHRONOUSLY without Task/await to avoid any delay
         lastUpdated = Date()
         updateIdleState(locked: true)
+        postUnlockMusicHUDTask?.cancel()
+        shouldDelayPostUnlockMusicHUD = false
         
         // Set locked state immediately without animation wrapper
         isLocked = true
@@ -149,6 +156,33 @@ class LockScreenManager: ObservableObject {
         lastUpdated = Date()
         updateIdleState(locked: false)
         isLocked = false
+        postUnlockMusicHUDTask?.cancel()
+        shouldDelayPostUnlockMusicHUD = Defaults[.enableLockScreenLiveActivity]
+
+        if shouldDelayPostUnlockMusicHUD {
+            postUnlockMusicHUDTask = Task { [weak self] in
+                try? await Task.sleep(
+                    for: .seconds(
+                        LockScreenAnimationTimings.unlockCollapse
+                            + LockScreenAnimationTimings.postUnlockMusicHUDPause
+                    )
+                )
+                guard let self = self, !Task.isCancelled else { return }
+                await MainActor.run {
+                    if !self.isLocked {
+                        withAnimation(
+                            .spring(
+                                response: LockScreenAnimationTimings.postUnlockMusicHUDReveal,
+                                dampingFraction: 0.88,
+                                blendDuration: 0.08
+                            )
+                        ) {
+                            self.shouldDelayPostUnlockMusicHUD = false
+                        }
+                    }
+                }
+            }
+        }
         
         // Hide panel window immediately and synchronously
         print("[\(timestamp())] LockScreenManager: 🚪 Hiding panel window")
@@ -182,8 +216,9 @@ class LockScreenManager: ObservableObject {
         } else {
             debounceIdleTask?.cancel()
             debounceIdleTask = Task { [weak self] in
-                let configuredInterval = max(Defaults[.waitInterval], 0)
-                let idleDelay = min(max(configuredInterval, 0.2), LockScreenAnimationTimings.unlockCollapse)
+                // Keep the lock live activity mounted until the collapse animation finishes,
+                // otherwise the content disappears before the island fully closes.
+                let idleDelay = LockScreenAnimationTimings.unlockCollapse
                 try? await Task.sleep(for: .seconds(idleDelay))
                 guard let self = self, !Task.isCancelled else { return }
                 await MainActor.run {

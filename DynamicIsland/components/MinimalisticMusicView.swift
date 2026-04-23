@@ -41,13 +41,16 @@ struct MinimalisticMusicView: View {
                         GeometryReader { geo in
                             VStack(alignment: .center, spacing: 2) {
                                 if !musicManager.songTitle.isEmpty {
-                                    MarqueeText(
-                                        $musicManager.songTitle,
+                                    MusicTitleMarqueeView(
+                                        text: musicManager.songTitle,
+                                        isExplicit: musicManager.isCurrentTrackExplicit,
                                         font: .system(size: 12, weight: .semibold),
                                         nsFont: .subheadline,
                                         textColor: Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor) : Color.gray,
                                         minDuration: 0.4,
-                                        frameWidth: max(0, geo.size.width - 8)
+                                        frameWidth: max(0, geo.size.width - 8),
+                                        alignment: .center,
+                                        badgeHeight: 13
                                     )
                                 }
 

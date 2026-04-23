@@ -25,9 +25,11 @@ import Combine
 import SwiftUI
 
 class SpotifyController: MediaControllerProtocol {
+    static let bundleIdentifier = "com.spotify.client"
+
     // MARK: - Properties
     @Published private var playbackState: PlaybackState = PlaybackState(
-        bundleIdentifier: "com.spotify.client"
+        bundleIdentifier: SpotifyController.bundleIdentifier
     )
     
     var playbackStatePublisher: AnyPublisher<PlaybackState, Never> {
@@ -100,7 +102,7 @@ class SpotifyController: MediaControllerProtocol {
     
     func updatePlaybackInfo() async {
         guard let descriptor = try? await fetchPlaybackInfoAsync() else { return }
-        guard descriptor.numberOfItems >= 9 else { return }
+        guard descriptor.numberOfItems >= 11 else { return }
         
         let isPlaying = descriptor.atIndex(1)?.booleanValue ?? false
         let currentTrack = descriptor.atIndex(2)?.stringValue ?? "Unknown"
@@ -111,9 +113,11 @@ class SpotifyController: MediaControllerProtocol {
         let isShuffled = descriptor.atIndex(7)?.booleanValue ?? false
         let isRepeating = descriptor.atIndex(8)?.booleanValue ?? false
         let artworkURL = descriptor.atIndex(9)?.stringValue ?? ""
+        let trackIdentifier = descriptor.atIndex(10)?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trackSpotifyURL = descriptor.atIndex(11)?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         
         var state = PlaybackState(
-            bundleIdentifier: "com.spotify.client",
+            bundleIdentifier: Self.bundleIdentifier,
             isPlaying: isPlaying,
             title: currentTrack,
             artist: currentTrackArtist,
@@ -125,6 +129,8 @@ class SpotifyController: MediaControllerProtocol {
             repeatMode: isRepeating ? .all : .off,
             lastUpdated: Date()
         )
+        state.contentIdentifier = trackIdentifier.isEmpty ? nil : trackIdentifier
+        state.contentURL = trackSpotifyURL.isEmpty ? nil : trackSpotifyURL
 
         if artworkURL == lastArtworkURL, let existingArtwork = self.playbackState.artwork {
             state.artwork = existingArtwork
@@ -186,9 +192,17 @@ class SpotifyController: MediaControllerProtocol {
                 set shuffleState to shuffling
                 set repeatState to repeating
                 set artworkURL to artwork url of current track
-                return {playerState, currentTrackName, currentTrackArtist, currentTrackAlbum, trackPosition, trackDuration, shuffleState, repeatState, artworkURL}
+                set trackIdentifier to ""
+                try
+                    set trackIdentifier to id of current track
+                end try
+                set trackSpotifyURL to ""
+                try
+                    set trackSpotifyURL to spotify url of current track
+                end try
+                return {playerState, currentTrackName, currentTrackArtist, currentTrackAlbum, trackPosition, trackDuration, shuffleState, repeatState, artworkURL, trackIdentifier, trackSpotifyURL}
             on error
-                return {false, "Unknown", "Unknown", "Unknown", 0, 0, false, false, ""}
+                return {false, "Unknown", "Unknown", "Unknown", 0, 0, false, false, "", "", ""}
             end try
         end tell
         """

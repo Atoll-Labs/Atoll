@@ -237,6 +237,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         private let dragThreshold: CGFloat = 3.0
         private var draggedURLs: [URL] = []
         private var draggedItems: [ShelfItem] = []
+        private var didStartDragSession = false
         
         override func rightMouseDown(with event: NSEvent) {
             onRightClick?(event, self)
@@ -244,7 +245,21 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         
         override func mouseDown(with event: NSEvent) {
             mouseDownEvent = event
-            onClick?(event, self)
+            didStartDragSession = false
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            defer {
+                mouseDownEvent = nil
+                didStartDragSession = false
+            }
+
+            guard let mouseDownEvent, !didStartDragSession else {
+                super.mouseUp(with: event)
+                return
+            }
+
+            onClick?(mouseDownEvent, self)
         }
         
         override func mouseDragged(with event: NSEvent) {
@@ -259,10 +274,24 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
             )
             
             if dragDistance > dragThreshold {
+                didStartDragSession = true
+                prepareSelectionForDrag(using: mouseDownEvent)
                 startDragSession(with: event)
                 self.mouseDownEvent = nil
             } else {
                 super.mouseDragged(with: event)
+            }
+        }
+
+        private func prepareSelectionForDrag(using initialEvent: NSEvent) {
+            let flags = initialEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+
+            if flags.contains(.shift) || flags.contains(.command) || flags.contains(.control) {
+                return
+            }
+
+            if !ShelfSelectionModel.shared.isSelected(item.id) {
+                ShelfSelectionModel.shared.selectSingle(item)
             }
         }
         

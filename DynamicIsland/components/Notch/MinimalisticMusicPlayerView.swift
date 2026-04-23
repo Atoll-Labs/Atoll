@@ -83,12 +83,14 @@ struct MinimalisticMusicPlayerView: View {
 
                         VStack(alignment: .leading, spacing: 1) {
                             if !musicManager.songTitle.isEmpty {
-                                MarqueeText(
-                                    $musicManager.songTitle,
+                                MusicTitleMarqueeView(
+                                    text: musicManager.songTitle,
+                                    isExplicit: musicManager.isCurrentTrackExplicit,
                                     font: .system(size: 12, weight: .semibold),
                                     nsFont: .subheadline,
                                     textColor: .white,
-                                    frameWidth: textWidth
+                                    frameWidth: textWidth,
+                                    badgeHeight: 13
                                 )
                             }
 

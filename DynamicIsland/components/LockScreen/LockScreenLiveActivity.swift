@@ -42,18 +42,42 @@ struct LockScreenLiveActivity: View {
     private var indicatorDimension: CGFloat {
         max(0, vm.effectiveClosedNotchHeight - 12)
     }
+
+    private var indicatorSideHeight: CGFloat {
+        max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
+    }
+
+    private var expandedIndicatorSideWidth: CGFloat {
+        max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12) + gestureProgress / 2)
+    }
+
+    private var indicatorSideWidth: CGFloat {
+        isExpanded ? expandedIndicatorSideWidth : 0
+    }
+
+    private var indicatorVisibilityProgress: CGFloat {
+        guard expandedIndicatorSideWidth > 0 else { return 0 }
+        return min(max(indicatorSideWidth / expandedIndicatorSideWidth, 0), 1)
+    }
+
+    private var indicatorOpacity: Double {
+        let fadeThreshold: CGFloat = 0.16
+        guard indicatorVisibilityProgress < fadeThreshold else { return 1 }
+        return Double(max(0, indicatorVisibilityProgress / fadeThreshold))
+    }
     
     var body: some View {
         HStack(spacing: 0) {
             // Left - Lock icon with subtle glow
             Color.clear
                 .overlay(alignment: .leading) {
-                    if isExpanded {
-                        LockIconProgressView(progress: iconAnimator.progress, iconColor: iconColor)
-                            .frame(width: indicatorDimension, height: indicatorDimension)
-                    }
+                    LockIconProgressView(progress: iconAnimator.progress, iconColor: iconColor)
+                        .frame(width: indicatorDimension, height: indicatorDimension)
+                        .opacity(indicatorOpacity)
+                        .scaleEffect(0.96 + (indicatorVisibilityProgress * 0.04))
                 }
-                .frame(width: isExpanded ? max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12) + gestureProgress / 2) : 0, height: vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
+                .frame(width: indicatorSideWidth, height: indicatorSideHeight, alignment: .leading)
+                .clipped()
             
             // Center - Black fill
             Rectangle()
@@ -62,7 +86,7 @@ struct LockScreenLiveActivity: View {
             
             // Right - Empty for symmetry with animation
             Color.clear
-                .frame(width: isExpanded ? max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12) + gestureProgress / 2) : 0, height: vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
+                .frame(width: indicatorSideWidth, height: indicatorSideHeight)
         }
         .frame(height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0))
         .onAppear {
@@ -100,6 +124,5 @@ struct LockScreenLiveActivity: View {
             }
         }
         .animation(.spring(response: 0.5, dampingFraction: 0.85), value: lockScreenManager.isLocked)
-        .animation(.easeOut(duration: 0.25), value: isExpanded)
     }
 }
