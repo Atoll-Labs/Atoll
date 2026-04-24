@@ -60,6 +60,9 @@ final class StableTerminalContainerView: NSView {
         for child in subviews {
             child.needsDisplay = true
         }
+        Task { @MainActor in
+            TerminalManager.shared.refreshTerminalAppearanceIfNeeded()
+        }
     }
 }
 
@@ -118,9 +121,8 @@ class TerminalManager: ObservableObject {
         if let existing = terminalView, existing.superview === containerView {
             // Already mounted — just re-wire the delegate in case the coordinator changed.
             existing.processDelegate = delegate
-            // Force a redraw — the view may have been off-screen (notch closed)
-            // and needs to re-render the terminal buffer.
-            synchronizeTerminalTranslucencyPresentation(to: existing)
+            // Re-apply opacity/translucency after hide/show cycles (e.g. shortcut toggle).
+            refreshTerminalOpacityAndTranslucency(for: existing)
             return
         }
 
@@ -154,6 +156,15 @@ class TerminalManager: ObservableObject {
         if containerSize.width >= 10, containerSize.height >= 10 {
             terminalBackgroundEffectView.frame = containerView.bounds
             view.frame = containerView.bounds
+        }
+
+        // Apply translucency immediately and again on the next run loop tick.
+        // The deferred pass handles AppKit/SwiftUI mount timing where layer
+        // changes can otherwise be lost on first open.
+        refreshTerminalOpacityAndTranslucency(for: view)
+        DispatchQueue.main.async { [weak self, weak view] in
+            guard let self, let view, self.terminalView === view else { return }
+            self.refreshTerminalOpacityAndTranslucency(for: view)
         }
     }
 
@@ -248,6 +259,12 @@ class TerminalManager: ObservableObject {
         view.setNeedsDisplay(view.bounds)
     }
 
+    /// Re-applies backdrop opacity + translucency hacks after remount/reopen paths.
+    private func refreshTerminalOpacityAndTranslucency(for view: LocalProcessTerminalView) {
+        applyTerminalBackgroundAppearance(to: view)
+        synchronizeTerminalTranslucencyPresentation(to: view)
+    }
+
     // MARK: - Settings Application
 
     /// Applies all persisted settings to a terminal view at creation time.
@@ -283,7 +300,7 @@ class TerminalManager: ObservableObject {
         // Rendering
         view.useBrightColors = Defaults[.terminalBoldAsBright]
 
-        synchronizeTerminalTranslucencyPresentation(to: view)
+        refreshTerminalOpacityAndTranslucency(for: view)
     }
 
     /// Updates font size on the live terminal view.
@@ -305,7 +322,7 @@ class TerminalManager: ObservableObject {
         guard let view = terminalView else { return }
         view.layer?.opacity = 1
         view.nativeBackgroundColor = resolvedTerminalBackgroundNSColor(opacitySlider: CGFloat(opacity))
-        synchronizeTerminalTranslucencyPresentation(to: view)
+        refreshTerminalOpacityAndTranslucency(for: view)
     }
 
     /// Updates cursor style on the live terminal view.
@@ -345,7 +362,7 @@ class TerminalManager: ObservableObject {
         guard let view = terminalView else { return }
         view.layer?.opacity = 1
         view.nativeBackgroundColor = resolvedTerminalBackgroundNSColor(baseColor: NSColor(color))
-        synchronizeTerminalTranslucencyPresentation(to: view)
+        refreshTerminalOpacityAndTranslucency(for: view)
     }
 
     /// Updates foreground color on the live terminal view.
@@ -353,6 +370,58 @@ class TerminalManager: ObservableObject {
         guard let view = terminalView else { return }
         view.nativeForegroundColor = NSColor(color)
         synchronizeTerminalTranslucencyPresentation(to: view)
+    }
+
+    /// Called by UI lifecycle hooks after tab re-appearance to keep opacity stable.
+    func refreshTerminalAppearanceIfNeeded() {
+        guard let view = terminalView else { return }
+        refreshTerminalOpacityAndTranslucency(for: view)
+    }
+
+    /// Makes terminal view first responder when terminal tab opens.
+    /// Retries a few times to cover mount/animation timing so typing works immediately.
+    func focusTerminalIfPossible() {
+        focusTerminalIfPossible(attemptsRemaining: 3)
+    }
+
+    private func focusTerminalIfPossible(attemptsRemaining: Int) {
+        guard let view = terminalView else { return }
+        guard let window = containerView.window ?? view.window else {
+            guard attemptsRemaining > 0 else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.focusTerminalIfPossible(attemptsRemaining: attemptsRemaining - 1)
+            }
+            return
+        }
+
+        if !NSApp.isActive {
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        if !window.isKeyWindow {
+            window.makeKeyAndOrderFront(nil)
+        }
+
+        guard window.firstResponder !== view else { return }
+        if !window.makeFirstResponder(view), attemptsRemaining > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.focusTerminalIfPossible(attemptsRemaining: attemptsRemaining - 1)
+            }
+        }
+    }
+
+    /// Resigns terminal focus before closing notch to avoid stale responder state.
+    func resignTerminalFirstResponderIfNeeded() {
+        guard let view = terminalView else { return }
+        guard let window = containerView.window ?? view.window else { return }
+        guard window.firstResponder === view else { return }
+        _ = window.makeFirstResponder(nil)
+    }
+
+    /// True when the terminal view is currently first responder.
+    func isTerminalFirstResponder() -> Bool {
+        guard let view = terminalView else { return false }
+        guard let window = containerView.window ?? view.window else { return false }
+        return window.firstResponder === view
     }
 
     /// Updates cursor color on the live terminal view.

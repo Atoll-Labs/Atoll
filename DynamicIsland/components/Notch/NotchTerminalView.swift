@@ -157,9 +157,14 @@ struct NotchTerminalView: View {
                 // notch close/open cycles; updateNSView handles restart.
                 TerminalNSViewRepresentable(terminalManager: terminalManager)
                     .clipShape(terminalClipShape)
-                    .padding(.horizontal, notchTerminalContentEdgePadding.horizontal)
-                    .padding(.bottom, notchTerminalContentEdgePadding.bottom)
-                    .padding(.top, notchTerminalContentEdgePadding.top)
+                    .padding(
+                        EdgeInsets(
+                            top: notchTerminalContentEdgePadding.top,
+                            leading: notchTerminalContentEdgePadding.horizontal,
+                            bottom: notchTerminalContentEdgePadding.bottom,
+                            trailing: notchTerminalContentEdgePadding.horizontal
+                        )
+                    )
                     .onHover { hovering in
                         updateSuppression(for: hovering)
                     }
@@ -183,6 +188,10 @@ struct NotchTerminalView: View {
         }
         .onDisappear {
             updateSuppression(for: false)
+        }
+        .onAppear {
+            terminalManager.refreshTerminalAppearanceIfNeeded()
+            terminalManager.focusTerminalIfPossible()
         }
     }
 
