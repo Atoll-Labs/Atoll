@@ -868,6 +868,10 @@
         }
       }
     },
+    "%@ left" : {
+      "comment" : "A string indicating how much time there is left of an event.",
+      "extractionState" : "manual"
+    },
     "%@ Models" : {
       "comment" : "merge:ko:alt='%@ 모델'",
       "localizations" : {
@@ -22211,6 +22215,14 @@
         }
       }
     },
+    "in %@" : {
+      "comment" : "\"In x hours\" as showed on the lock screen calendar widget.",
+      "extractionState" : "manual"
+    },
+    "in %lld" : {
+      "comment" : "A label used to indicate an event happening in a set amount of time.",
+      "extractionState" : "manual"
+    },
     "In progress" : {
       "localizations" : {
         "ar" : {
@@ -26621,6 +26633,18 @@
         }
       }
     },
+    "min plural" : {
+      "comment" : "Shortened plural form of minutes. Should be kept short as it is used for the calendar reminder HUD.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "min"
+          }
+        }
+      }
+    },
     "Minimalistic mode focuses on media controls and system HUDs, hiding all extra features for a clean, focused experience. Automatically enables simpler animations." : {
       "localizations" : {
         "ko" : {
@@ -29944,6 +29968,10 @@
           }
         }
       }
+    },
+    "now" : {
+      "comment" : "A string indicating that an event is starting at the current time.",
+      "extractionState" : "manual"
     },
     "Now Playing" : {
       "comment" : "Name of the media controller type for the \"Now Playing\" option.",
