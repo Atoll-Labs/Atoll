@@ -731,6 +731,19 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .battery, title: "Show power status notifications", keywords: ["notifications", "power"], highlightID: SettingsTab.battery.highlightID(for: "Show power status notifications")),
             SettingsSearchEntry(tab: .battery, title: "Show power status icons", keywords: ["power icons", "charging icon"], highlightID: SettingsTab.battery.highlightID(for: "Show power status icons")),
             SettingsSearchEntry(tab: .battery, title: "Play low battery alert sound", keywords: ["low battery", "alert", "sound"], highlightID: SettingsTab.battery.highlightID(for: "Play low battery alert sound")),
+            SettingsSearchEntry(tab: .battery, title: "Charging HUD", keywords: ["battery", "charging", "temporary activity"], highlightID: SettingsTab.battery.highlightID(for: "Charging HUD")),
+            SettingsSearchEntry(tab: .battery, title: "Low battery HUD", keywords: ["battery", "low", "temporary activity"], highlightID: SettingsTab.battery.highlightID(for: "Low battery HUD")),
+            SettingsSearchEntry(tab: .battery, title: "Fully charged HUD", keywords: ["battery", "full", "temporary activity"], highlightID: SettingsTab.battery.highlightID(for: "Fully charged HUD")),
+            SettingsSearchEntry(tab: .battery, title: "Charging duration", keywords: ["charging", "duration", "seconds"], highlightID: SettingsTab.battery.highlightID(for: "Charging duration")),
+            SettingsSearchEntry(tab: .battery, title: "Low battery duration", keywords: ["low battery", "duration", "seconds"], highlightID: SettingsTab.battery.highlightID(for: "Low battery duration")),
+            SettingsSearchEntry(tab: .battery, title: "Full battery duration", keywords: ["full battery", "duration", "seconds"], highlightID: SettingsTab.battery.highlightID(for: "Full battery duration")),
+            SettingsSearchEntry(tab: .battery, title: "Test charging HUD", keywords: ["battery", "test", "charging", "preview"], highlightID: nil),
+            SettingsSearchEntry(tab: .battery, title: "Test low battery HUD", keywords: ["battery", "test", "low", "preview"], highlightID: nil),
+            SettingsSearchEntry(tab: .battery, title: "Test full battery HUD", keywords: ["battery", "test", "full", "preview"], highlightID: nil),
+            SettingsSearchEntry(tab: .battery, title: "Low battery style", keywords: ["battery", "style", "compact", "standard"], highlightID: SettingsTab.battery.highlightID(for: "Low battery style")),
+            SettingsSearchEntry(tab: .battery, title: "Low battery threshold", keywords: ["battery", "threshold", "percent"], highlightID: SettingsTab.battery.highlightID(for: "Low battery threshold")),
+            SettingsSearchEntry(tab: .battery, title: "Full battery style", keywords: ["battery", "style", "compact", "standard"], highlightID: SettingsTab.battery.highlightID(for: "Full battery style")),
+            SettingsSearchEntry(tab: .battery, title: "Full charge threshold", keywords: ["battery", "threshold", "full"], highlightID: SettingsTab.battery.highlightID(for: "Full charge threshold")),
 
             // HUDs
             SettingsSearchEntry(tab: .devices, title: "Show Bluetooth device connections", keywords: ["bluetooth", "hud"], highlightID: SettingsTab.devices.highlightID(for: "Show Bluetooth device connections")),
@@ -1305,8 +1318,60 @@ struct GeneralSettings: View {
 }
 
 struct Charge: View {
+    @ObservedObject private var batteryStatusViewModel = BatteryStatusViewModel.shared
+    @Default(.showPowerStatusNotifications) private var showPowerStatusNotifications
+    @Default(.showChargingBatteryHUD) private var showChargingBatteryHUD
+    @Default(.showLowBatteryHUD) private var showLowBatteryHUD
+    @Default(.showFullBatteryHUD) private var showFullBatteryHUD
+    @Default(.chargingBatteryHUDDuration) private var chargingBatteryHUDDuration
+    @Default(.lowBatteryHUDDuration) private var lowBatteryHUDDuration
+    @Default(.fullBatteryHUDDuration) private var fullBatteryHUDDuration
+    @Default(.lowBatteryHUDThreshold) private var lowBatteryHUDThreshold
+    @Default(.fullBatteryHUDThreshold) private var fullBatteryHUDThreshold
+    @Default(.lowBatteryHUDStyle) private var lowBatteryHUDStyle
+    @Default(.fullBatteryHUDStyle) private var fullBatteryHUDStyle
+
     private func highlightID(_ title: String) -> String {
         SettingsTab.battery.highlightID(for: title)
+    }
+
+    private var chargingDurationBinding: Binding<Double> {
+        Binding(
+            get: { Double(chargingBatteryHUDDuration) },
+            set: { chargingBatteryHUDDuration = Int($0.rounded()) }
+        )
+    }
+
+    private var lowBatteryDurationBinding: Binding<Double> {
+        Binding(
+            get: { Double(lowBatteryHUDDuration) },
+            set: { lowBatteryHUDDuration = Int($0.rounded()) }
+        )
+    }
+
+    private var fullBatteryDurationBinding: Binding<Double> {
+        Binding(
+            get: { Double(fullBatteryHUDDuration) },
+            set: { fullBatteryHUDDuration = Int($0.rounded()) }
+        )
+    }
+
+    private var lowBatteryThresholdBinding: Binding<Double> {
+        Binding(
+            get: { Double(lowBatteryHUDThreshold) },
+            set: { lowBatteryHUDThreshold = Int($0.rounded()) }
+        )
+    }
+
+    private var fullBatteryThresholdBinding: Binding<Double> {
+        Binding(
+            get: { Double(fullBatteryHUDThreshold) },
+            set: { fullBatteryHUDThreshold = Int($0.rounded()) }
+        )
+    }
+
+    private func sectionOpacity(_ isEnabled: Bool) -> Double {
+        isEnabled ? 1 : 0.5
     }
 
     var body: some View {
@@ -1340,6 +1405,157 @@ struct Charge: View {
                 } header: {
                     Text("Battery Information")
                 }
+                Section {
+                    Defaults.Toggle(key: .showChargingBatteryHUD) {
+                        Text("Charging HUD")
+                    }
+                    .settingsHighlight(id: highlightID("Charging HUD"))
+
+                    Defaults.Toggle(key: .showLowBatteryHUD) {
+                        Text("Low battery HUD")
+                    }
+                    .settingsHighlight(id: highlightID("Low battery HUD"))
+
+                    Defaults.Toggle(key: .showFullBatteryHUD) {
+                        Text("Fully charged HUD")
+                    }
+                    .settingsHighlight(id: highlightID("Fully charged HUD"))
+                } header: {
+                    Text("Battery HUDs")
+                } footer: {
+                    Text("These temporary HUDs recreate the charging, low-battery, and full-battery notch alerts.")
+                }
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Charging duration")
+                            Spacer()
+                            Text("\(chargingBatteryHUDDuration)s")
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: chargingDurationBinding, in: 1...10, step: 1)
+                    }
+                    .settingsHighlight(id: highlightID("Charging duration"))
+                    .disabled(!showPowerStatusNotifications || !showChargingBatteryHUD)
+                    .opacity(sectionOpacity(showPowerStatusNotifications && showChargingBatteryHUD))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Low battery duration")
+                            Spacer()
+                            Text("\(lowBatteryHUDDuration)s")
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: lowBatteryDurationBinding, in: 1...10, step: 1)
+                    }
+                    .settingsHighlight(id: highlightID("Low battery duration"))
+                    .disabled(!showPowerStatusNotifications || !showLowBatteryHUD)
+                    .opacity(sectionOpacity(showPowerStatusNotifications && showLowBatteryHUD))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Full battery duration")
+                            Spacer()
+                            Text("\(fullBatteryHUDDuration)s")
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: fullBatteryDurationBinding, in: 1...10, step: 1)
+                    }
+                    .settingsHighlight(id: highlightID("Full battery duration"))
+                    .disabled(!showPowerStatusNotifications || !showFullBatteryHUD)
+                    .opacity(sectionOpacity(showPowerStatusNotifications && showFullBatteryHUD))
+                } header: {
+                    Text("HUD Duration")
+                }
+                Section {
+                    Button {
+                        batteryStatusViewModel.triggerTestHUD(kind: .charging)
+                    } label: {
+                        Label("Test charging HUD", systemImage: "bolt.fill")
+                    }
+                    .disabled(!showPowerStatusNotifications || !showChargingBatteryHUD)
+
+                    Button {
+                        batteryStatusViewModel.triggerTestHUD(kind: .lowBattery)
+                    } label: {
+                        Label("Test low battery HUD", systemImage: "battery.25")
+                    }
+                    .disabled(!showPowerStatusNotifications || !showLowBatteryHUD)
+
+                    Button {
+                        batteryStatusViewModel.triggerTestHUD(kind: .fullBattery)
+                    } label: {
+                        Label("Test full battery HUD", systemImage: "battery.100")
+                    }
+                    .disabled(!showPowerStatusNotifications || !showFullBatteryHUD)
+                } header: {
+                    Text("HUD Tests")
+                } footer: {
+                    Text("Runs the real notch animation on the current target display. If an external screen is using Dynamic Island mode, the battery HUD is sent there first.")
+                }
+                Section {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Picker("Low battery style", selection: $lowBatteryHUDStyle) {
+                            ForEach(BatteryNotificationStyle.allCases) { style in
+                                Text(style.title)
+                                    .tag(style)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        Text("Compact matches the charging HUD. Standard uses the expanded DynamicNotch-style card.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .settingsHighlight(id: highlightID("Low battery style"))
+
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Low battery threshold")
+                            Spacer()
+                            Text("\(lowBatteryHUDThreshold)%")
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: lowBatteryThresholdBinding, in: 5...30, step: 1)
+                    }
+                    .settingsHighlight(id: highlightID("Low battery threshold"))
+                } header: {
+                    Text("Low Battery")
+                }
+                .disabled(!showPowerStatusNotifications || !showLowBatteryHUD)
+                .opacity(sectionOpacity(showPowerStatusNotifications && showLowBatteryHUD))
+
+                Section {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Picker("Full battery style", selection: $fullBatteryHUDStyle) {
+                            ForEach(BatteryNotificationStyle.allCases) { style in
+                                Text(style.title)
+                                    .tag(style)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        Text("Compact keeps the alert inline. Standard uses the taller full-charge HUD with the charging animation.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .settingsHighlight(id: highlightID("Full battery style"))
+
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Full charge threshold")
+                            Spacer()
+                            Text("\(fullBatteryHUDThreshold)%")
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: fullBatteryThresholdBinding, in: 80...100, step: 1)
+                    }
+                    .settingsHighlight(id: highlightID("Full charge threshold"))
+                } header: {
+                    Text("Full Battery")
+                }
+                .disabled(!showPowerStatusNotifications || !showFullBatteryHUD)
+                .opacity(sectionOpacity(showPowerStatusNotifications && showFullBatteryHUD))
             } else {
                 ContentUnavailableView {
                     VStack(spacing: 16) {

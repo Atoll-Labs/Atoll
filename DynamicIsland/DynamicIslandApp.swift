@@ -395,6 +395,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let inlineSneakPeekWidth: CGFloat = 460
             return CGSize(width: inlineSneakPeekWidth, height: vm.effectiveClosedNotchHeight)
         }
+
+        // Check for battery HUD expansion
+        if vm.notchState == .closed && 
+           coordinator.expandingView.show && 
+           coordinator.expandingView.type == .battery &&
+           Defaults[.showPowerStatusNotifications] {
+            
+            let batteryModel = BatteryStatusViewModel.shared
+            if let kind = batteryModel.activeTemporaryHUDKind {
+                let closedNotchHeight = vm.effectiveClosedNotchHeight
+                let closedNotchWidth = vm.closedNotchSize.width
+                
+                let style: BatteryNotificationStyle = {
+                    switch kind {
+                    case .charging: return .compact
+                    case .lowBattery: return Defaults[.lowBatteryHUDStyle]
+                    case .fullBattery: return Defaults[.fullBatteryHUDStyle]
+                    }
+                }()
+                
+                var width = closedNotchWidth
+                var height = closedNotchHeight
+                
+                switch (kind, style) {
+                case (.charging, _), (.lowBattery, .compact), (.fullBattery, .compact):
+                    width += 180
+                case (.lowBattery, .standard):
+                    width += 100
+                    height += 75
+                case (.fullBattery, .standard):
+                    width += 80
+                    height += 70
+                }
+                
+                return addShadowPadding(to: CGSize(width: width, height: height), isMinimalistic: Defaults[.enableMinimalisticUI])
+            }
+        }
         
         // Use minimalistic or normal size based on settings
         var baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
