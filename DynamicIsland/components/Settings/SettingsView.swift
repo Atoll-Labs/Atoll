@@ -56,6 +56,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case timer
     case calendar
     case hudAndOSD
+    case systemControls
     case battery
     case stats
     case clipboard
@@ -75,7 +76,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general, .appearance:                                          return .core
         case .media, .liveActivities, .lockScreen, .devices:                 return .mediaAndDisplay
-        case .hudAndOSD, .battery:                                           return .system
+        case .systemControls, .hudAndOSD, .battery:                          return .system
         case .timer, .calendar, .notes:                                      return .productivity
         case .clipboard, .screenAssistant, .colorPicker, .shelf,
              .downloads, .shortcuts:                                         return .utilities
@@ -96,7 +97,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .extensions: return String(localized: "Extensions")
         case .timer: return String(localized: "Timer")
         case .calendar: return String(localized: "Calendar")
-        case .hudAndOSD: return String(localized: "Controls")
+        case .hudAndOSD: return String(localized: "Display Overlay")
+        case .systemControls: return String(localized: "Controls")
         case .battery: return String(localized: "Battery")
         case .stats: return String(localized: "Stats")
         case .clipboard: return String(localized: "Clipboard")
@@ -122,7 +124,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .extensions: return "puzzlepiece.extension"
         case .timer: return "timer"
         case .calendar: return "calendar"
-        case .hudAndOSD: return "dial.medium.fill"
+        case .hudAndOSD: return "rectangle.inset.filled.on.rectangle"
+        case .systemControls: return "dial.medium.fill"
         case .battery: return "battery.100.bolt"
         case .stats: return "chart.xyaxis.line"
         case .clipboard: return "clipboard"
@@ -148,7 +151,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .extensions: return Color(red: 0.557, green: 0.353, blue: 0.957)
         case .timer: return .red
         case .calendar: return .cyan
-        case .hudAndOSD: return .indigo
+        case .hudAndOSD: return .orange
+        case .systemControls: return .indigo
         case .battery: return Color(red: 0.202, green: 0.783, blue: 0.348, opacity: 1.000)
         case .stats: return .teal
         case .clipboard: return .mint
@@ -491,6 +495,7 @@ struct SettingsView: View {
             .lockScreen,
             .devices,
             // System
+            .systemControls,
             .hudAndOSD,
             .battery,
             // Productivity
@@ -745,6 +750,12 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .battery, title: "Full battery style", keywords: ["battery", "style", "compact", "standard"], highlightID: SettingsTab.battery.highlightID(for: "Full battery style")),
             SettingsSearchEntry(tab: .battery, title: "Full charge threshold", keywords: ["battery", "threshold", "full"], highlightID: SettingsTab.battery.highlightID(for: "Full charge threshold")),
 
+            // System Controls
+            SettingsSearchEntry(tab: .systemControls, title: "Step size", keywords: ["brightness", "volume", "step",], highlightID: SettingsTab.systemControls.highlightID(for: "Step size")),
+            SettingsSearchEntry(tab: .systemControls, title: "Third-party DDC app integration", keywords: ["ddc", "third party", "external", "display", "betterdisplay", "lunar"], highlightID: SettingsTab.systemControls.highlightID(for: "Third-party DDC app integration")),
+            SettingsSearchEntry(tab: .systemControls, title: "Third-party DDC provider", keywords: ["provider", "betterdisplay", "lunar", "integration", "refresh detection"], highlightID: SettingsTab.systemControls.highlightID(for: "Third-party DDC provider")),
+            SettingsSearchEntry(tab: .systemControls, title: "Enable external volume control listener", keywords: ["external volume", "ddc volume", "betterdisplay volume", "lunar volume", "disable native volume"], highlightID: SettingsTab.systemControls.highlightID(for: "Enable external volume control listener")),
+
             // HUDs
             SettingsSearchEntry(tab: .devices, title: "Show Bluetooth device connections", keywords: ["bluetooth", "hud"], highlightID: SettingsTab.devices.highlightID(for: "Show Bluetooth device connections")),
             SettingsSearchEntry(tab: .devices, title: "Use circular battery indicator", keywords: ["battery", "circular"], highlightID: SettingsTab.devices.highlightID(for: "Use circular battery indicator")),
@@ -767,9 +778,6 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .hudAndOSD, title: "Keyboard Backlight OSD", keywords: ["keyboard", "backlight", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Keyboard Backlight OSD")),
             SettingsSearchEntry(tab: .hudAndOSD, title: "Material", keywords: ["material", "frosted", "liquid", "glass", "solid", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Material")),
             SettingsSearchEntry(tab: .hudAndOSD, title: "Icon & Progress Color", keywords: ["color", "icon", "white", "black", "gray", "osd"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Icon & Progress Color")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Third-party DDC app integration", keywords: ["ddc", "third party", "external", "display", "betterdisplay", "lunar"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Third-party DDC app integration")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Third-party DDC provider", keywords: ["provider", "betterdisplay", "lunar", "integration", "refresh detection"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Third-party DDC provider")),
-            SettingsSearchEntry(tab: .hudAndOSD, title: "Enable external volume control listener", keywords: ["external volume", "ddc volume", "betterdisplay volume", "lunar volume", "disable native volume"], highlightID: SettingsTab.hudAndOSD.highlightID(for: "Enable external volume control listener")),
 
             // Media
             SettingsSearchEntry(tab: .media, title: "Music Source", keywords: ["media source", "controller"], highlightID: SettingsTab.media.highlightID(for: "Music Source")),
@@ -975,6 +983,10 @@ struct SettingsView: View {
         case .hudAndOSD:
             SettingsForm(tab: .hudAndOSD) {
                 HUDAndOSDSettingsView()
+            }
+        case .systemControls:
+            SettingsForm(tab: .systemControls) {
+                SystemControlsView()
             }
         case .battery:
             SettingsForm(tab: .battery) {
@@ -2192,28 +2204,29 @@ private struct HUDAndOSDSettingsView: View {
                     }
                 }
             }
-
-            // Third-party display integrations (shared across all HUD variants)
-            ExternalDisplayIntegrationsSection()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(paneBackgroundColor)
-        .navigationTitle("Controls")
         .onAppear {
             if #unavailable(macOS 26.0), verticalHUDMaterial == .liquid {
                 verticalHUDMaterial = .frosted
                 verticalHUDLiquidGlassCustomizationMode = .standard
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .navigationTitle("Display Overlay")
     }
+
 }
 
 // MARK: - External Display Integrations Settings Section
 
-private struct ExternalDisplayIntegrationsSection: View {
+private struct SystemControlsView: View {
     @Default(.enableThirdPartyDDCIntegration) var enableThirdPartyDDCIntegration
     @Default(.thirdPartyDDCProvider) var thirdPartyDDCProvider
     @Default(.enableExternalVolumeControlListener) var enableExternalVolumeControlListener
+    @Default(.volumeStepPercent) var volumeStepPercent
+    @Default(.volumeFineStepPercent) var volumeFineStepPercent
+    @Default(.brightnessStepPercent) var brightnessStepPercent
+    @Default(.brightnessFineStepPercent) var brightnessFineStepPercent
     @ObservedObject private var betterDisplayManager = BetterDisplayManager.shared
     @ObservedObject private var lunarManager = LunarManager.shared
 
@@ -2285,8 +2298,78 @@ private struct ExternalDisplayIntegrationsSection: View {
     var body: some View {
         Form {
             Section {
+                Stepper(value: $volumeStepPercent, in: 1...25) {
+                    HStack {
+                        Text("Volume step")
+                        Spacer()
+                        Text("\(volumeStepPercent)%")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+                .settingsHighlight(id: highlightID("Volume step"))
+                .disabled(enableExternalVolumeControlListener)
+
+                Stepper(value: $volumeFineStepPercent, in: 1...25) {
+                    HStack {
+                        Text("Volume fine step")
+                        Spacer()
+                        Text("\(volumeFineStepPercent)%")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+                .settingsHighlight(id: highlightID("Volume fine step"))
+                .disabled(enableExternalVolumeControlListener)
+
+                if enableExternalVolumeControlListener {
+                    Text("Disabled while external display volume integration is active.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Stepper(value: $brightnessStepPercent, in: 1...25) {
+                    HStack {
+                        Text("Brightness step")
+                        Spacer()
+                        Text("\(brightnessStepPercent)%")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+                .settingsHighlight(id: highlightID("Brightness step"))
+                .disabled(enableThirdPartyDDCIntegration)
+
+                Stepper(value: $brightnessFineStepPercent, in: 1...25) {
+                    HStack {
+                        Text("Brightness fine step")
+                        Spacer()
+                        Text("\(brightnessFineStepPercent)%")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+                .settingsHighlight(id: highlightID("Brightness fine step"))
+                .disabled(enableThirdPartyDDCIntegration)
+
+                if enableThirdPartyDDCIntegration {
+                    Text("Disabled while external display brightness integration is active.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Step size")
+            } footer: {
+                Text("Percent change per key press. Fine step applies when holding Shift+Option.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+
+            Section {
                 Toggle("Enable third-party DDC app integration", isOn: $enableThirdPartyDDCIntegration)
                     .settingsHighlight(id: highlightID("Third-party DDC app integration"))
+                    .onChange(of: enableThirdPartyDDCIntegration) { _, _ in
+                         enableExternalVolumeControlListener = false
+                     }
 
                 if enableThirdPartyDDCIntegration {
                     Picker("Provider", selection: $thirdPartyDDCProvider) {
@@ -2347,6 +2430,8 @@ private struct ExternalDisplayIntegrationsSection: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .navigationTitle("Controls")
     }
 }
 
@@ -2502,6 +2587,7 @@ struct HUD: View {
     @Default(.enableBrightnessHUD) var enableBrightnessHUD
     @Default(.enableKeyboardBacklightHUD) var enableKeyboardBacklightHUD
     @Default(.enableThirdPartyDDCIntegration) var enableThirdPartyDDCIntegration
+    @Default(.enableExternalVolumeControlListener) var enableExternalVolumeControlListener
     @Default(.systemHUDSensitivity) var systemHUDSensitivity
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject private var accessibilityPermission = AccessibilityPermissionStore.shared
@@ -2639,7 +2725,6 @@ struct HUD: View {
                 }
             }
         }
-        .navigationTitle("Controls")
         .onAppear {
             accessibilityPermission.refreshStatus()
         }
@@ -2672,7 +2757,7 @@ struct Media: View {
     @Default(.autoHideInactiveNotchMediaPlayer) private var autoHideInactiveNotchMediaPlayer
     @Default(.parallaxEffectIntensity) private var parallaxEffectIntensity
 
-    
+
     @ObservedObject private var musicManager = MusicManager.shared
 
     private var isAppleMusicActive: Bool {
@@ -2831,7 +2916,7 @@ struct Media: View {
                 }
                 .settingsHighlight(id: highlightID("Show live canvas in Dynamic Island"))
                 .help("Replaces the artwork tile with the live canvas when the current app provides one, and reuses that moving canvas for the surrounding lighting effect.")
-                
+
                 //Parallax Effect Intensity to control how much parallax is wanted
                 Slider(value: $parallaxEffectIntensity, in: 0...12, step: 1.0) {
                     HStack {
@@ -2842,7 +2927,7 @@ struct Media: View {
                     }
                 }
                 .settingsHighlight(id: highlightID("Enable album art parallax effect"))
-                
+
                 Picker("Sneak Peek Style", selection: $sneakPeekStyles){
                     ForEach(SneakPeekStyle.allCases) { style in
                         Text(style.rawValue).tag(style)
@@ -3314,7 +3399,7 @@ struct CalendarSettings: View {
                     .disabled(!lockScreenShowCalendarEvent)
                     .settingsHighlight(id: highlightID("Show start time after event begins"))
                 }
-                
+
                 // MARK: - Third-party Calendar Integration
                 Section {
                     Defaults.Toggle(key: .enableThirdPartyCalendarApp) {
@@ -3326,7 +3411,7 @@ struct CalendarSettings: View {
                         }
                     }
                     .settingsHighlight(id: highlightID("Enable third-party calendar app launch"))
-                    
+
                     if enableThirdPartyCalendarApp {
                         Picker("Calendar App", selection: $selectedCalendarApp) {
                             ForEach(ThirdPartyCalendarApp.allCases) { app in
@@ -3342,7 +3427,7 @@ struct CalendarSettings: View {
                             }
                         }
                         .settingsHighlight(id: highlightID("Calendar App"))
-                        
+
                         if selectedCalendarApp == .fantastical {
                             Picker("Default View", selection: $fantasticalDefaultView) {
                                 ForEach(FantasticalViewStyle.allCases, id: \.self) { style in
@@ -3806,7 +3891,7 @@ struct Shelf: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            
+
             if quickShareProvider == "LocalSend" {
                 LocalSendSettingsSection(highlightID: highlightID)
             }
@@ -3824,10 +3909,10 @@ struct Shelf: View {
 
 private struct LocalSendSettingsSection: View {
     let highlightID: (String) -> String
-    
+
     @Default(.localSendDevicePickerGlassMode) private var glassMode
     @Default(.localSendDevicePickerLiquidGlassVariant) private var liquidGlassVariant
-    
+
     var body: some View {
         Section {
             Picker("Device Picker Style", selection: $glassMode) {
@@ -3836,7 +3921,7 @@ private struct LocalSendSettingsSection: View {
                 }
             }
             .pickerStyle(.menu)
-            
+
             if glassMode == .customLiquid {
                 Picker("Liquid Glass Variant", selection: $liquidGlassVariant) {
                     ForEach(LiquidGlassVariant.allCases) { variant in
@@ -4497,7 +4582,7 @@ struct Appearance: View {
                         .tag(MirrorShapeEnum.rectangle)
                 }
                 .settingsHighlight(id: highlightID("Mirror shape"))
-                
+
                 if webcamManager.cameraAvailable {
                     Picker("Mirror Camera", selection: $selectedCameraID) {
                         ForEach(webcamManager.availableCameras, id: \.uniqueID) { device in
@@ -7849,14 +7934,14 @@ struct CustomOSDSettings: View {
                                     previewType = .brightness
                                 }
                                 .buttonStyle(.bordered)
-                                
+
                                 Button("Backlight") {
                                     previewType = .backlight
                                 }
                                 .buttonStyle(.bordered)
                             }
                             .controlSize(.small)
-                            
+
                             Slider(value: $previewValue, in: 0...1)
                                 .frame(width: 160)
                         }
@@ -7872,7 +7957,6 @@ struct CustomOSDSettings: View {
                 }
             }
         }
-        .navigationTitle("Custom OSD")
         .onAppear {
             accessibilityPermission.refreshStatus()
             if #unavailable(macOS 26.0), osdMaterial == .liquid {

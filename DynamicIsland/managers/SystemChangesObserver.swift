@@ -38,9 +38,18 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
         "headphones"
     ]
 
-    private let standardVolumeStep: Float = 1.0 / 16.0
-    private let standardBrightnessStep: Float = 1.0 / 16.0
-    private let fineStepDivisor: Float = 4.0
+    private var standardVolumeStep: Float {
+        Float(Defaults[.volumeStepPercent]) / 100.0
+    }
+    private var fineVolumeStep: Float {
+        Float(Defaults[.volumeFineStepPercent]) / 100.0
+    }
+    private var standardBrightnessStep: Float {
+        Float(Defaults[.brightnessStepPercent]) / 100.0
+    }
+    private var fineBrightnessStep: Float {
+        Float(Defaults[.brightnessFineStepPercent]) / 100.0
+    }
 
     private var volumeEnabled = false
     private var brightnessEnabled = false
@@ -157,7 +166,7 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
             }
         }
         
-        let baseStep = stepSize(for: step, base: standardVolumeStep)
+        let baseStep = volumeStep(for: step)
         let delta = direction == .up ? baseStep : -baseStep
         volumeController.adjust(by: delta)
         volumeFeedbackPlayer.playIfNeeded()
@@ -185,7 +194,7 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
             }
         }
         
-        let baseStep = stepSize(for: step, base: standardBrightnessStep)
+        let baseStep = brightnessStep(for: step)
         let delta = direction == .up ? baseStep : -baseStep
         if modifiers.contains(.command) && keyboardBacklightEnabled {
             keyboardBacklightController.adjust(by: delta)
@@ -336,12 +345,21 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
 }
 
 private extension SystemChangesObserver {
-    func stepSize(for step: MediaKeyStep, base: Float) -> Float {
+    func volumeStep(for step: MediaKeyStep) -> Float {
         switch step {
         case .standard:
-            return base
+            return standardVolumeStep
         case .fine:
-            return base / fineStepDivisor
+            return fineVolumeStep
+        }
+    }
+
+    func brightnessStep(for step: MediaKeyStep) -> Float {
+        switch step {
+        case .standard:
+            return standardBrightnessStep
+        case .fine:
+            return fineBrightnessStep
         }
     }
 }

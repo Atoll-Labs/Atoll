@@ -8017,6 +8017,9 @@
         }
       }
     },
+    "Brightness fine step" : {
+
+    },
     "Brightness HUD" : {
       "localizations" : {
         "fr" : {
@@ -8080,6 +8083,9 @@
           }
         }
       }
+    },
+    "Brightness step" : {
+
     },
     "Built-in" : {
       "comment" : "A label indicating that an animation is a built-in one.",
@@ -14840,6 +14846,9 @@
         }
       }
     },
+    "Disabled while external display brightness integration is active." : {
+
+    },
     "Disabled while external display integration is active — brightness keys are handled by the external app." : {
       "localizations" : {
         "ko" : {
@@ -14861,6 +14870,9 @@
           }
         }
       }
+    },
+    "Disabled while external display volume integration is active." : {
+
     },
     "Discrete transitions snap between Green (0–60%), Yellow (60–85%), and Red (85–100%)." : {
       "comment" : "A description of how the color-coded progress bars work when not using smooth transitions.",
@@ -15090,6 +15102,9 @@
           }
         }
       }
+    },
+    "Display Overlay" : {
+
     },
     "Display Style" : {
       "localizations" : {
@@ -30983,6 +30998,9 @@
         }
       }
     },
+    "Percent change per key press. Fine step applies when holding Shift+Option." : {
+
+    },
     "Percentage" : {
       "localizations" : {
         "en" : {
@@ -40233,6 +40251,9 @@
         }
       }
     },
+    "Step size" : {
+
+    },
     "Stop" : {
       "localizations" : {
         "fr" : {
@@ -44491,6 +44512,9 @@
         }
       }
     },
+    "Volume fine step" : {
+
+    },
     "Volume HUD" : {
       "localizations" : {
         "fr" : {
@@ -44554,6 +44578,9 @@
           }
         }
       }
+    },
+    "Volume step" : {
+
     },
     "W " : {
       "comment" : "Label for the write data point in the disk usage graph.",
