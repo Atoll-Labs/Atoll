@@ -153,6 +153,12 @@ struct LockScreenMusicPanel: View {
         ZStack(alignment: .topLeading) {
             panelBackgroundLayer
             panelForeground
+                .shadow(
+                    color: usesSpotifyCanvasFallbackContentPresentation ? Color.black.opacity(0.55) : .clear,
+                    radius: usesSpotifyCanvasFallbackContentPresentation ? 10 : 0,
+                    x: 0,
+                    y: usesSpotifyCanvasFallbackContentPresentation ? 2 : 0
+                )
         }
         .frame(width: currentSize.width, height: currentSize.height, alignment: .topLeading)
         .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
@@ -162,10 +168,10 @@ struct LockScreenMusicPanel: View {
             }
         }
         .shadow(
-            color: usesSpotifyCanvasFallbackContentPresentation ? .clear : Color.black.opacity(0.3),
-            radius: usesSpotifyCanvasFallbackContentPresentation ? 0 : 20,
+            color: usesSpotifyCanvasFallbackContentPresentation ? Color.black.opacity(0.35) : Color.black.opacity(0.3),
+            radius: usesSpotifyCanvasFallbackContentPresentation ? 26 : 20,
             x: 0,
-            y: usesSpotifyCanvasFallbackContentPresentation ? 0 : 10
+            y: usesSpotifyCanvasFallbackContentPresentation ? 14 : 10
         )
         .contentShape(Rectangle())
         .animation(.easeInOut(duration: 0.28), value: isExpanded)
@@ -253,8 +259,8 @@ struct LockScreenMusicPanel: View {
                 collapsedLayout
             }
         }
-        .padding(.horizontal, usesSpotifyCanvasFallbackContentPresentation ? 8 : (isExpanded ? 24 : 20))
-        .padding(.vertical, usesSpotifyCanvasFallbackContentPresentation ? 0 : (isExpanded ? 22 : 16))
+        .padding(.horizontal, usesSpotifyCanvasFallbackContentPresentation ? (isExpanded ? 24 : 22) : (isExpanded ? 24 : 20))
+        .padding(.vertical, usesSpotifyCanvasFallbackContentPresentation ? (isExpanded ? 18 : 14) : (isExpanded ? 22 : 16))
         .frame(
             maxWidth: .infinity,
             maxHeight: .infinity,
@@ -1138,9 +1144,7 @@ struct LockScreenMusicPanel: View {
     @ViewBuilder
     private var panelBackgroundLayer: some View {
         if usesSpotifyCanvasFallbackContentPresentation {
-            Color.clear
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
+            canvasFallbackScrim
         } else if usesCustomLiquidGlass {
             customLiquidPanelBackdrop
         } else if usesStandardLiquidGlass {
@@ -1150,6 +1154,31 @@ struct LockScreenMusicPanel: View {
         } else {
             opaquePanelBackground
         }
+    }
+
+    private var canvasFallbackScrim: some View {
+        RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .environment(\.colorScheme, .dark)
+            .overlay {
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0.32),
+                        Color.black.opacity(0.18),
+                        Color.black.opacity(0.32)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 0.6)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     @ViewBuilder
