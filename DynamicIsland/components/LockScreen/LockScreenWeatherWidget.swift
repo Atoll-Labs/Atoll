@@ -1261,7 +1261,15 @@ struct LockScreenWeatherWidget: View {
 
 	private func chargingStatusFallback(for info: LockScreenWeatherSnapshot.ChargingInfo) -> String {
 		if info.isPluggedIn && !info.isCharging {
-			return NSLocalizedString("Fully charged", comment: "Charging fallback label when already charged")
+			let level = info.batteryLevel.map(clampedBatteryLevel)
+			if level == 100 {
+				return NSLocalizedString("Fully charged", comment: "Charging fallback label when already charged")
+			}
+			if let level {
+				let onHold = NSLocalizedString("On hold", comment: "Plugged in but charging is paused by the system")
+				return "\(level)% • \(onHold)"
+			}
+			return NSLocalizedString("On hold", comment: "Plugged in but charging is paused by the system")
 		}
 		return NSLocalizedString("Charging", comment: "Charging fallback label when no estimate is available")
 	}
@@ -1456,7 +1464,17 @@ struct LockScreenWeatherWidget: View {
 		}
 
 		if charging.isPluggedIn && !charging.isCharging {
-			return NSLocalizedString("Battery fully charged", comment: "Battery is full")
+			let level = charging.batteryLevel.map(clampedBatteryLevel)
+			if level == 100 {
+				return NSLocalizedString("Battery fully charged", comment: "Battery is full")
+			}
+			if let level {
+				return String(
+					format: NSLocalizedString("Battery at %d percent, charging on hold", comment: "Plugged in but charging is paused by the system"),
+					level
+				)
+			}
+			return NSLocalizedString("Charging on hold", comment: "Plugged in but charging is paused by the system")
 		}
 
 		if snapshot.showsChargingPercentage, let level = charging.batteryLevel {
