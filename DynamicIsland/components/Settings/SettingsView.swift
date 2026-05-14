@@ -776,6 +776,7 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .media, title: "Skip buttons", keywords: ["skip", "controls", "±10"], highlightID: SettingsTab.media.highlightID(for: "Skip buttons")),
             SettingsSearchEntry(tab: .media, title: "Sneak Peek Style", keywords: ["sneak peek", "preview"], highlightID: SettingsTab.media.highlightID(for: "Sneak Peek Style")),
             SettingsSearchEntry(tab: .media, title: "Enable lyrics", keywords: ["lyrics", "song text"], highlightID: SettingsTab.media.highlightID(for: "Enable lyrics")),
+            SettingsSearchEntry(tab: .media, title: "Show live canvas in Dynamic Island", keywords: ["canvas", "live canvas", "album art", "dynamic island", "spotify canvas"], highlightID: SettingsTab.media.highlightID(for: "Show live canvas in Dynamic Island")),
             SettingsSearchEntry(tab: .media, title: "Auto-hide inactive notch media player", keywords: ["auto hide", "inactive", "placeholder", "notch media"], highlightID: SettingsTab.media.highlightID(for: "Auto-hide inactive notch media player")),
             SettingsSearchEntry(tab: .media, title: "Show Change Media Output control", keywords: ["airplay", "route picker", "media output"], highlightID: SettingsTab.media.highlightID(for: "Show Change Media Output control")),
             SettingsSearchEntry(tab: .media, title: "Enable album art parallax", keywords: ["parallax", "lock screen", "album art"], highlightID: SettingsTab.media.highlightID(for: "Enable album art parallax")),
@@ -2666,6 +2667,7 @@ struct Media: View {
     @Default(.lockScreenGlassStyle) private var lockScreenGlassStyle
     @Default(.lockScreenGlassCustomizationMode) private var lockScreenGlassCustomizationMode
     @Default(.lockScreenMusicAlbumParallaxEnabled) private var lockScreenMusicAlbumParallaxEnabled
+    @Default(.lockScreenMusicFullscreenArtworkEnabled) private var lockScreenMusicFullscreenArtworkEnabled
     @Default(.showStandardMediaControls) private var showStandardMediaControls
     @Default(.autoHideInactiveNotchMediaPlayer) private var autoHideInactiveNotchMediaPlayer
     @Default(.parallaxEffectIntensity) private var parallaxEffectIntensity
@@ -2721,6 +2723,11 @@ struct Media: View {
                     .font(.caption)
                 }
             }
+
+            if mediaController == .spotify {
+                SpotifyAuthSettingsSection()
+            }
+
             Section {
                 Defaults.Toggle(key: .showStandardMediaControls) {
                     Text("Show media controls in Dynamic Island")
@@ -2819,6 +2826,11 @@ struct Media: View {
                     Text("Enable lyrics")
                 }
                 .settingsHighlight(id: highlightID("Enable lyrics"))
+                Defaults.Toggle(key: .showLiveCanvasInDynamicIsland) {
+                    Text("Show live canvas in Dynamic Island")
+                }
+                .settingsHighlight(id: highlightID("Show live canvas in Dynamic Island"))
+                .help("Replaces the artwork tile with the live canvas when the current app provides one, and reuses that moving canvas for the surrounding lighting effect.")
                 
                 //Parallax Effect Intensity to control how much parallax is wanted
                 Slider(value: $parallaxEffectIntensity, in: 0...12, step: 1.0) {
@@ -2906,6 +2918,27 @@ struct Media: View {
                     unavailableBlurRow
                         .opacity(enableLockScreenMediaWidget ? 1 : 0.5)
                         .settingsHighlight(id: highlightID("Enable media panel blur"))
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Defaults.Toggle(key: .lockScreenMusicFullscreenArtworkEnabled) {
+                        Text("Fullscreen artwork on right-click")
+                    }
+                    .disabled(!enableLockScreenMediaWidget)
+                    .settingsHighlight(id: highlightID("Fullscreen artwork on right-click"))
+                    Defaults.Toggle(key: .lockScreenUseArtworkLayoutOverFullscreenCanvas) {
+                        Text("Use album art layout over fullscreen canvas")
+                    }
+                    .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
+                    .settingsHighlight(id: highlightID("Use album art layout over fullscreen canvas"))
+                    Defaults.Toggle(key: .lockScreenKeepAlbumArtVisibleDuringFullscreenArtwork) {
+                        Text("Keep album art visible during fullscreen artwork")
+                    }
+                    .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
+                    .settingsHighlight(id: highlightID("Keep album art visible during fullscreen artwork"))
+                    Text("Right-click the album art on the lock screen to set it as the wallpaper. Right-click again or click the background to restore the original wallpaper. If a canvas is available, Atoll can also keep the same album art + player layout on top of the live canvas.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             } header: {
                 Text("Lock Screen Integration")
@@ -4787,6 +4820,7 @@ struct LockScreenSettings: View {
     @Default(.lockScreenTimerGlassCustomizationMode) private var lockScreenTimerGlassCustomizationMode
     @Default(.lockScreenTimerWidgetUsesBlur) private var timerGlassModeIsGlass
     @Default(.enableLockScreenMediaWidget) private var enableLockScreenMediaWidget
+    @Default(.lockScreenMusicFullscreenArtworkEnabled) private var lockScreenMusicFullscreenArtworkEnabled
     @Default(.enableLockScreenTimerWidget) private var enableLockScreenTimerWidget
     @Default(.enableLockScreenWeatherWidget) private var enableLockScreenWeatherWidget
     @Default(.enableLockScreenFocusWidget) private var enableLockScreenFocusWidget
@@ -5019,6 +5053,27 @@ struct LockScreenSettings: View {
                     blurSettingUnavailableRow
                         .opacity(enableLockScreenMediaWidget ? 1 : 0.5)
                         .settingsHighlight(id: highlightID("Enable media panel blur"))
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Defaults.Toggle(key: .lockScreenMusicFullscreenArtworkEnabled) {
+                        Text("Fullscreen artwork on right-click")
+                    }
+                    .disabled(!enableLockScreenMediaWidget)
+                    .settingsHighlight(id: highlightID("Fullscreen artwork on right-click"))
+                    Defaults.Toggle(key: .lockScreenUseArtworkLayoutOverFullscreenCanvas) {
+                        Text("Use album art layout over fullscreen canvas")
+                    }
+                    .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
+                    .settingsHighlight(id: highlightID("Use album art layout over fullscreen canvas"))
+                    Defaults.Toggle(key: .lockScreenKeepAlbumArtVisibleDuringFullscreenArtwork) {
+                        Text("Keep album art visible during fullscreen artwork")
+                    }
+                    .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
+                    .settingsHighlight(id: highlightID("Keep album art visible during fullscreen artwork"))
+                    Text("Right-click the album art on the lock screen to set it as the wallpaper. Right-click again or click the background to restore the original wallpaper. If a canvas is available, Atoll can also keep the same album art + player layout on top of the live canvas.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if !showStandardMediaControls {

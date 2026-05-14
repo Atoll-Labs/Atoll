@@ -38,6 +38,16 @@ struct LyricLine: Identifiable, Codable {
     }
 }
 
+private struct LyricsLookupKey: Hashable {
+    let title: String
+    let artist: String
+    let album: String
+
+    var isValid: Bool {
+        !title.isEmpty && !artist.isEmpty
+    }
+}
+
 let defaultImage: NSImage = .init(
     systemSymbolName: "heart.fill",
     accessibilityDescription: "Album Art"
@@ -475,10 +485,16 @@ class MusicManager: ObservableObject {
 
     // Task used to periodically sync displayed lyric with playback position
     private var lyricSyncTask: Task<Void, Never>?
+    private var lyricsFetchTask: Task<Void, Never>?
+    private var lyricsFetchKey: LyricsLookupKey?
+    private var activeLyricsKey: LyricsLookupKey?
+    private var lyricsCache: [LyricsLookupKey: [LyricLine]] = [:]
     private var explicitLookupTask: Task<Void, Never>?
     private var explicitLookupKey: String?
 
-    private var artworkData: Data? = nil
+    private(set) var artworkData: Data? = nil
+
+    @Published var videoArtworkURL: URL? = nil
 
     private var liveStreamUnknownDurationCount: Int = 0
     private var liveStreamEdgeObservationCount: Int = 0
@@ -509,6 +525,13 @@ class MusicManager: ObservableObject {
             .sink { [weak self] _ in
                 self?.isPearDesktopAutoSwitched = false
                 self?.setActiveControllerBasedOnPreference()
+            }
+            .store(in: &cancellables)
+
+        Defaults.publisher(.enableLyrics)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] change in
+                self?.handleLyricsPreferenceChange(isEnabled: change.newValue)
             }
             .store(in: &cancellables)
 
@@ -580,6 +603,8 @@ class MusicManager: ObservableObject {
     
     public func destroy() {
         debounceIdleTask?.cancel()
+        lyricsFetchTask?.cancel()
+        lyricSyncTask?.cancel()
         explicitLookupTask?.cancel()
         cancellables.removeAll()
         controllerCancellables.removeAll()
@@ -701,6 +726,7 @@ class MusicManager: ObservableObject {
 
         // Check for artwork changes
         let artworkChanged = state.artwork != nil && state.artwork != self.artworkData
+
         let hasContentChange =
             titleChanged
             || artistChanged
@@ -709,6 +735,11 @@ class MusicManager: ObservableObject {
             || bundleChanged
             || contentIdentifierChanged
             || contentURLChanged
+        let liveArtworkChanged = state.liveArtworkURL != self.videoArtworkURL
+
+        if liveArtworkChanged {
+            self.videoArtworkURL = state.liveArtworkURL
+        }
 
         // Handle artwork and visual transitions for changed content
         let shouldAutoPeekOnTrackChange = Defaults[.showSneakPeekOnTrackChange]
@@ -735,9 +766,15 @@ class MusicManager: ObservableObject {
             self.lastArtworkContentIdentifier = state.contentIdentifier
             self.lastArtworkContentURL = state.contentURL
 
-            // Fetch lyrics for new track whenever content changes
-            self.fetchLyrics()
+            self.prepareLyricsForCurrentTrack()
+            if let liveArtworkURL = state.liveArtworkURL {
+                self.videoArtworkURL = liveArtworkURL
+            } else {
+                self.fetchVideoArtwork()
+            }
+
             self.refreshExplicitFlag(for: state)
+
 
             // Only update sneak peek if there's actual content and something changed
             if shouldAutoPeekOnTrackChange && !state.title.isEmpty && !state.artist.isEmpty && state.isPlaying {
@@ -1238,53 +1275,108 @@ class MusicManager: ObservableObject {
 
     // MARK: - Lyrics Methods
     func fetchLyrics() {
-        guard Defaults[.enableLyrics] else { return }
-        // If the lyrics panel is visible already, provide immediate feedback
-        if showLyrics {
-            Task { @MainActor in
-                self.currentLyrics = "Loading lyrics..."
-                self.syncedLyrics = []
-                self.currentLyricIndex = -1
-            }
+        prepareLyricsForCurrentTrack(forceFetch: true, prioritizeVisibleResult: Defaults[.enableLyrics])
+    }
+
+    private func handleLyricsPreferenceChange(isEnabled: Bool) {
+        showLyrics = isEnabled
+
+        if isEnabled {
+            prepareLyricsForCurrentTrack(prioritizeVisibleResult: true)
+        } else {
+            stopLyricSync()
+        }
+    }
+
+    private func prepareLyricsForCurrentTrack(forceFetch: Bool = false, prioritizeVisibleResult: Bool = false) {
+        guard let lookup = currentLyricsLookupContext() else {
+            activeLyricsKey = nil
+            lyricsFetchKey = nil
+            lyricsFetchTask?.cancel()
+            lyricsFetchTask = nil
+            syncedLyrics = []
+            currentLyrics = ""
+            currentLyricIndex = -1
+            stopLyricSync()
+            return
         }
 
-        Task {
-            do {
-                let lyrics = try await fetchLyricsFromAPI(artist: artistName, title: songTitle)
-                await MainActor.run {
-                    self.syncedLyrics = lyrics
-                    self.currentLyricIndex = -1
-                    if !lyrics.isEmpty {
-                        self.currentLyrics = lyrics[0].text
-                    } else {
-                        self.currentLyrics = ""
-                    }
+        let key = lookup.key
+        let lyricsEnabled = Defaults[.enableLyrics]
+        let shouldShowLoading = lyricsEnabled && prioritizeVisibleResult
+        let trackChanged = activeLyricsKey != key
+        activeLyricsKey = key
 
-                    // If lyrics are enabled, start syncing them to playback position
-                    if Defaults[.enableLyrics] && !self.syncedLyrics.isEmpty {
-                        self.startLyricSync()
-                    } else if self.syncedLyrics.isEmpty {
-                        self.stopLyricSync()
-                    }
+        if trackChanged {
+            syncedLyrics = []
+            currentLyricIndex = -1
+            currentLyrics = shouldShowLoading ? "Loading lyrics..." : ""
+            stopLyricSync()
+        }
+
+        if !forceFetch, let cachedLyrics = lyricsCache[key] {
+            applyLyricsToDisplay(cachedLyrics)
+            return
+        }
+
+        if lyricsFetchKey == key {
+            if shouldShowLoading && syncedLyrics.isEmpty {
+                currentLyrics = "Loading lyrics..."
+            }
+            return
+        }
+
+        lyricsFetchTask?.cancel()
+        lyricsFetchKey = key
+
+        if shouldShowLoading || (lyricsEnabled && syncedLyrics.isEmpty) {
+            currentLyrics = "Loading lyrics..."
+        }
+
+        let requestArtist = lookup.requestArtist
+        let requestTitle = lookup.requestTitle
+        let requestAlbum = lookup.requestAlbum
+
+        lyricsFetchTask = Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                let lyrics = try await self.fetchLyricsFromAPI(
+                    artist: requestArtist,
+                    title: requestTitle,
+                    album: requestAlbum
+                )
+                guard !Task.isCancelled else { return }
+
+                await MainActor.run {
+                    guard self.activeLyricsKey == key else { return }
+                    self.lyricsCache[key] = lyrics
+                    self.lyricsFetchKey = nil
+                    self.lyricsFetchTask = nil
+                    self.applyLyricsToDisplay(lyrics)
                 }
             } catch {
                 print("Failed to fetch lyrics: \(error)")
                 await MainActor.run {
+                    guard self.activeLyricsKey == key else { return }
+                    self.lyricsFetchKey = nil
+                    self.lyricsFetchTask = nil
                     self.syncedLyrics = []
-                    self.currentLyrics = ""
                     self.currentLyricIndex = -1
+                    self.currentLyrics = lyricsEnabled ? "No lyrics found" : ""
                     self.stopLyricSync()
                 }
             }
         }
     }
 
-    private func fetchLyricsFromAPI(artist: String, title: String) async throws -> [LyricLine] {
+    private func fetchLyricsFromAPI(artist: String, title: String, album: String) async throws -> [LyricLine] {
         guard !artist.isEmpty, !title.isEmpty else { return [] }
 
         // Normalize input and percent-encode
         let cleanArtist = artist.folding(options: .diacriticInsensitive, locale: .current)
         let cleanTitle = title.folding(options: .diacriticInsensitive, locale: .current)
+        let cleanAlbum = album.folding(options: .diacriticInsensitive, locale: .current)
         guard let encodedArtist = cleanArtist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let encodedTitle = cleanTitle.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
             return []
@@ -1298,7 +1390,8 @@ class MusicManager: ObservableObject {
         if let http = response as? HTTPURLResponse, http.statusCode == 200 {
             // Try parse as array JSON (preferred)
             if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-               let first = jsonArray.first {
+               let bestMatch = bestLyricsMatch(in: jsonArray, artist: cleanArtist, title: cleanTitle, album: cleanAlbum) {
+                let first = bestMatch
                 let plain = (first["plainLyrics"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 let synced = (first["syncedLyrics"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
@@ -1337,6 +1430,107 @@ class MusicManager: ObservableObject {
             }
         } else {
             return []
+        }
+    }
+
+    private func currentLyricsLookupContext() -> (key: LyricsLookupKey, requestArtist: String, requestTitle: String, requestAlbum: String)? {
+        let requestArtist = normalizedLyricsRequestComponent(artistName)
+        let requestTitle = normalizedLyricsTitle(songTitle)
+        let requestAlbum = normalizedLyricsRequestComponent(album)
+
+        let key = LyricsLookupKey(
+            title: requestTitle.lowercased(),
+            artist: requestArtist.lowercased(),
+            album: requestAlbum.lowercased()
+        )
+
+        return key.isValid ? (key, requestArtist, requestTitle, requestAlbum) : nil
+    }
+
+    private func normalizedLyricsRequestComponent(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    }
+
+    private func normalizedLyricsTitle(_ value: String) -> String {
+        var normalized = normalizedLyricsRequestComponent(value)
+        let cleanupPatterns = [
+            "\\s*\\((feat\\.?|ft\\.?|featuring)[^\\)]*\\)",
+            "\\s*\\[(feat\\.?|ft\\.?|featuring)[^\\]]*\\]",
+            "\\s*-\\s*(feat\\.?|ft\\.?|featuring)\\s+.*$",
+            "\\s*\\((remaster(ed)?|live|mono|stereo)[^\\)]*\\)$",
+            "\\s*\\[(remaster(ed)?|live|mono|stereo)[^\\]]*\\]$"
+        ]
+
+        for pattern in cleanupPatterns {
+            normalized = normalized.replacingOccurrences(
+                of: pattern,
+                with: "",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        }
+
+        return normalizedLyricsRequestComponent(normalized)
+    }
+
+    private func bestLyricsMatch(in results: [[String: Any]], artist: String, title: String, album: String) -> [String: Any]? {
+        let normalizedArtist = artist.lowercased()
+        let normalizedTitle = title.lowercased()
+        let normalizedAlbum = album.lowercased()
+
+        return results.max { lhs, rhs in
+            lyricsMatchScore(for: lhs, artist: normalizedArtist, title: normalizedTitle, album: normalizedAlbum)
+                < lyricsMatchScore(for: rhs, artist: normalizedArtist, title: normalizedTitle, album: normalizedAlbum)
+        }
+    }
+
+    private func lyricsMatchScore(for result: [String: Any], artist: String, title: String, album: String) -> Int {
+        let resultArtist = ((result["artistName"] as? String) ?? "").lowercased()
+        let resultTitle = ((result["trackName"] as? String) ?? "").lowercased()
+        let resultAlbum = ((result["albumName"] as? String) ?? "").lowercased()
+
+        var score = 0
+
+        if resultTitle == title { score += 8 }
+        else if resultTitle.contains(title) || title.contains(resultTitle) { score += 4 }
+
+        if resultArtist == artist { score += 8 }
+        else if resultArtist.contains(artist) || artist.contains(resultArtist) { score += 4 }
+
+        if !album.isEmpty {
+            if resultAlbum == album { score += 4 }
+            else if resultAlbum.contains(album) || album.contains(resultAlbum) { score += 2 }
+        }
+
+        if !(result["syncedLyrics"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            score += 3
+        }
+
+        return score
+    }
+
+    private func applyLyricsToDisplay(_ lyrics: [LyricLine]) {
+        syncedLyrics = lyrics
+        currentLyricIndex = -1
+
+        guard !lyrics.isEmpty else {
+            currentLyrics = Defaults[.enableLyrics] ? "No lyrics found" : ""
+            stopLyricSync()
+            return
+        }
+
+        let playbackPosition = max(estimatedPlaybackPosition(), elapsedTime)
+        updateCurrentLyric(for: playbackPosition)
+
+        if currentLyricIndex == -1, let firstLine = lyrics.first?.text {
+            currentLyrics = firstLine
+        }
+
+        if Defaults[.enableLyrics] {
+            startLyricSync()
+        } else {
+            stopLyricSync()
         }
     }
 
@@ -1422,6 +1616,32 @@ class MusicManager: ObservableObject {
     private func stopLyricSync() {
         lyricSyncTask?.cancel()
         lyricSyncTask = nil
+    }
+
+    // MARK: - Video Artwork
+
+    func fetchVideoArtwork() {
+        guard Defaults[.lockScreenMusicFullscreenVideoArtwork] else {
+            videoArtworkURL = nil
+            return
+        }
+        // Se il player non è Apple Music, non toccare videoArtworkURL:
+        // SpotifyController gestisce il canvas in modo autonomo tramite liveArtworkURL.
+        guard bundleIdentifier == "com.apple.Music" else {
+            return
+        }
+
+        let title = songTitle
+        let artist = artistName
+
+        Task {
+            let url = await AnimatedArtworkManager.shared.fetchAnimatedArtworkURL(
+                title: title, artist: artist
+            )
+            await MainActor.run {
+                self.videoArtworkURL = url
+            }
+        }
     }
 
     func toggleLyrics() {
@@ -1518,7 +1738,6 @@ private struct AlbumArtFlipModifier: ViewModifier {
         // Use a small tolerance to avoid flickering exactly at 90°/270°.
         if cos > 0.001 { return 1 }
         if cos < -0.001 { return -1 }
-        // At the exact edge, prefer the side we're animating toward.
         return degrees.truncatingRemainder(dividingBy: 360) >= 0 ? -1 : 1
     }
 }

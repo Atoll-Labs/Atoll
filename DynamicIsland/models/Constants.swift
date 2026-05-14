@@ -926,6 +926,10 @@ extension Defaults.Keys {
     )
     static let lockScreenPanelUsesBlur = Key<Bool>("lockScreenPanelUsesBlur", default: true)
     static let lockScreenMusicMergedAirPlayOutput = Key<Bool>("lockScreenMusicMergedAirPlayOutput", default: true)
+    static let lockScreenMusicFullscreenArtworkEnabled = Key<Bool>("lockScreenMusicFullscreenArtworkEnabled", default: true)
+    static let lockScreenKeepAlbumArtVisibleDuringFullscreenArtwork = Key<Bool>("lockScreenKeepAlbumArtVisibleDuringFullscreenArtwork", default: false)
+    static let lockScreenMusicFullscreenVideoArtwork = Key<Bool>("lockScreenMusicFullscreenVideoArtwork", default: true)
+    static let lockScreenUseArtworkLayoutOverFullscreenCanvas = Key<Bool>("lockScreenShowCenteredAlbumArtOverFullscreenCanvas", default: true)
     static let lockScreenTimerWidgetUsesBlur = Key<Bool>("lockScreenTimerWidgetUsesBlur", default: false)
     static let lockScreenReminderChipStyle = Key<LockScreenReminderChipStyle>("lockScreenReminderChipStyle", default: .eventColor)
     static let lockScreenReminderWidgetHorizontalAlignment = Key<String>("lockScreenReminderWidgetHorizontalAlignment", default: "center")
@@ -1014,6 +1018,10 @@ extension Defaults.Keys {
     
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: defaultMediaController)
+    static let spotifySPDCCookie = Key<String>("spotifySPDCCookie", default: "")
+    static let spotifyAuthAccessToken = Key<String>("spotifyAuthAccessToken", default: "")
+    static let spotifyAuthAccessTokenExpiration = Key<Double>("spotifyAuthAccessTokenExpiration", default: 0)
+    static let spotifyAuthLastValidatedAt = Key<Double>("spotifyAuthLastValidatedAt", default: 0)
     
     // MARK: Bluetooth Audio Devices
     static let showBluetoothDeviceConnections = Key<Bool>("showBluetoothDeviceConnections", default: true)
@@ -1216,6 +1224,7 @@ extension Defaults.Keys {
     
     // MARK: Lyrics Feature
     static let enableLyrics = Key<Bool>("enableLyrics", default: false)
+    static let showLiveCanvasInDynamicIsland = Key<Bool>("showLiveCanvasInDynamicIsland", default: false)
     
     // MARK: Notes Feature
     static let enableNotes = Key<Bool>("enableNotes", default: false)

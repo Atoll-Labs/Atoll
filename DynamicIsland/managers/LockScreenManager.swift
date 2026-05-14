@@ -187,6 +187,7 @@ class LockScreenManager: ObservableObject {
         // Hide panel window immediately and synchronously
         print("[\(timestamp())] LockScreenManager: 🚪 Hiding panel window")
         LockScreenPanelManager.shared.hidePanel()
+        FullScreenArtworkWindowManager.shared.hide()
         LockScreenLiveActivityWindowManager.shared.showUnlockAndScheduleHide()
         LockScreenWeatherManager.shared.hideWeatherWidget()
         LockScreenTimerWidgetManager.shared.handleLockStateChange(isLocked: false)

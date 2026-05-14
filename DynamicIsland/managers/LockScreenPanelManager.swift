@@ -58,13 +58,30 @@ class LockScreenPanelManager {
         return formatter.string(from: Date())
     }
 
+    private func publishPanelFrame(_ frame: NSRect?) {
+        latestFrame = frame
+
+        var userInfo: [AnyHashable: Any] = [:]
+        if let frame {
+            userInfo["frame"] = NSValue(rect: frame)
+        }
+
+        NotificationCenter.default.post(
+            name: .atollLockScreenPanelFrameDidChange,
+            object: self,
+            userInfo: userInfo
+        )
+    }
+
     private func registerScreenChangeObservers() {
         screenChangeObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.handleScreenGeometryChange(reason: "screen-parameters")
+            Task { @MainActor [weak self] in
+                self?.handleScreenGeometryChange(reason: "screen-parameters")
+            }
         }
 
         let workspaceCenter = NSWorkspace.shared.notificationCenter
@@ -73,7 +90,9 @@ class LockScreenPanelManager {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.handleScreenGeometryChange(reason: "screens-did-wake")
+            Task { @MainActor [weak self] in
+                self?.handleScreenGeometryChange(reason: "screens-did-wake")
+            }
         }
 
         workspaceObservers = [wakeObserver]
@@ -94,8 +113,9 @@ class LockScreenPanelManager {
         }
 
         let screenFrame = screen.frame
-        let targetFrame = collapsedFrame(for: screenFrame)
-        collapsedFrame = targetFrame
+        let defaultCollapsedFrame = collapsedFrame(for: screenFrame)
+        let targetFrame = targetFrame(for: screenFrame, panelSize: LockScreenMusicPanel.collapsedSize)
+        collapsedFrame = defaultCollapsedFrame
         isPanelExpanded = false
         currentAdditionalHeight = 0
 
@@ -127,14 +147,14 @@ class LockScreenPanelManager {
         }
 
         window.setFrame(targetFrame, display: true)
-        latestFrame = targetFrame
+        publishPanelFrame(targetFrame)
         hideTask?.cancel()
         panelAnimator.isPresented = false
         LockScreenTimerWidgetManager.shared.notifyMusicPanelFrameChanged(animated: false)
 
-    let hosting = NSHostingView(rootView: LockScreenMusicPanel(animator: panelAnimator))
-    hosting.frame = NSRect(origin: .zero, size: targetFrame.size)
-    hosting.autoresizingMask = [.width, .height]
+        let hosting = NSHostingView(rootView: LockScreenMusicPanel(animator: panelAnimator))
+        hosting.frame = NSRect(origin: .zero, size: targetFrame.size)
+        hosting.autoresizingMask = [.width, .height]
         window.contentView = hosting
 
         // Ensure the underlying window content is clipped to rounded corners
@@ -162,18 +182,17 @@ class LockScreenPanelManager {
     }
 
     func updatePanelSize(expanded: Bool, additionalHeight: CGFloat = 0, animated: Bool = true) {
-        guard let window = panelWindow, let baseFrame = collapsedFrame else {
+        guard let window = panelWindow, let screen = currentScreen() else {
             return
         }
 
         let resizeDuration: CFTimeInterval = 0.28
 
         let baseSize = expanded ? LockScreenMusicPanel.expandedSize : LockScreenMusicPanel.collapsedSize
-        let targetWidth = baseSize.width
-        let targetHeight = baseSize.height + additionalHeight
-        let originX = baseFrame.midX - (targetWidth / 2)
-        let originY = baseFrame.origin.y
-        let targetFrame = NSRect(x: originX, y: originY, width: targetWidth, height: targetHeight)
+        let targetFrame = targetFrame(
+            for: screen.frame,
+            panelSize: CGSize(width: baseSize.width, height: baseSize.height + additionalHeight)
+        )
 
         if animated {
             NSAnimationContext.runAnimationGroup { context in
@@ -185,7 +204,7 @@ class LockScreenPanelManager {
             window.setFrame(targetFrame, display: true)
         }
 
-        latestFrame = targetFrame
+        publishPanelFrame(targetFrame)
 
         LockScreenTimerWidgetManager.shared.notifyMusicPanelFrameChanged(animated: animated)
 
@@ -229,7 +248,7 @@ class LockScreenPanelManager {
 
         guard let window = panelWindow else {
             print("LockScreenPanelManager: no panel to hide")
-            latestFrame = nil
+            publishPanelFrame(nil)
             return
         }
 
@@ -239,7 +258,7 @@ class LockScreenPanelManager {
             await MainActor.run {
                 window?.orderOut(nil)
                 window?.contentView = nil
-                self.latestFrame = nil
+                self.publishPanelFrame(nil)
                 print("[\(self.timestamp())] LockScreenPanelManager: panel hidden")
             }
         }
@@ -267,6 +286,74 @@ class LockScreenPanelManager {
             .store(in: &cancellables)
     }
 
+    private func targetFrame(for screenFrame: NSRect, panelSize: CGSize) -> NSRect {
+        let defaultCollapsedFrame = collapsedFrame(for: screenFrame)
+
+        if FullScreenArtworkWindowManager.shared.isShowingSpotifyCanvasFallback {
+            return spotifyCanvasFallbackPanelFrame(
+                screenFrame: screenFrame,
+                defaultCollapsedFrame: defaultCollapsedFrame,
+                panelSize: panelSize
+            )
+        }
+
+        let originX = defaultCollapsedFrame.midX - (panelSize.width / 2)
+        return NSRect(
+            x: originX,
+            y: defaultCollapsedFrame.origin.y,
+            width: panelSize.width,
+            height: panelSize.height
+        )
+    }
+
+    private func spotifyCanvasFallbackPanelFrame(
+        screenFrame: NSRect,
+        defaultCollapsedFrame: NSRect,
+        panelSize: CGSize
+    ) -> NSRect {
+        let fullscreenArtworkManager = FullScreenArtworkWindowManager.shared
+        let spacing = fullscreenArtworkManager.spotifyCanvasFallbackInterItemSpacing(screenFrame: screenFrame)
+        let artworkSide = fullscreenArtworkManager.spotifyCanvasFallbackArtworkSideLength(
+            screenFrame: screenFrame,
+            panelSize: panelSize
+        )
+        let totalWidth = artworkSide + spacing + panelSize.width
+        let horizontalMargin: CGFloat = 48
+        let minGroupOriginX = screenFrame.minX + horizontalMargin
+        let maxGroupOriginX = max(screenFrame.maxX - horizontalMargin - totalWidth, minGroupOriginX)
+        let groupOriginX = min(
+            max(screenFrame.midX - (totalWidth / 2), minGroupOriginX),
+            maxGroupOriginX
+        )
+
+        let baseCenterY = screenFrame.midY
+        let largestHalfHeight = max(artworkSide, panelSize.height) / 2
+        let minCenterY = screenFrame.minY + largestHalfHeight + 56
+        var maxCenterY = screenFrame.maxY - largestHalfHeight - 84
+
+        let widgetClearance: CGFloat = 20
+        if let weatherFrame = LockScreenWeatherPanelManager.shared.latestFrame,
+           !weatherFrame.isEmpty {
+            let weatherTopConstrainedCenterY = weatherFrame.minY - widgetClearance - largestHalfHeight
+            maxCenterY = min(maxCenterY, weatherTopConstrainedCenterY)
+        }
+        if let timerFrame = LockScreenTimerWidgetPanelManager.shared.latestFrame,
+           !timerFrame.isEmpty {
+            let timerTopConstrainedCenterY = timerFrame.minY - widgetClearance - largestHalfHeight
+            maxCenterY = min(maxCenterY, timerTopConstrainedCenterY)
+        }
+
+        let resolvedMaxCenterY = max(maxCenterY, minCenterY)
+        let centerY = min(max(baseCenterY, minCenterY), resolvedMaxCenterY)
+
+        return NSRect(
+            x: groupOriginX + artworkSide + spacing,
+            y: centerY - (panelSize.height / 2),
+            width: panelSize.width,
+            height: panelSize.height
+        )
+    }
+
     private func collapsedFrame(for screenFrame: NSRect) -> NSRect {
         let collapsedSize = LockScreenMusicPanel.collapsedSize
         let originX = screenFrame.midX - (collapsedSize.width / 2)
@@ -288,4 +375,8 @@ class LockScreenPanelManager {
     private func currentScreen() -> NSScreen? {
         LockScreenDisplayContextProvider.shared.contextSnapshot()?.screen ?? NSScreen.main
     }
+}
+
+extension Notification.Name {
+    static let atollLockScreenPanelFrameDidChange = Notification.Name("atollLockScreenPanelFrameDidChange")
 }

@@ -23,6 +23,112 @@
 import Combine
 import Defaults
 import SwiftUI
+import AppKit
+import AVFoundation
+
+private final class DynamicIslandArtworkLoopController {
+    let player: AVQueuePlayer
+    private var looper: AVPlayerLooper?
+
+    init(url: URL) {
+        let item = AVPlayerItem(url: url)
+        player = AVQueuePlayer()
+        player.isMuted = true
+        player.actionAtItemEnd = .none
+        looper = AVPlayerLooper(player: player, templateItem: item)
+        player.play()
+    }
+
+    deinit {
+        player.pause()
+        looper = nil
+    }
+}
+
+private final class DynamicIslandArtworkVideoContainerView: NSView {
+    let playerLayer = AVPlayerLayer()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+        playerLayer.videoGravity = .resizeAspectFill
+        playerLayer.backgroundColor = NSColor.clear.cgColor
+        layer?.addSublayer(playerLayer)
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func layout() {
+        super.layout()
+        playerLayer.frame = bounds
+    }
+}
+
+private struct DynamicIslandArtworkVideoView: NSViewRepresentable {
+    let url: URL
+    let videoGravity: AVLayerVideoGravity
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> DynamicIslandArtworkVideoContainerView {
+        let view = DynamicIslandArtworkVideoContainerView(frame: .zero)
+        context.coordinator.attach(layer: view.playerLayer, url: url, gravity: videoGravity)
+        return view
+    }
+
+    func updateNSView(_ nsView: DynamicIslandArtworkVideoContainerView, context: Context) {
+        context.coordinator.attach(layer: nsView.playerLayer, url: url, gravity: videoGravity)
+    }
+
+    final class Coordinator {
+        private var controller: DynamicIslandArtworkLoopController?
+        private var currentURL: URL?
+
+        func attach(layer: AVPlayerLayer, url: URL, gravity: AVLayerVideoGravity) {
+            layer.videoGravity = gravity
+
+            if currentURL != url || controller == nil {
+                currentURL = url
+                controller = DynamicIslandArtworkLoopController(url: url)
+            }
+
+            if layer.player !== controller?.player {
+                layer.player = controller?.player
+            }
+        }
+    }
+}
+
+struct DynamicIslandArtworkSourceView: View {
+    @ObservedObject private var musicManager = MusicManager.shared
+    @Default(.showLiveCanvasInDynamicIsland) private var showLiveCanvasInDynamicIsland
+
+    let cornerRadius: CGFloat
+    let contentMode: ContentMode
+
+    private var liveCanvasURL: URL? {
+        guard showLiveCanvasInDynamicIsland else { return nil }
+        return musicManager.videoArtworkURL
+    }
+
+    var body: some View {
+        Group {
+            if let liveCanvasURL {
+                DynamicIslandArtworkVideoView(url: liveCanvasURL, videoGravity: .resizeAspectFill)
+            } else {
+                Image(nsImage: musicManager.albumArt)
+                    .resizable()
+                    .aspectRatio(contentMode: contentMode)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
 
 // MARK: - Music Player Components
 
@@ -43,7 +149,22 @@ struct MusicPlayerView: View {
 struct AlbumArtView: View {
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var vm: DynamicIslandViewModel
+    @Default(.showLiveCanvasInDynamicIsland) private var showLiveCanvasInDynamicIsland
     let albumArtNamespace: Namespace.ID
+
+    private var usesLiveCanvasArtwork: Bool {
+        showLiveCanvasInDynamicIsland && musicManager.videoArtworkURL != nil
+    }
+
+    private var albumArtCornerRadius: CGFloat {
+        Defaults[.cornerRadiusScaling]
+            ? musicManager.albumArt.size.width / musicManager.albumArt.size.height > 1.0
+                ? MusicPlayerImageSizes.cornerRadiusInset.opened / 3
+                : MusicPlayerImageSizes.cornerRadiusInset.opened
+            : musicManager.albumArt.size.width / musicManager.albumArt.size.height > 1.0
+                ? MusicPlayerImageSizes.cornerRadiusInset.closed / 3
+                : MusicPlayerImageSizes.cornerRadiusInset.closed
+    }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -58,24 +179,26 @@ struct AlbumArtView: View {
         Color.clear
             .aspectRatio(1, contentMode: .fit)
             .background(
-                Image(nsImage: musicManager.albumArt)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .clipShape(
-                        RoundedRectangle(
-                            cornerRadius: Defaults[.cornerRadiusScaling]
-                                ? musicManager.albumArt.size.width/musicManager.albumArt.size.height > 1.0 ? MusicPlayerImageSizes.cornerRadiusInset.opened/3 : MusicPlayerImageSizes.cornerRadiusInset.opened
-                                : musicManager.albumArt.size.width/musicManager.albumArt.size.height > 1.0 ? MusicPlayerImageSizes.cornerRadiusInset.closed/3 : MusicPlayerImageSizes.cornerRadiusInset.closed
-
-
-                        )
-                    )
+                DynamicIslandArtworkSourceView(
+                    cornerRadius: albumArtCornerRadius,
+                    contentMode: .fill
+                )
             )
             .clipped()
             .scaleEffect(x: 1.3, y: 1.4)
             .rotationEffect(.degrees(92))
             .blur(radius: 40)
-            .opacity(musicManager.isPlaying ? 0.5 : 0)
+            .opacity(
+                usesLiveCanvasArtwork
+                    ? (musicManager.isPlaying ? 0.62 : 0.18)
+                    : (musicManager.isPlaying ? 0.5 : 0)
+            )
+            .shadow(
+                color: Color(nsColor: musicManager.avgColor).opacity(usesLiveCanvasArtwork ? 0.24 : 0.16),
+                radius: usesLiveCanvasArtwork ? 22 : 14,
+                x: 0,
+                y: 0
+            )
     }
 
     private var albumArtButton: some View {
@@ -111,18 +234,10 @@ struct AlbumArtView: View {
         Color.clear
             .aspectRatio(1, contentMode: .fit)
             .overlay {
-                Image(nsImage: musicManager.albumArt)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .clipShape(
-                        RoundedRectangle(
-                            cornerRadius: Defaults[.cornerRadiusScaling]
-                                ? musicManager.albumArt.size.width/musicManager.albumArt.size.height > 1.0 ? MusicPlayerImageSizes.cornerRadiusInset.opened/3 : MusicPlayerImageSizes.cornerRadiusInset.opened
-                                : musicManager.albumArt.size.width/musicManager.albumArt.size.height > 1.0 ? MusicPlayerImageSizes.cornerRadiusInset.closed/3 : MusicPlayerImageSizes.cornerRadiusInset.closed
-
-
-                        )
-                    ) // ensures that even the rectagular album cover is rounded just like the MacOS media player
+                DynamicIslandArtworkSourceView(
+                    cornerRadius: albumArtCornerRadius,
+                    contentMode: .fit
+                )
             }
             .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
         .clipped()
