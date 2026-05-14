@@ -473,6 +473,22 @@ enum ProgressBarStyle: String, CaseIterable, Identifiable, Defaults.Serializable
     var id: String { self.rawValue }
 }
 
+enum BatteryNotificationStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case standard
+    case compact
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .standard:
+            return String(localized: "Standard")
+        case .compact:
+            return String(localized: "Compact")
+        }
+    }
+}
+
 enum MusicAuxiliaryControl: String, CaseIterable, Identifiable, Defaults.Serializable {
     case shuffle
     case repeatMode
@@ -937,7 +953,17 @@ extension Defaults.Keys {
     static let showBatteryPercentage = Key<Bool>("showBatteryPercentage", default: true)
     static let showPowerStatusIcons = Key<Bool>("showPowerStatusIcons", default: true)
     static let playLowBatteryAlertSound = Key<Bool>("playLowBatteryAlertSound", default: true)
-    
+    static let showChargingBatteryHUD = Key<Bool>("showChargingBatteryHUD", default: true)
+    static let showLowBatteryHUD = Key<Bool>("showLowBatteryHUD", default: true)
+    static let showFullBatteryHUD = Key<Bool>("showFullBatteryHUD", default: true)
+    static let chargingBatteryHUDDuration = Key<Int>("chargingBatteryHUDDuration", default: 3)
+    static let lowBatteryHUDDuration = Key<Int>("lowBatteryHUDDuration", default: 3)
+    static let fullBatteryHUDDuration = Key<Int>("fullBatteryHUDDuration", default: 3)
+    static let lowBatteryHUDThreshold = Key<Int>("lowBatteryHUDThreshold", default: 20)
+    static let fullBatteryHUDThreshold = Key<Int>("fullBatteryHUDThreshold", default: 100)
+    static let lowBatteryHUDStyle = Key<BatteryNotificationStyle>("lowBatteryHUDStyle", default: .standard)
+    static let fullBatteryHUDStyle = Key<BatteryNotificationStyle>("fullBatteryHUDStyle", default: .standard)
+
     static let lockScreenBatteryShowsBatteryGauge = Key<Bool>(
         "lockScreenWeatherShowsBatteryGauge",
         default: BatteryActivityManager.shared.hasBattery()
