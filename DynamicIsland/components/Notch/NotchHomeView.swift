@@ -29,6 +29,7 @@ import AVFoundation
 private final class DynamicIslandArtworkLoopController {
     let player: AVQueuePlayer
     private var looper: AVPlayerLooper?
+    private var playbackStateCancellable: AnyCancellable?
 
     init(url: URL) {
         let item = AVPlayerItem(url: url)
@@ -36,12 +37,28 @@ private final class DynamicIslandArtworkLoopController {
         player.isMuted = true
         player.actionAtItemEnd = .none
         looper = AVPlayerLooper(player: player, templateItem: item)
-        player.play()
+
+        if MusicManager.shared.isPlaying {
+            player.play()
+        }
+
+        playbackStateCancellable = MusicManager.shared.$isPlaying
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isPlaying in
+                guard let self else { return }
+                if isPlaying {
+                    self.player.play()
+                } else {
+                    self.player.pause()
+                }
+            }
     }
 
     deinit {
         player.pause()
         looper = nil
+        playbackStateCancellable = nil
     }
 }
 
