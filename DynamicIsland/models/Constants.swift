@@ -1133,6 +1133,12 @@ extension Defaults.Keys {
     static let enableKeyboardBacklightHUD = Key<Bool>("enableKeyboardBacklightHUD", default: true)
     static let systemHUDSensitivity = Key<Int>("systemHUDSensitivity", default: 5)
     static let playVolumeChangeFeedback = Key<Bool>("playVolumeChangeFeedback", default: false)
+
+    // Step sizes for hardware media keys (percent of full range, 1-25)
+    static let volumeStepPercent = Key<Int>("volumeStepPercent", default: 6)
+    static let volumeFineStepPercent = Key<Int>("volumeFineStepPercent", default: 2)
+    static let brightnessStepPercent = Key<Int>("brightnessStepPercent", default: 6)
+    static let brightnessFineStepPercent = Key<Int>("brightnessFineStepPercent", default: 2)
     
     // MARK: Custom OSD Window Feature
     static let enableCustomOSD = Key<Bool>("enableCustomOSD", default: false)
