@@ -476,6 +476,10 @@ final class SystemBrightnessController {
     private let maximumBrightnessAnimationDuration: TimeInterval = 0.3
     private let brightnessAnimationDurationScale: TimeInterval = 1.6
     private var lastEmittedBrightness: Float = 0.5
+    private let coreBrightnessClient = CoreBrightnessDisplayClient.shared
+    private var pollTimer: Timer?
+    private let pollInterval: TimeInterval = 0.15
+    private let pollChangeThreshold: Float = 0.005
 
     private init() {
         registerExternalNotifications()
@@ -484,12 +488,15 @@ final class SystemBrightnessController {
 
     func start() {
         notifyCurrentBrightness()
+        startPollingIfNeeded()
     }
 
     func stop() {
         onBrightnessChange = nil
         brightnessAnimationTimer?.invalidate()
         brightnessAnimationTimer = nil
+        pollTimer?.invalidate()
+        pollTimer = nil
     }
 
     func adjust(by delta: Float) {
@@ -506,6 +513,9 @@ final class SystemBrightnessController {
     }
 
     var currentBrightness: Float {
+        if let level = coreBrightnessClient.currentBrightness() {
+            return level
+        }
         if let level = getBrightnessViaDisplayServices() {
             return level
         }
@@ -583,6 +593,9 @@ final class SystemBrightnessController {
 
     private func applyBrightness(_ value: Float) {
         let clamped = max(0, min(1, value))
+        if coreBrightnessClient.setBrightness(clamped) {
+            return
+        }
         if setBrightnessViaDisplayServices(clamped) {
             return
         }
@@ -667,7 +680,8 @@ final class SystemBrightnessController {
         let names = [
             Notification.Name("com.apple.BezelEngine.BrightnessChanged"),
             Notification.Name("com.apple.BezelServices.BrightnessChanged"),
-            Notification.Name("com.apple.controlcenter.display.brightness")
+            Notification.Name("com.apple.controlcenter.display.brightness"),
+            Notification.Name("com.apple.CoreBrightness.DisplayBrightnessChanged")
         ]
         observers = names.map { name in
             DistributedNotificationCenter.default().addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
@@ -677,8 +691,20 @@ final class SystemBrightnessController {
         notificationsInstalled = true
     }
 
+    private func startPollingIfNeeded() {
+        guard pollTimer == nil else { return }
+        pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let system = self.currentBrightness
+            if abs(system - self.lastEmittedBrightness) > self.pollChangeThreshold {
+                self.emitBrightnessChange(value: system)
+            }
+        }
+    }
+
     deinit {
         brightnessAnimationTimer?.invalidate()
+        pollTimer?.invalidate()
         observers.forEach { DistributedNotificationCenter.default().removeObserver($0) }
     }
 }

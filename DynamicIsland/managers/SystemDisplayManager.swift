@@ -46,7 +46,7 @@ class SystemDisplayManager {
 
     private static func getStandardDisplayBrightness() throws -> Float {
         var brightness: float_t = 1
-        let service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IODisplayConnect"))
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IODisplayConnect"))
         defer {
             IOObjectRelease(service)
         }
