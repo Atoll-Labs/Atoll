@@ -279,6 +279,11 @@ final class LockScreenTimerWidgetPanelManager {
             originY = min(originY, topLimit)
         }
 
+        if let musicFrame = LockScreenPanelManager.shared.latestFrame {
+            let minAllowedY = musicFrame.maxY + 12
+            originY = max(originY, minAllowedY)
+        }
+
         let minY = screen.frame.minY + 100
         originY = max(originY, minY)
 

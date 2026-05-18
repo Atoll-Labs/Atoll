@@ -54,6 +54,7 @@ struct ContentView: View {
     @ObservedObject var extensionNotchExperienceManager = ExtensionNotchExperienceManager.shared
     @ObservedObject var localSendService = LocalSendService.shared
     @State private var downloadManager = DownloadManager.shared
+    @ObservedObject var shelfState = ShelfStateViewModel.shared
     
     @Default(.enableStatsFeature) var enableStatsFeature
     @Default(.showCpuGraph) var showCpuGraph
@@ -84,6 +85,15 @@ struct ContentView: View {
     @Default(.hideNonNotchUntilHover) var hideNonNotchUntilHover
     @Default(.terminalStickyMode) var terminalStickyMode
     
+    // Battery settings reactivity
+    @Default(.showPowerStatusNotifications) var showPowerStatusNotifications
+    @Default(.showChargingBatteryHUD) var showChargingBatteryHUD
+    @Default(.showLowBatteryHUD) var showLowBatteryHUD
+    @Default(.showFullBatteryHUD) var showFullBatteryHUD
+    @Default(.showOnAllDisplays) var showOnAllDisplays
+    @Default(.lowBatteryHUDStyle) var lowBatteryHUDStyle
+    @Default(.fullBatteryHUDStyle) var fullBatteryHUDStyle
+    
     // Dynamic sizing based on view type and graph count with smooth transitions
     var dynamicNotchSize: CGSize {
         let baseSize = Defaults[.enableMinimalisticUI] ? minimalisticOpenNotchSize : openNotchSize
@@ -98,6 +108,39 @@ struct ContentView: View {
         if inlineSneakPeekActive {
             let inlineWidth: CGFloat = 460
             return CGSize(width: max(baseSize.width, inlineWidth), height: baseSize.height)
+        }
+        
+        // Handle battery HUD expansion sizing
+        if vm.notchState == .closed && 
+           coordinator.expandingView.show && 
+           coordinator.expandingView.type == .battery &&
+           isBatteryHUDVisibleOnCurrentScreen {
+            
+            if let kind = batteryModel.activeTemporaryHUDKind {
+                let style: BatteryNotificationStyle = {
+                    switch kind {
+                    case .charging: return .compact
+                    case .lowBattery: return Defaults[.lowBatteryHUDStyle]
+                    case .fullBattery: return Defaults[.fullBatteryHUDStyle]
+                    }
+                }()
+                
+                var width = vm.closedNotchSize.width
+                var height = vm.effectiveClosedNotchHeight
+                
+                switch (kind, style) {
+                case (.charging, _), (.lowBattery, .compact), (.fullBattery, .compact):
+                    width += 180
+                case (.lowBattery, .standard):
+                    width += 100
+                    height += 75
+                case (.fullBattery, .standard):
+                    width += 80
+                    height += 70
+                }
+                
+                return CGSize(width: width, height: height)
+            }
         }
         
         if coordinator.currentView == .timer {
@@ -382,9 +425,78 @@ struct ContentView: View {
         return DynamicIslandPillShape(cornerRadius: radius)
     }
 
+    private var isBatteryHUDVisibleOnCurrentScreen: Bool {
+        guard coordinator.expandingView.show, coordinator.expandingView.type == .battery else { return false }
+        guard showPowerStatusNotifications else { return false }
+        guard batteryModel.activeTemporaryHUDKind != nil else { return false }
+        if showOnAllDisplays { return true }
+        guard let targetScreenName = batteryModel.activeTemporaryHUDTargetScreenName else { return true }
+        return currentScreenName == targetScreenName
+    }
+
+    private var isCurrentScreenExpansionVisible: Bool {
+        guard coordinator.expandingView.show else { return false }
+        if coordinator.expandingView.type == .battery {
+            return isBatteryHUDVisibleOnCurrentScreen
+        }
+        return true
+    }
+
+    private var currentScreenExpansionType: SneakContentType? {
+        isCurrentScreenExpansionVisible ? coordinator.expandingView.type : nil
+    }
+
+    private var displayedBatteryHUDLevel: Int {
+        let resolvedLevel = batteryModel.activeTemporaryHUDLevelOverride
+            ?? Int(batteryModel.levelBattery.rounded())
+        return min(max(resolvedLevel, 0), 100)
+    }
+
+    private var displayedBatteryHUDUsesLowPowerMode: Bool {
+        batteryModel.activeTemporaryHUDLowPowerModeOverride ?? batteryModel.isInLowPowerMode
+    }
+
+
+    private var activeClosedBatterySurfaceShape: AnyShape? {
+        guard vm.notchState == .closed else { return nil }
+        guard isBatteryHUDVisibleOnCurrentScreen else { return nil }
+        guard let kind = batteryModel.activeTemporaryHUDKind else { return nil }
+
+        if isDynamicIslandMode {
+            let radius = dynamicIslandPillCornerRadiusInsets.opened
+            return AnyShape(DynamicIslandPillShape(cornerRadius: radius))
+        } else {
+            let topRadius = activeCornerRadiusInsets.closed.top
+            let bottomRadius: CGFloat = {
+                switch resolvedBatteryNotificationStyle(for: kind) {
+                case .compact:
+                    return activeCornerRadiusInsets.closed.bottom
+                case .standard:
+                    return kind == .fullBattery ? 36 : 40
+                }
+            }()
+            return AnyShape(NotchShape(topCornerRadius: topRadius, bottomCornerRadius: bottomRadius))
+        }
+    }
+
+    private func resolvedBatteryNotificationStyle(for kind: BatteryTemporaryHUDKind) -> BatteryNotificationStyle {
+        switch kind {
+        case .charging:
+            return .compact
+        case .lowBattery:
+            return lowBatteryHUDStyle
+        case .fullBattery:
+            return fullBatteryHUDStyle
+        }
+    }
+
+
     /// Resolves the clip/content shape per-screen: pill on non-notch screens
     /// when dynamic island mode is active, standard notch shape otherwise.
     private var resolvedClipShape: AnyShape {
+        if let activeClosedBatterySurfaceShape {
+            return activeClosedBatterySurfaceShape
+        }
         if isDynamicIslandMode {
             return AnyShape(currentPillShape)
         }
@@ -763,47 +875,41 @@ struct ContentView: View {
                           guard let musicSecondary else { return false }
                           switch musicSecondary {
                           case .timer:
-                              return coordinator.expandingView.type == .timer
+                              return currentScreenExpansionType == .timer
                           case .reminder:
-                              return coordinator.expandingView.type == .reminder
+                              return currentScreenExpansionType == .reminder
                           case .recording:
-                              return coordinator.expandingView.type == .recording
+                              return currentScreenExpansionType == .recording
                           case .focus:
-                              return coordinator.expandingView.type == .doNotDisturb
+                              return currentScreenExpansionType == .doNotDisturb
                           case .capsLock:
                               return false
                           case .extensionPayload:
                               return false
+                          case .shelf:
+                              return false
                           }
                       }()
-                      let canShowMusicDuringExpansion = !coordinator.expandingView.show
-                          || coordinator.expandingView.type == .music
+                      let canShowMusicDuringExpansion = !isCurrentScreenExpansionVisible
+                          || currentScreenExpansionType == .music
                           || expansionMatchesSecondary
 
-                      if coordinator.expandingView.type == .battery && coordinator.expandingView.show && vm.notchState == .closed && Defaults[.showPowerStatusNotifications] {
-                        HStack(spacing: 0) {
-                            HStack {
-                                Text(batteryModel.statusText)
-                                    .font(.subheadline)
-                            }
-
-                            Rectangle()
-                                .fill(.black)
-                                .frame(width: vm.closedNotchSize.width + 10)
-
-                            HStack {
-                                DynamicIslandBatteryView(
-                                    batteryWidth: 30,
-                                    isCharging: batteryModel.isCharging,
-                                    isInLowPowerMode: batteryModel.isInLowPowerMode,
-                                    isPluggedIn: batteryModel.isPluggedIn,
-                                    levelBattery: batteryModel.levelBattery,
-                                    isForNotification: true
-                                )
-                            }
-                            .frame(width: 76, alignment: .trailing)
-                        }
-                        .frame(height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
+                      if currentScreenExpansionType == .battery
+                            && isBatteryHUDVisibleOnCurrentScreen
+                            && vm.notchState == .closed
+                            && Defaults[.showPowerStatusNotifications]
+                            && batteryModel.activeTemporaryHUDKind != nil {
+                        BatteryTemporaryActivityView(
+                            kind: batteryModel.activeTemporaryHUDKind ?? .charging,
+                            batteryLevel: displayedBatteryHUDLevel,
+                            isLowPowerMode: displayedBatteryHUDUsesLowPowerMode,
+                            closedNotchWidth: vm.closedNotchSize.width + (isHovering ? 8 : 0),
+                            baseHeight: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0),
+                            isDynamicIslandMode: isDynamicIslandMode,
+                            topCornerRadius: activeCornerRadiusInsets.closed.top,
+                            styleOverride: batteryModel.activeTemporaryHUDKind.map { resolvedBatteryNotificationStyle(for: $0) }
+                        )
+                        .id(batteryModel.activeTemporaryHUDToken)
                       } else if isSneakPeekVisibleOnCurrentScreen && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .timer) && (coordinator.sneakPeek.type != .reminder) && !coordinator.sneakPeek.type.isExtensionPayload && ((coordinator.sneakPeek.type != .volume && coordinator.sneakPeek.type != .brightness && coordinator.sneakPeek.type != .backlight) || vm.notchState == .closed) {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(
@@ -818,25 +924,25 @@ struct ContentView: View {
                           MusicLiveActivity(secondary: musicSecondary)
                               .id("closed-music-live-activity")
                               .transition(closedLiveActivitySwapTransition)
-                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .timer) && vm.notchState == .closed && timerManager.isTimerActive && coordinator.timerLiveActivityEnabled && !vm.hideOnClosed {
+                      } else if (!isCurrentScreenExpansionVisible || currentScreenExpansionType == .timer) && vm.notchState == .closed && timerManager.isTimerActive && coordinator.timerLiveActivityEnabled && !vm.hideOnClosed {
                           TimerLiveActivity()
-                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .reminder) && vm.notchState == .closed && reminderManager.isActive && enableReminderLiveActivity && !vm.hideOnClosed {
+                      } else if (!isCurrentScreenExpansionVisible || currentScreenExpansionType == .reminder) && vm.notchState == .closed && reminderManager.isActive && enableReminderLiveActivity && !vm.hideOnClosed {
                           ReminderLiveActivity()
-                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .recording) && vm.notchState == .closed && (recordingManager.isRecording || !recordingManager.isRecorderIdle) && Defaults[.enableScreenRecordingDetection] && !vm.hideOnClosed && !musicPairingEligible {
+                      } else if (!isCurrentScreenExpansionVisible || currentScreenExpansionType == .recording) && vm.notchState == .closed && (recordingManager.isRecording || !recordingManager.isRecorderIdle) && Defaults[.enableScreenRecordingDetection] && !vm.hideOnClosed && !musicPairingEligible {
                           RecordingLiveActivity()
-                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .download) && vm.notchState == .closed && downloadManager.isDownloading && Defaults[.enableDownloadListener] && !vm.hideOnClosed {
+                      } else if (!isCurrentScreenExpansionVisible || currentScreenExpansionType == .download) && vm.notchState == .closed && downloadManager.isDownloading && Defaults[.enableDownloadListener] && !vm.hideOnClosed {
                           DownloadLiveActivity()
                               .transition(.blurReplace.animation(.interactiveSpring(dampingFraction: 1.2)))
-                      } else if !coordinator.expandingView.show && vm.notchState == .closed && localSendLiveActivityActive && !vm.hideOnClosed {
+                      } else if !isCurrentScreenExpansionVisible && vm.notchState == .closed && localSendLiveActivityActive && !vm.hideOnClosed {
                           LocalSendLiveActivity()
                               .transition(.blurReplace.animation(.interactiveSpring(dampingFraction: 1.2)))
-                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .doNotDisturb) && vm.notchState == .closed && Defaults[.enableDoNotDisturbDetection] && Defaults[.showDoNotDisturbIndicator] && (doNotDisturbManager.isDoNotDisturbActive || doNotDisturbManager.isFocusToastDismissing) && !vm.hideOnClosed && !lockScreenManager.isLocked {
+                      } else if (!isCurrentScreenExpansionVisible || currentScreenExpansionType == .doNotDisturb) && vm.notchState == .closed && Defaults[.enableDoNotDisturbDetection] && Defaults[.showDoNotDisturbIndicator] && (doNotDisturbManager.isDoNotDisturbActive || doNotDisturbManager.isFocusToastDismissing) && !vm.hideOnClosed && !lockScreenManager.isLocked {
                           DoNotDisturbLiveActivity()
-                    } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .lockScreen) && vm.notchState == .closed && (lockScreenManager.isLocked || !lockScreenManager.isLockIdle) && Defaults[.enableLockScreenLiveActivity] && !vm.hideOnClosed {
+                    } else if (!isCurrentScreenExpansionVisible || currentScreenExpansionType == .lockScreen) && vm.notchState == .closed && (lockScreenManager.isLocked || !lockScreenManager.isLockIdle) && Defaults[.enableLockScreenLiveActivity] && !vm.hideOnClosed {
                         LockScreenLiveActivity()
                             .id("lock-screen-live-activity")
                             .transition(closedLiveActivitySwapTransition)
-                    } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .privacy) && vm.notchState == .closed && privacyManager.hasAnyIndicator && (Defaults[.enableCameraDetection] || Defaults[.enableMicrophoneDetection]) && !vm.hideOnClosed {
+                    } else if (!isCurrentScreenExpansionVisible || currentScreenExpansionType == .privacy) && vm.notchState == .closed && privacyManager.hasAnyIndicator && (Defaults[.enableCameraDetection] || Defaults[.enableMicrophoneDetection]) && !vm.hideOnClosed {
                         PrivacyLiveActivity()
                       } else if let extensionPayload = extensionStandalonePayload {
                           let layout = extensionStandaloneLayout(
@@ -849,7 +955,11 @@ struct ContentView: View {
                               layout: layout,
                               isHovering: isHovering
                           )
+                      } else if !coordinator.expandingView.show && vm.notchState == .closed && !shelfState.isEmpty && !vm.hideOnClosed && !lockScreenManager.isLocked && !enableMinimalisticUI {
+                          ShelfInlineLiveActivity()
+                              .transition(.opacity.animation(.smooth(duration: 0.25)))
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
+                      } else if !isCurrentScreenExpansionVisible && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
                           DynamicIslandFaceAnimation().animation(.interactiveSpring, value: musicManager.isPlayerIdle)
                       } else if vm.notchState == .open {
                           DynamicIslandHeader()
@@ -1192,6 +1302,11 @@ struct ContentView: View {
             return .extensionPayload(extensionPayload)
         }
 
+        // Shelf: show file count as lowest-priority secondary
+        if !shelfState.isEmpty && !lockScreenManager.isLocked && !enableMinimalisticUI {
+            return .shelf(count: shelfState.items.count)
+        }
+
         return nil
     }
 
@@ -1212,6 +1327,8 @@ struct ContentView: View {
         case .extensionPayload(let payload):
             let maxWidth = baseWidth + centerBaseWidth * 0.6
             return ExtensionLayoutMetrics.trailingWidth(for: payload, baseWidth: baseWidth, maxWidth: maxWidth)
+        case .shelf:
+            return baseWidth
         }
     }
 
@@ -1314,6 +1431,10 @@ struct ContentView: View {
                         accent: payload.descriptor.accentColor.swiftUIColor,
                         size: badgeSize
                     )
+                case .shelf:
+                    Image(systemName: "tray.and.arrow.down.fill")
+                        .font(.system(size: badgeSize * 0.50, weight: .semibold))
+                        .foregroundStyle(.white)
                 }
             }
             .frame(width: badgeSize, height: badgeSize)
@@ -1372,6 +1493,14 @@ struct ContentView: View {
             spectrumView(forceSpectrum: true, trailingInset: 6)
         case .extensionPayload(let payload):
             ExtensionMusicWingView(payload: payload, notchHeight: notchHeight, trailingWidth: trailingWidth)
+        case .shelf(let count):
+            // File count badge: bold white number, like a minimal pill
+            Text("\(count)")
+                .font(.system(.callout, design: .rounded, weight: .bold))
+                .foregroundStyle(.white)
+                .contentTransition(.numericText(countsDown: false))
+                .animation(.smooth(duration: 0.3), value: count)
+                .frame(alignment: .center)
         case .none:
             spectrumView(
                 forceSpectrum: false,
@@ -1606,10 +1735,10 @@ struct ContentView: View {
             return nil
         }
 
-        guard !coordinator.expandingView.show else {
+        guard !isCurrentScreenExpansionVisible else {
             ExtensionRoutingDiagnostics.shared.logSuppression(
                 .standalone,
-                reason: "expanding view \(coordinator.expandingView.type) visible",
+                reason: "expanding view \(String(describing: currentScreenExpansionType ?? coordinator.expandingView.type)) visible",
                 pendingCount: candidates.count
             )
             return nil
@@ -1729,7 +1858,7 @@ struct ContentView: View {
             && !vm.hideOnClosed
             && !lockScreenManager.isLocked
             && !isMusicHUDDeferredAfterUnlock
-            && !coordinator.expandingView.show
+            && !isCurrentScreenExpansionVisible
             && (!musicManager.isPlayerIdle || musicManager.bundleIdentifier != nil)
             && !coordinator.firstLaunch
     }
@@ -2474,6 +2603,7 @@ private enum MusicSecondaryLiveActivity: Equatable {
     case focus(FocusModeType)
     case capsLock(showLabel: Bool)
     case extensionPayload(ExtensionLiveActivityPayload)
+    case shelf(count: Int)
 
     var id: String {
         switch self {
@@ -2489,6 +2619,8 @@ private enum MusicSecondaryLiveActivity: Equatable {
             return showLabel ? "caps-lock-label" : "caps-lock-icon"
         case .extensionPayload(let payload):
             return "extension-\(payload.id)"
+        case .shelf(let count):
+            return "shelf-\(count)"
         }
     }
 }

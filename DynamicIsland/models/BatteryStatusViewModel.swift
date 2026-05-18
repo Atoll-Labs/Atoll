@@ -26,6 +26,12 @@ import Foundation
 import IOKit.ps
 import SwiftUI
 
+enum BatteryTemporaryHUDKind: Equatable {
+    case charging
+    case lowBattery
+    case fullBattery
+}
+
 /// A view model that manages and monitors the battery status of the device
 class BatteryStatusViewModel: ObservableObject {
 
@@ -34,7 +40,6 @@ class BatteryStatusViewModel: ObservableObject {
     private var runLoopSource: Unmanaged<CFRunLoopSource>?
     var animations: DynamicIslandAnimations = DynamicIslandAnimations()
     private let lowBatteryAlertSoundPlayer = AudioPlayer()
-    private let lowBatteryAlertThresholds: [Float] = [20, 15, 10, 5]
 
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
 
@@ -46,6 +51,11 @@ class BatteryStatusViewModel: ObservableObject {
     @Published private(set) var isInitial: Bool = false
     @Published private(set) var timeToFullCharge: Int = 0
     @Published private(set) var statusText: String = ""
+    @Published private(set) var activeTemporaryHUDKind: BatteryTemporaryHUDKind?
+    @Published private(set) var activeTemporaryHUDToken: UUID = UUID()
+    @Published private(set) var activeTemporaryHUDTargetScreenName: String?
+    @Published private(set) var activeTemporaryHUDLevelOverride: Int?
+    @Published private(set) var activeTemporaryHUDLowPowerModeOverride: Bool?
 
     private let managerBattery = BatteryActivityManager.shared
     private var managerBatteryId: Int?
@@ -79,33 +89,39 @@ class BatteryStatusViewModel: ObservableObject {
         switch event {
         case .powerSourceChanged(let isPluggedIn):
             print("🔌 Power source: \(isPluggedIn ? "Connected" : "Disconnected")")
+            let wasPluggedIn = self.isPluggedIn
             withAnimation {
                 self.isPluggedIn = isPluggedIn
                 self.statusText = isPluggedIn ? String(localized: "Plugged In") : String(localized: "Unplugged")
-                self.notifyImportanChangeStatus()
+            }
+            if !wasPluggedIn && isPluggedIn {
+                presentTemporaryBatteryHUDIfNeeded(kind: .charging)
             }
 
         case .batteryLevelChanged(let level):
             print("🔋 Battery level: \(Int(level))%")
             let previousLevel = self.levelBattery
-            self.handleLowBatteryAlertIfNeeded(previousLevel: previousLevel, newLevel: level)
             withAnimation {
                 self.levelBattery = level
             }
+            self.handleLowBatteryAlertIfNeeded(previousLevel: previousLevel, newLevel: level)
+            self.handleFullBatteryAlertIfNeeded(previousLevel: previousLevel, newLevel: level)
 
         case .lowPowerModeChanged(let isEnabled):
             print("⚡ Low power mode: \(isEnabled ? "Enabled" : "Disabled")")
-            self.notifyImportanChangeStatus()
+            let wasEnabled = self.isInLowPowerMode
             withAnimation {
                 self.isInLowPowerMode = isEnabled
                 self.statusText = String(localized: "Low Power: \(self.isInLowPowerMode ? String(localized: "On") : String(localized: "Off"))")
+            }
+            if !wasEnabled && isEnabled {
+                presentTemporaryBatteryHUDIfNeeded(kind: .lowBattery)
             }
 
         case .isChargingChanged(let isCharging):
             print("🔌 Charging: \(isCharging ? "Yes" : "No")")
             print("maxCapacity: \(self.maxCapacity)")
             print("levelBattery: \(self.levelBattery)")
-            self.notifyImportanChangeStatus()
             withAnimation {
                 self.isCharging = isCharging
                 self.statusText =
@@ -145,28 +161,129 @@ class BatteryStatusViewModel: ObservableObject {
         }
     }
 
-    /// Notifies important changes in the battery status with an optional delay
-    /// - Parameter delay: The delay before notifying the change, default is 0.0
-    private func notifyImportanChangeStatus(delay: Double = 0.0) {
-        Task {
-            try? await Task.sleep(for: .seconds(delay))
-            self.coordinator.toggleExpandingView(status: true, type: .battery)
+    private func presentTemporaryBatteryHUDIfNeeded(kind: BatteryTemporaryHUDKind) {
+        presentTemporaryBatteryHUDIfNeeded(kind: kind, force: false)
+    }
+
+    func triggerTestHUD(kind: BatteryTemporaryHUDKind) {
+        let previewLevel: Int
+
+        switch kind {
+        case .charging:
+            previewLevel = max(12, min(95, Int(levelBattery.rounded())))
+        case .lowBattery:
+            previewLevel = max(5, min(20, Defaults[.lowBatteryHUDThreshold]))
+        case .fullBattery:
+            previewLevel = 100
         }
+
+        presentTemporaryBatteryHUDIfNeeded(
+            kind: kind,
+            force: true,
+            levelOverride: previewLevel,
+            lowPowerModeOverride: kind == .lowBattery ? isInLowPowerMode : nil
+        )
+    }
+
+    private func presentTemporaryBatteryHUDIfNeeded(
+        kind: BatteryTemporaryHUDKind,
+        force: Bool,
+        levelOverride: Int? = nil,
+        lowPowerModeOverride: Bool? = nil
+    ) {
+        guard force || Defaults[.showPowerStatusNotifications] else { return }
+
+        let duration: Int
+        let isEnabled: Bool
+
+        switch kind {
+        case .charging:
+            duration = Defaults[.chargingBatteryHUDDuration]
+            isEnabled = Defaults[.showChargingBatteryHUD]
+        case .lowBattery:
+            duration = Defaults[.lowBatteryHUDDuration]
+            isEnabled = Defaults[.showLowBatteryHUD]
+        case .fullBattery:
+            duration = Defaults[.fullBatteryHUDDuration]
+            isEnabled = Defaults[.showFullBatteryHUD]
+        }
+
+        guard force || isEnabled else { return }
+
+        activeTemporaryHUDKind = kind
+        activeTemporaryHUDToken = UUID()
+        activeTemporaryHUDTargetScreenName = resolvedTemporaryHUDTargetScreenName()
+        activeTemporaryHUDLevelOverride = levelOverride
+        activeTemporaryHUDLowPowerModeOverride = lowPowerModeOverride
+        coordinator.toggleExpandingView(
+            status: true,
+            type: .battery,
+            autoHideDuration: TimeInterval(max(1, duration))
+        )
+    }
+
+    private func resolvedTemporaryHUDTargetScreenName() -> String? {
+        if Defaults[.showOnAllDisplays] {
+            return nil
+        }
+
+        let preferredNames = [
+            coordinator.selectedScreen,
+            coordinator.preferredScreen,
+            NSScreen.main?.localizedName
+        ]
+        .compactMap { $0 }
+
+        for candidate in preferredNames where NSScreen.screens.contains(where: { $0.localizedName == candidate }) {
+            return candidate
+        }
+
+        return NSScreen.screens.first?.localizedName
+    }
+
+    private func preferredDynamicIslandTargetScreenName() -> String? {
+        let mainScreenName = NSScreen.main?.localizedName
+        let preferredNames = [coordinator.selectedScreen, coordinator.preferredScreen]
+
+        for candidate in preferredNames where shouldUseDynamicIslandMode(for: candidate) {
+            return candidate
+        }
+
+        if let externalDynamicIslandScreen = NSScreen.screens.first(where: {
+            $0.localizedName != mainScreenName && shouldUseDynamicIslandMode(for: $0.localizedName)
+        }) {
+            return externalDynamicIslandScreen.localizedName
+        }
+
+        if let anyDynamicIslandScreen = NSScreen.screens.first(where: {
+            shouldUseDynamicIslandMode(for: $0.localizedName)
+        }) {
+            return anyDynamicIslandScreen.localizedName
+        }
+
+        return nil
     }
 
     private func handleLowBatteryAlertIfNeeded(previousLevel: Float, newLevel: Float) {
-        guard Defaults[.playLowBatteryAlertSound] else { return }
         guard !isPluggedIn, !isCharging else { return }
         guard newLevel < previousLevel else { return }
+        let threshold = Float(Defaults[.lowBatteryHUDThreshold])
+        guard previousLevel > threshold && newLevel <= threshold else { return }
 
-        for threshold in lowBatteryAlertThresholds {
-            if previousLevel >= threshold && newLevel < threshold {
-                self.statusText = String(localized: "Low battery")
-                notifyImportanChangeStatus()
-                playLowBatteryAlertSound()
-                break
-            }
+        self.statusText = String(localized: "Low battery")
+        presentTemporaryBatteryHUDIfNeeded(kind: .lowBattery)
+        if Defaults[.playLowBatteryAlertSound] {
+            playLowBatteryAlertSound()
         }
+    }
+
+    private func handleFullBatteryAlertIfNeeded(previousLevel: Float, newLevel: Float) {
+        guard newLevel > previousLevel else { return }
+        let threshold = Float(Defaults[.fullBatteryHUDThreshold])
+        guard previousLevel < threshold && newLevel >= threshold else { return }
+
+        self.statusText = String(localized: "Full charge")
+        presentTemporaryBatteryHUDIfNeeded(kind: .fullBattery)
     }
 
     private func playLowBatteryAlertSound() {

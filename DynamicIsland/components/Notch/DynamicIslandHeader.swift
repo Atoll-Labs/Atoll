@@ -36,10 +36,12 @@ struct DynamicIslandHeader: View {
     @Default(.showClipboardIcon) var showClipboardIcon
     @Default(.showColorPickerIcon) var showColorPickerIcon
     @Default(.clipboardDisplayMode) var clipboardDisplayMode
+    @Default(.showBatteryIndicator) var showBatteryIndicator
+    @Default(.enableMinimalisticUI) var enableMinimalisticUI
     
     var body: some View {
         HStack(spacing: 0) {
-            if !Defaults[.enableMinimalisticUI] {
+            if !enableMinimalisticUI {
                 HStack {
                     let shouldShowTabs = coordinator.alwaysShowTabs || vm.notchState == .open || !shelfState.items.isEmpty
                     if shouldShowTabs {
@@ -55,7 +57,7 @@ struct DynamicIslandHeader: View {
 
             }
 
-            if vm.notchState == .open && !Defaults[.enableMinimalisticUI] {
+            if vm.notchState == .open && !enableMinimalisticUI {
                 let spacerWidth = min(vm.closedNotchSize.width, 300)
                 Rectangle()
                     .fill(NSScreen.screens
@@ -67,7 +69,7 @@ struct DynamicIslandHeader: View {
             }
 
             HStack(spacing: 4) {
-                if vm.notchState == .open && !Defaults[.enableMinimalisticUI] {
+                if vm.notchState == .open && !enableMinimalisticUI {
                     if Defaults[.showMirror] {
                         Button(action: {
                             vm.toggleCameraPreview()
@@ -230,7 +232,7 @@ struct DynamicIslandHeader: View {
                     
 
 
-                    if Defaults[.showBatteryIndicator] {
+                    if showBatteryIndicator {
                         DynamicIslandBatteryView(
                             batteryWidth: 30,
                             isCharging: batteryModel.isCharging,

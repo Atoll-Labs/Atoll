@@ -45,22 +45,12 @@ struct LockScreenTimerWidget: View {
         }
     }
 
-    private func displayFont(size: CGFloat) -> Font {
-        .system(size: size, weight: .semibold, design: .rounded)
-    }
-
     private var hasHoursComponent: Bool {
         abs(timerManager.remainingTime) >= 3600
     }
 
     private var hasDoubleDigitHours: Bool {
         abs(timerManager.remainingTime) >= 36_000 // 10 hours or more
-    }
-
-    private var titleFrameWidth: CGFloat {
-        if hasDoubleDigitHours { return 60 }
-        if hasHoursComponent { return 80 }
-        return 110
     }
 
     private var countdownFrameWidth: CGFloat {
@@ -72,10 +62,6 @@ struct LockScreenTimerWidget: View {
     private var countdownFont: Font {
         let baseSize: CGFloat = hasDoubleDigitHours ? 42 : 46
         return .system(size: baseSize, weight: .bold, design: .rounded)
-    }
-
-    private var timerLabel: String {
-        timerManager.timerName.isEmpty ? "Timer" : timerManager.timerName
     }
 
     private var countdownText: String {
@@ -195,8 +181,7 @@ struct LockScreenTimerWidget: View {
                 controlButtons
                     .padding(.trailing, 12)
 
-                titleSection
-                    .frame(maxWidth: .infinity)
+                Spacer()
 
                 countdownSection
                     .padding(.leading, 12)
@@ -259,19 +244,6 @@ struct LockScreenTimerWidget: View {
         .frame(width: countdownFrameWidth, alignment: .center)
         .padding(.trailing, 2)
         .layoutPriority(2)
-    }
-
-    private var titleSection: some View {
-        MarqueeText(
-            .constant(timerLabel),
-            font: displayFont(size: 15),
-            nsFont: .title3,
-            textColor: accentColor,
-            minDuration: 0.16,
-            frameWidth: titleFrameWidth
-        )
-        .frame(maxWidth: .infinity, alignment: .center)
-        .layoutPriority(0)
     }
 
     private var accentRibbon: some View {

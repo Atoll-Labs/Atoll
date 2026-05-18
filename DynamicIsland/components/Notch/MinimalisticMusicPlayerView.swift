@@ -113,6 +113,7 @@ struct MinimalisticMusicPlayerView: View {
                 // Compact progress bar
                 progressBar
                     .padding(.top, 6)
+                    .clipped()
                 
                 // Compact playback controls
                 if shouldShowControlHUDRow {
@@ -133,7 +134,7 @@ struct MinimalisticMusicPlayerView: View {
                 reminderList
             }
             .padding(.horizontal, 12)
-            .padding(.top, -15)
+            .padding(.top, 12)
             .padding(.bottom, ReminderLiveActivityManager.baselineMinimalisticBottomPadding)
             .frame(maxWidth: .infinity)
             .frame(height: calculateDynamicHeight(), alignment: .top)
@@ -254,7 +255,7 @@ struct MinimalisticMusicPlayerView: View {
         height += 6 + 4 // progress bar + top padding
 
         // Add playback controls height
-        height += 40 + 2 // controls + top padding
+        height += 54 + 2 // controls + top padding
 
         // Add lyrics height if enabled in settings (reserve space even while loading)
         if enableLyrics {
@@ -706,7 +707,7 @@ private struct MinimalisticReminderDetailsView: View {
     // MARK: - Playback Controls (Larger)
     
     private var playbackControls: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 10) {
             ForEach(Array(displayedSlots.enumerated()), id: \.offset) { _, slot in
                 slotView(for: slot)
             }
@@ -834,10 +835,10 @@ private struct MinimalisticReminderDetailsView: View {
     private var playPauseButton: some View {
         MinimalisticSquircircleButton(
             icon: musicManager.isPlaying ? (musicManager.isLiveStream ? "stop.fill" : "pause.fill") : "play.fill",
-            fontSize: 28,
+            fontSize: 26,
             fontWeight: .semibold,
-            frameSize: CGSize(width: 60, height: 60),
-            cornerRadius: 24,
+            frameSize: CGSize(width: 54, height: 54),
+            cornerRadius: 22,
             foregroundColor: .white,
             pressEffect: .none,
             symbolEffectStyle: .replace,
@@ -867,8 +868,8 @@ private struct MinimalisticReminderDetailsView: View {
             icon: icon,
             fontSize: size,
             fontWeight: .medium,
-            frameSize: CGSize(width: 40, height: 40),
-            cornerRadius: 16,
+            frameSize: CGSize(width: 36, height: 36),
+            cornerRadius: 14,
             foregroundColor: isActive ? resolvedActiveColor : .white.opacity(0.85),
             pressEffect: pressEffect,
             symbolEffectStyle: symbolEffect,
@@ -991,8 +992,8 @@ private struct MinimalisticReminderDetailsView: View {
                 icon: routeManager.activeDevice?.iconName ?? "speaker.wave.2",
                 fontSize: 18,
                 fontWeight: .medium,
-                frameSize: CGSize(width: 40, height: 40),
-                cornerRadius: 16,
+                frameSize: CGSize(width: 36, height: 36),
+                cornerRadius: 14,
                 foregroundColor: .white.opacity(0.85),
                 symbolEffectStyle: .replace
             ) {
@@ -1051,8 +1052,8 @@ private struct MinimalisticReminderDetailsView: View {
                 icon: "airplayaudio",
                 fontSize: 18,
                 fontWeight: .medium,
-                frameSize: CGSize(width: 40, height: 40),
-                cornerRadius: 16,
+                frameSize: CGSize(width: 36, height: 36),
+                cornerRadius: 14,
                 foregroundColor: .white.opacity(0.85),
                 symbolEffectStyle: .replace
             ) {
@@ -1113,7 +1114,16 @@ private struct MinimalisticReminderDetailsView: View {
 struct MinimalisticAlbumArtView: View {
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var vm: DynamicIslandViewModel
+    @Default(.showLiveCanvasInDynamicIsland) private var showLiveCanvasInDynamicIsland
     let albumArtNamespace: Namespace.ID
+
+    private var usesLiveCanvasArtwork: Bool {
+        showLiveCanvasInDynamicIsland && musicManager.videoArtworkURL != nil
+    }
+
+    private var albumArtCornerRadius: CGFloat {
+        musicManager.albumArt.size.width / musicManager.albumArt.size.height > 1.0 ? 4 : 12
+    }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -1128,16 +1138,27 @@ struct MinimalisticAlbumArtView: View {
         Color.clear
             .aspectRatio(1, contentMode: .fit)
             .background(
-                Image(nsImage: musicManager.albumArt)
-                    .resizable()
-                    .scaledToFill()
+                DynamicIslandArtworkSourceView(
+                    cornerRadius: albumArtCornerRadius,
+                    contentMode: .fill
+                )
             )
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .scaleEffect(x: 1.3, y: 1.4)
+            .clipShape(RoundedRectangle(cornerRadius: albumArtCornerRadius))
+            .scaleEffect(x: 1.08, y: 1.1)
             .rotationEffect(.degrees(92))
-            .blur(radius: 35)
-            .opacity(min(0.6, 1 - max(musicManager.albumArt.getBrightness(), 0.3)))
+            .blur(radius: 16)
+            .opacity(
+                usesLiveCanvasArtwork
+                    ? (musicManager.isPlaying ? 0.55 : 0.18)
+                    : min(0.45, 1 - max(musicManager.albumArt.getBrightness(), 0.3))
+            )
+            .shadow(
+                color: Color(nsColor: musicManager.avgColor).opacity(usesLiveCanvasArtwork ? 0.22 : 0.12),
+                radius: usesLiveCanvasArtwork ? 10 : 7,
+                x: 0,
+                y: 0
+            )
     }
     
     private var albumArtButton: some View {
@@ -1147,13 +1168,10 @@ struct MinimalisticAlbumArtView: View {
                 Color.clear
                     .aspectRatio(1, contentMode: .fit)
                     .background(
-                        
-                        Image(nsImage: musicManager.albumArt)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .clipShape(RoundedRectangle(cornerRadius: musicManager.albumArt.size.width/musicManager.albumArt.size.height > 1.0 ? 4 : 12))
-                        
-                        
+                        DynamicIslandArtworkSourceView(
+                            cornerRadius: albumArtCornerRadius,
+                            contentMode: .fit
+                        )
                     )
                     .clipped()
                     .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
