@@ -417,14 +417,14 @@ struct InlineHUD: View {
         var body: some View {
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.18), lineWidth: 2.6)
+                    .stroke(Color.white.opacity(0.18), lineWidth: 2)
 
                 Circle()
                     .trim(from: 0, to: max(clampedValue, 0.015))
                     .rotation(.degrees(-90))
-                    .stroke(indicatorColor, style: StrokeStyle(lineWidth: 2.8, lineCap: .round))
+                    .stroke(indicatorColor, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
             }
-            .frame(width: 22, height: 22)
+            .frame(width: 16, height: 16)
             .animation(.smooth(duration: 0.18), value: clampedValue)
         }
     }
