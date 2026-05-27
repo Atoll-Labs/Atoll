@@ -190,11 +190,23 @@ final class DoNotDisturbManager: ObservableObject {
             // Compute display name
             let finalName: String
             if resolvedMode == .custom, !FullDiskAccessAuthorization.hasPermission() {
-                finalName = "Focus"
+                // Use the provided name if it looks like a real display name (not an
+                // icon slug like "graduationcap.fill"). Slugs always contain a dot.
+                if let tn = trimmedName, !tn.isEmpty, !tn.contains(".") {
+                    finalName = tn
+                } else {
+                    finalName = "Focus"
+                }
             } else if resolvedMode == .custom, FullDiskAccessAuthorization.hasPermission() {
                 // With FDA, prefer the real name from ModeConfigurations.json (fixes slug names like graduationcap.fill).
                 let lookedUp = FocusMetadataReader.shared.getDisplayName(for: trimmedName ?? "", identifier: finalIdentifier)
-                finalName = lookedUp.isEmpty ? "Focus" : lookedUp
+                if !lookedUp.isEmpty {
+                    finalName = lookedUp
+                } else if let tn = trimmedName, !tn.isEmpty, !tn.contains(".") {
+                    finalName = tn
+                } else {
+                    finalName = "Focus"
+                }
             } else if let name = trimmedName, !name.isEmpty {
                 let lower = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 switch lower {
@@ -851,6 +863,14 @@ extension FocusModeType {
 
         if let identifier, !identifier.isEmpty {
             return FocusModeType(identifier: identifier)
+        }
+
+        // If a name was provided but didn't match any known English mode names, the
+        // system is likely reporting a localized (non-English) name such as "Travail"
+        // for Work on a French macOS. Treat it as a custom/unidentified focus mode
+        // instead of incorrectly falling back to Do Not Disturb.
+        if let name, !name.isEmpty {
+            return .custom
         }
 
         return .doNotDisturb
