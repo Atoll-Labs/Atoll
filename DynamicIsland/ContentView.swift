@@ -1113,18 +1113,18 @@ struct ContentView: View {
         let window = TimeInterval(Defaults[.reminderSneakPeekDuration])
 
         if window > 0 && remaining <= window {
-            return "\(title) • now"
+            return "\(title) • \(String(format: String(localized: "now")))"
         }
 
         let minutes = Int(ceil(remaining / 60))
         let timeString = reminderTimeFormatter.string(from: entry.event.start)
 
         if minutes <= 0 {
-            return "\(title) • now • \(timeString)"
+            return "\(title) • \(String(format: String(localized: "now"))) • \(timeString)"
         } else if minutes == 1 {
-            return "\(title) • in 1 min • \(timeString)"
+            return "\(title) • \(String(format: String(localized: "in %@"), String(localized: "1 min"))) • \(timeString)"
         } else {
-            return "\(title) • in \(minutes) min • \(timeString)"
+            return "\(title) • \(String(format: String(localized: "in %lld"), (minutes))) \(String(format: String(localized: "min plural"))) • \(timeString)"
         }
     }
 
