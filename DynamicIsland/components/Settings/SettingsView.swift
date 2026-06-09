@@ -6446,6 +6446,7 @@ struct TimerSettings: View {
     @Default(.timerControlWindowEnabled) private var controlWindowEnabled
     @Default(.mirrorSystemTimer) private var mirrorSystemTimer
     @Default(.timerDisplayMode) private var timerDisplayMode
+    @Default(.timerInputStyle) private var timerInputStyle
     @Default(.enableLockScreenTimerWidget) private var enableLockScreenTimerWidget
     @Default(.lockScreenTimerWidgetUsesBlur) private var timerGlassModeIsGlass
     @Default(.lockScreenTimerGlassStyle) private var lockScreenTimerGlassStyle
@@ -6671,6 +6672,14 @@ struct TimerSettings: View {
                 ColorPicker("Solid colour", selection: $solidColor, supportsOpacity: false)
                     .settingsHighlight(id: highlightID("Solid colour"))
             }
+
+            Picker("Custom timer style", selection: $timerInputStyle) {
+                ForEach(TimerInputStyle.allCases) { style in
+                    Text(style.displayName).tag(style)
+                }
+            }
+            .pickerStyle(.segmented)
+            .settingsHighlight(id: highlightID("Custom timer style"))
 
             Toggle("Show timer name", isOn: $showsLabel)
             Toggle("Show countdown", isOn: $showsCountdown)
@@ -8042,6 +8051,10 @@ struct SettingsPermissionCallout: View {
 struct NotesSettingsView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
+    @ObservedObject private var appleNotesSync = AppleNotesSyncManager.shared
+    @Default(.enableNotes) private var enableNotes
+    @Default(.enableAppleNotesSync) private var enableAppleNotesSync
+    @Default(.appleNotesLastSyncDate) private var appleNotesLastSyncDate
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.notes.highlightID(for: title)
@@ -8053,7 +8066,7 @@ struct NotesSettingsView: View {
                 Defaults.Toggle(key: .enableNotes) {
                     Text("Enable Notes")
                 }
-                if Defaults[.enableNotes] {
+                if enableNotes {
                     Defaults.Toggle(key: .enableNotePinning) {
                         Text("Enable Note Pinning")
                     }
@@ -8076,6 +8089,56 @@ struct NotesSettingsView: View {
                 Text("Customize how you organize and create notes. Enabling color filtering and search helps manage large lists.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            if enableNotes {
+                Section {
+                    Defaults.Toggle(key: .enableAppleNotesSync) {
+                        Text("Sync with Apple Notes")
+                    }
+                    .settingsHighlight(id: highlightID("Sync with Apple Notes"))
+
+                    if enableAppleNotesSync {
+                        Button {
+                            Task {
+                                let notes = Defaults[.savedNotes]
+                                if let merged = await appleNotesSync.sync(localNotes: notes) {
+                                    Defaults[.savedNotes] = merged
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Text("Sync Now")
+                                Spacer()
+                                if appleNotesSync.isSyncing {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                }
+                            }
+                        }
+                        .disabled(appleNotesSync.isSyncing)
+                        .settingsHighlight(id: highlightID("Sync Now"))
+
+                        if let lastSync = appleNotesLastSyncDate {
+                            LabeledContent("Last synced") {
+                                Text(lastSync, style: .relative)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        if let error = appleNotesSync.lastError {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                } header: {
+                    Text("Apple Notes")
+                } footer: {
+                    Text("Two-way sync with the macOS Notes app. Notes created in Atoll appear in the Atoll folder in Notes, and your existing Apple Notes are imported into the notch. Grant Automation permission for Notes when prompted.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .navigationTitle("Notes")
