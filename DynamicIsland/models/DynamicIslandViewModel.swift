@@ -36,6 +36,11 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     @Published var dropEvent: Bool = false
     @Published var anyDropZoneTargeting: Bool = false
     var cancellables: Set<AnyCancellable> = []
+
+    /// Teardown hook ContentView registers in `onAppear`; the window-cleanup path
+    /// invokes it before closing the panel since `.onDisappear` is unreliable for
+    /// borderless panels, preventing leaked hover-polling Tasks from accumulating.
+    var onViewTeardown: (() -> Void)?
     
     @Published var hideOnClosed: Bool = true
     @Published var isHoveringCalendar: Bool = false
@@ -114,6 +119,8 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     }
 
     func destroy() {
+        onViewTeardown?()
+        onViewTeardown = nil
         cancellables.forEach { $0.cancel() }
         cancellables.removeAll()
     }

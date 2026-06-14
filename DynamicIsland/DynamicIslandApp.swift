@@ -301,13 +301,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     private func cleanupWindows(shouldInvert: Bool = false) {
         if shouldInvert ? !Defaults[.showOnAllDisplays] : Defaults[.showOnAllDisplays] {
-            for window in windows.values {
+            for (screen, window) in windows {
+                // Tear down the hosted ContentView before dropping the window
+                // (`.onDisappear` is unreliable for borderless panels).
+                viewModels[screen]?.onViewTeardown?()
+                viewModels[screen]?.onViewTeardown = nil
                 window.close()
                 NotchSpaceManager.shared.notchSpace.windows.remove(window)
             }
             windows.removeAll()
             viewModels.removeAll()
         } else if let window = window {
+            vm.onViewTeardown?()
+            vm.onViewTeardown = nil
             window.close()
             NotchSpaceManager.shared.notchSpace.windows.remove(window)
             self.window = nil
@@ -1181,6 +1187,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             for screen in windows.keys where !currentScreens.contains(screen) {
                 if let window = windows[screen] {
+                    viewModels[screen]?.onViewTeardown?()
+                    viewModels[screen]?.onViewTeardown = nil
                     window.close()
                     NotchSpaceManager.shared.notchSpace.windows.remove(window)
                     windows.removeValue(forKey: screen)
