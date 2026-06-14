@@ -44268,7 +44268,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open inkeping tijdens het zweven"
+            "value": "Open inkeping bij aawijzen"
           }
         }
       }
@@ -62955,7 +62955,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Track overslaan"
+            "value": "Nummer overslaan"
           }
         }
       }
@@ -63403,7 +63403,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Veeg met twee vingers omhoog over de inkeping om te sluiten, veeg met twee vingers omlaag over de inkeping om te openen wanneer de optie **Inkeping openen bij zweven** is uitgeschakeld"
+            "value": "Veeg met twee vingers omhoog over de inkeping om te sluiten, veeg met twee vingers omlaag over de inkeping om te openen wanneer de optie **Inkeping openen bij aanwijzen** is uitgeschakeld"
           }
         }
       }

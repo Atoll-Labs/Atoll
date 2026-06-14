@@ -38116,7 +38116,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Schakel ingebouwde systeemmonitoring in om macOS HUD-meldingen te vervangen door Atoll-displays."
+            "value": "Schakel ingebouwde systeemmonitoring in om macOS HUD-meldingen te vervangen door Atoll-schermen."
           }
         }
       }
@@ -75276,7 +75276,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vervangt de HUD van het macOS-systeem door Dynamic Island-displays voor volume, helderheid en toetsenbordverlichting."
+            "value": "Vervangt de HUD van het macOS-systeem door Dynamic Island-schermen voor volume, helderheid en toetsenbordverlichting."
           }
         }
       }
@@ -84532,7 +84532,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toon op alle displays"
+            "value": "Toon op alle schermen"
           }
         }
       }
@@ -95389,7 +95389,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Veeg met twee vingers omhoog over de inkeping om te sluiten, veeg met twee vingers omlaag over de inkeping om te openen wanneer de optie **Inkeping openen bij zweven** is uitgeschakeld"
+            "value": "Veeg met twee vingers omhoog over de inkeping om te sluiten, veeg met twee vingers omlaag over de inkeping om te openen wanneer de optie **Inkeping openen bij aanwijzen** is uitgeschakeld"
           }
         }
       }
