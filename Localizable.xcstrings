@@ -43869,7 +43869,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gebaarcontrole"
+            "value": "Gebaarbediening"
           }
         }
       }
@@ -44153,7 +44153,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ga aan de slag"
+            "value": "Aan de slag"
           }
         }
       }
@@ -79578,7 +79578,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zoekinstellingen"
+            "value": "Zoek naar instellingen"
           }
         }
       }
@@ -97096,7 +97096,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gebruik eenvoudigere close-animatie"
+            "value": "Gebruik eenvoudigere sluit-animatie"
           }
         }
       }
