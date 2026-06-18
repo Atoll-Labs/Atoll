@@ -435,6 +435,26 @@ enum SneakPeekStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
     }
 }
 
+enum LogLevel: Int, CaseIterable, Identifiable, Defaults.Serializable {
+    case none = 0
+    case error = 1
+    case warning = 2
+    case info = 3
+    case debug = 4
+    
+    var id: Int { self.rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .none: return "No Logging"
+        case .error: return "Error"
+        case .warning: return "Warning"
+        case .info: return "Info"
+        case .debug: return "Debug"
+        }
+    }
+}
+
 enum CapsLockIndicatorTintMode: String, CaseIterable, Identifiable, Defaults.Serializable {
     case green
     case accent
@@ -805,6 +825,7 @@ struct NoteItem: Codable, Identifiable, Defaults.Serializable, Hashable {
 
 extension Defaults.Keys {
         // MARK: General
+    static let logLevel = Key<LogLevel>("logLevel", default: .none)
     static let menubarIcon = Key<Bool>("menubarIcon", default: true)
     static let showOnAllDisplays = Key<Bool>("showOnAllDisplays", default: false)
     static let automaticallySwitchDisplay = Key<Bool>("automaticallySwitchDisplay", default: true)
