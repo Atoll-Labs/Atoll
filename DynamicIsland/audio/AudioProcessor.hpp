@@ -29,10 +29,10 @@
 class AudioProcessor {
    private:
     static constexpr int kBlockSize = 512;
-    static constexpr int kBands = 4;
+    static constexpr int kBands = 6;
     static constexpr float kAttack = 0.85f;   // fast rise
     static constexpr float kRelease = 0.40f;  // slower fall — more musical
-    static constexpr float kGains[kBands] = { 3.5f, 6.0f, 9.0f, 20.0f };
+    static constexpr float kGains[kBands] = { 3.0f, 4.5f, 6.0f, 9.0f, 14.0f, 24.0f };
 
     float sampleRate;
     int writePos = 0;

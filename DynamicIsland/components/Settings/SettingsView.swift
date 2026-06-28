@@ -2761,6 +2761,9 @@ struct Media: View {
     @Default(.lockScreenMusicFullscreenArtworkEnabled) private var lockScreenMusicFullscreenArtworkEnabled
     @Default(.showStandardMediaControls) private var showStandardMediaControls
     @Default(.autoHideInactiveNotchMediaPlayer) private var autoHideInactiveNotchMediaPlayer
+    @Default(.visualizerBarCount) private var visualizerBarCount
+    @Default(.enableWaveformScrubber) private var enableWaveformScrubber
+    @Default(.colorExtractionMode) private var colorExtractionMode
     @Default(.parallaxEffectIntensity) private var parallaxEffectIntensity
 
     
@@ -2969,6 +2972,19 @@ struct Media: View {
                     }
                 }
                 .settingsHighlight(id: highlightID("Enable real-time waveform"))
+                
+                Picker("Visualizer candles", selection: $visualizerBarCount) {
+                    Text("4").tag(4)
+                    Text("5").tag(5)
+                    Text("6").tag(6)
+                }
+                
+                Picker("Color extraction", selection: $colorExtractionMode) {
+                    Text("Legacy").tag(ColorExtractionMode.legacy)
+                    Text("Vibrant").tag(ColorExtractionMode.vibrant)
+                }
+                
+                Toggle("Scrubbable real-time waveform", isOn: $enableWaveformScrubber)
             } header: {
                 Text("Music Visualizer")
             } footer: {

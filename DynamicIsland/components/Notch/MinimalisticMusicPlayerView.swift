@@ -78,8 +78,14 @@ struct MinimalisticMusicPlayerView: View {
                     GeometryReader { headerGeo in
                         let albumArtWidth: CGFloat = 50
                         let spacing: CGFloat = 10
-                        let visualizerWidth: CGFloat = useMusicVisualizer ? 24 : 0
-                        let textWidth = max(0, headerGeo.size.width - albumArtWidth - spacing - (useMusicVisualizer ? (visualizerWidth + spacing) : 0))
+                        // The right-side time label in the progress bar below is 42pt wide,
+                        // trailing-aligned, so its center sits 21pt from the right edge.
+                        // We use the same 42pt block for the visualizer so the candles
+                        // are perfectly centred above the "-00:00" text.
+                        let vizBlockWidth: CGFloat = useMusicVisualizer ? 42 : 0
+                        let visualizerBarWidth: CGFloat = useMusicVisualizer ? 24 : 0
+                        // Leave an extra 8pt gap between the title text and the visualizer.
+                        let textWidth = max(0, headerGeo.size.width - albumArtWidth - spacing - (useMusicVisualizer ? (vizBlockWidth + spacing) : 0))
                         HStack(alignment: .center, spacing: spacing) {
                             MinimalisticAlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace)
                                 .frame(width: albumArtWidth, height: albumArtWidth)
@@ -106,8 +112,13 @@ struct MinimalisticMusicPlayerView: View {
                             .frame(width: textWidth, alignment: .leading)
 
                             if useMusicVisualizer {
-                                visualizer
-                                    .frame(width: visualizerWidth)
+                                // 48-pt block matches the trailing time-label width so the
+                                // candle centre lines up with the centre of "-00:00".
+                                ZStack {
+                                    visualizer
+                                        .frame(width: visualizerBarWidth)
+                                }
+                                .frame(width: vizBlockWidth)
                             }
                         }
                     }
@@ -120,7 +131,6 @@ struct MinimalisticMusicPlayerView: View {
                 // Compact progress bar
                 progressBar
                     .padding(.top, batteryOffNotchMode ? 4 : 6)
-                    .clipped()
                 
                 // Compact playback controls
                 if shouldShowControlHUDRow {
@@ -321,7 +331,7 @@ struct MinimalisticMusicPlayerView: View {
             // How far to pull the album art and waveform up alongside the notch.
             let notchHeight = vm.effectiveClosedNotchHeight
             let pullUp = max(notchHeight - 4, 20)
-
+            
             ZStack(alignment: .top) {
                 // ── Left: Album art ──
                 HStack {
@@ -339,7 +349,7 @@ struct MinimalisticMusicPlayerView: View {
                         visualizer
                             .frame(width: visualizerWidth)
                         Spacer()
-                            .frame(width: 4)
+                            .frame(width: 12)
                     }
                     .offset(y: -pullUp + (albumArtSize - 16) / 2)
                     .frame(width: totalWidth)
@@ -348,7 +358,9 @@ struct MinimalisticMusicPlayerView: View {
                 // ── Center: Title + Artist (below the notch) ──
                 VStack(alignment: .leading, spacing: 1) {
                     if !musicManager.songTitle.isEmpty {
-                        let textAreaWidth = max(0, totalWidth - albumArtSize - 10 - (useMusicVisualizer ? visualizerWidth + 10 : 0))
+                        // In the U-shaped layout the visualizer sits in a 48-pt wide zone
+                        // (matching the time text) and has a 12-pt right spacer inside it.
+                        let textAreaWidth = max(0, totalWidth - albumArtSize - 10 - (useMusicVisualizer ? (visualizerWidth + 12 + 10) : 0))
                         MusicTitleMarqueeView(
                             text: musicManager.songTitle,
                             isExplicit: musicManager.isCurrentTrackExplicit,
@@ -735,13 +747,14 @@ private struct MinimalisticReminderDetailsView: View {
     @Default(.useMusicVisualizer) var useMusicVisualizer
     
     private var visualizer: some View {
-        Rectangle()
-            .fill(Defaults[.coloredSpectrogram] ? Color(nsColor: MusicManager.shared.avgColor).gradient : Color.gray.gradient)
+        let width = CGFloat(Defaults[.visualizerBarCount]) * 4
+        return Rectangle()
+            .fill((Defaults[.coloredSpectrogram] ? Color(nsColor: MusicManager.shared.avgColor) : Color.gray).spectrogramGradient())
             .mask {
                 AudioVisualizerView(isPlaying: .constant(MusicManager.shared.isPlaying))
-                    .frame(width: 20, height: 16)
+                    .frame(width: width, height: 16)
             }
-            .frame(width: 20, height: 16)
+            .frame(width: width, height: 16)
             .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
     }
     

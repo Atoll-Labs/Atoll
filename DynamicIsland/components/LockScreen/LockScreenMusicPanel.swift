@@ -433,7 +433,7 @@ struct LockScreenMusicPanel: View {
     private func visualizer(width: CGFloat, height: CGFloat) -> some View {
         if Defaults[.useMusicVisualizer] {
             Rectangle()
-                .fill(Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor).gradient : Color.gray.gradient)
+                .fill((Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor) : Color.gray).spectrogramGradient())
                 .mask {
                     AudioVisualizerView(isPlaying: .constant(musicManager.isPlaying))
                         .frame(width: width, height: height)

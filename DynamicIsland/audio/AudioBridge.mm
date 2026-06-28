@@ -38,13 +38,12 @@
     processor->process(buffer, count);
 }
 
-- (simd_float4)getSmoothedMagnitudes {
-    return simd_make_float4(
-        processor->getBand(0),
-        processor->getBand(1),
-        processor->getBand(2),
-        processor->getBand(3)
-    );
+- (NSArray<NSNumber *> *)getSmoothedMagnitudes {
+    NSMutableArray<NSNumber *> *magnitudes = [NSMutableArray arrayWithCapacity:6];
+    for (int i = 0; i < 6; i++) {
+        [magnitudes addObject:@(processor->getBand(i))];
+    }
+    return magnitudes;
 }
 
 - (void)dealloc {

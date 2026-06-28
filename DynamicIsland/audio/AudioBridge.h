@@ -27,7 +27,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface AudioBridge : NSObject
 
 - (void)processBuffer:(const float *)buffer count:(int)count;
-- (simd_float4)getSmoothedMagnitudes;
+- (NSArray<NSNumber *> *)getSmoothedMagnitudes;
 
 @end
 

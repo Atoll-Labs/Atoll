@@ -1522,20 +1522,31 @@ struct ContentView: View {
     }
 
     @ViewBuilder
+    private func SpectrumVisualizer(
+        useMusicVisualizer: Bool,
+        forceSpectrum: Bool
+    ) -> some View {
+        let width = CGFloat(Defaults[.visualizerBarCount]) * 4
+        if useMusicVisualizer || forceSpectrum {
+            Rectangle()
+                .fill((Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor) : Color.gray).spectrogramGradient())
+                .frame(width: 50, alignment: .center)
+                .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
+                .mask {
+                    AudioVisualizerView(isPlaying: $musicManager.isPlaying)
+                        .frame(width: width, height: 12)
+                }
+        }
+    }
+
+    @ViewBuilder
     private func spectrumView(
         forceSpectrum: Bool,
         trailingInset: CGFloat = 0,
         enableClosedPlayPauseOverlay: Bool = false
     ) -> some View {
         if useMusicVisualizer || forceSpectrum {
-            Rectangle()
-                .fill(Defaults[.coloredSpectrogram] ? Color(nsColor: musicManager.avgColor).gradient : Color.gray.gradient)
-                .frame(width: 50, alignment: .center)
-                .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
-                .mask {
-                    AudioVisualizerView(isPlaying: $musicManager.isPlaying)
-                        .frame(width: 16, height: 12)
-                }
+            SpectrumVisualizer(useMusicVisualizer: useMusicVisualizer, forceSpectrum: forceSpectrum)
                 .blur(radius: (enableClosedPlayPauseOverlay && isHoveringClosedMusicWaveformControl) ? 2.4 : 0)
                 .overlay {
                     if enableClosedPlayPauseOverlay {

@@ -65,7 +65,9 @@ let audioIOProc: AudioDeviceIOProc = {
             
             // Also log the current band values from the bridge
             let mags = scanner.bridge.getSmoothedMagnitudes()
-            os_log(.debug, log: audioTapLog, "🎚️ Bridge magnitudes: [%f, %f, %f, %f]", mags.x, mags.y, mags.z, mags.w)
+            if mags.count >= 4 {
+                os_log(.debug, log: audioTapLog, "🎚️ Bridge magnitudes: [%f, %f, %f, %f]", mags[0].floatValue, mags[1].floatValue, mags[2].floatValue, mags[3].floatValue)
+            }
         }
     }
 
@@ -109,7 +111,7 @@ class AudioTap: NSObject {
     
     let bridge = AudioBridge()
     var isPaused: Bool = false
-    private var displayMagnitudes = simd_float4(0, 0, 0, 0)
+    private var displayMagnitudes: [Float] = Array(repeating: 0, count: 6)
 
     // CoreAudio stuff
     private var tapID: AudioObjectID = kAudioObjectUnknown
@@ -140,17 +142,17 @@ class AudioTap: NSObject {
         super.init()
     }
 
-    // Helper function to smooth out the magnitudes for prettifying purposes
-    func getSmoothedMagnitudes() -> simd_float4 {
-        // Zero bridging overhead. Just passing 16 bytes of memory.
-        let targetLevels = bridge.getSmoothedMagnitudes()
-
+    func getSmoothedMagnitudes() -> [Float] {
+        let nsMagnitudes = bridge.getSmoothedMagnitudes()
+        let targetLevels = nsMagnitudes.map { $0.floatValue }
+        
         let smoothingFactor: Float = 0.4
-
-        // Vector math! This does all 4 calculations simultaneously.
-        let difference = targetLevels - displayMagnitudes
-        displayMagnitudes += difference * smoothingFactor
-
+        
+        for i in 0..<min(targetLevels.count, displayMagnitudes.count) {
+            let difference = targetLevels[i] - displayMagnitudes[i]
+            displayMagnitudes[i] += difference * smoothingFactor
+        }
+        
         return displayMagnitudes
     }
 
@@ -326,7 +328,7 @@ class AudioTap: NSObject {
         captureIsRunning = false
         
         // Reset display magnitudes
-        displayMagnitudes = simd_float4(0, 0, 0, 0)
+        displayMagnitudes = Array(repeating: 0, count: 6)
 
         print("🔴 [AudioTap] CoreAudio CATap capture stopped")
     }
