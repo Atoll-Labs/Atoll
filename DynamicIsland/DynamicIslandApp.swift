@@ -336,8 +336,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         window.animationBehavior = .none
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle, .stationary]
-        
+        // collectionBehavior is configured in DynamicIslandWindow.init
+
         window.contentView = FirstMouseHostingView(
             rootView: ContentView()
                 .environmentObject(viewModel)
@@ -359,14 +359,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Use the same centering logic as updateWindowSizeIfNeeded()
         let screenFrame = screen.frame
         let centerX = screenFrame.origin.x + (screenFrame.width / 2)
-        let newX = (centerX - (window.frame.width / 2)).rounded()
-        let newY = (screenFrame.origin.y + screenFrame.height - window.frame.height).rounded()
-        
+        let roundedWidth = window.frame.width.rounded()
+        let roundedHeight = window.frame.height.rounded()
+        let newX = (centerX - (roundedWidth / 2)).rounded()
+        let newY = (screenFrame.origin.y + screenFrame.height - roundedHeight).rounded()
+
         window.setFrame(NSRect(
             x: newX,
             y: newY,
-            width: window.frame.width.rounded(),
-            height: window.frame.height.rounded()
+            width: roundedWidth,
+            height: roundedHeight
         ), display: false)
         
         if changeAlpha {
