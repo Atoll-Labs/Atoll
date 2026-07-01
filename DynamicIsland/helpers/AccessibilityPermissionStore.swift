@@ -86,6 +86,9 @@ final class AccessibilityPermissionStore: ObservableObject {
 
     private static func isAccessibilityAuthorized() -> Bool {
 #if canImport(ApplicationServices)
+        if CommandLine.arguments.contains("--uitesting") {
+            return true
+        }
         return AXIsProcessTrusted()
 #else
         return true
