@@ -28,6 +28,9 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Download Metal Toolchain
+        run: sudo xcodebuild -downloadComponent MetalToolchain || true
+
       - name: Build and Test
         run: |
           sudo DevToolsSecurity -enable
