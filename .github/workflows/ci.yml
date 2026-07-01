@@ -15,7 +15,7 @@ jobs:
       matrix:
         # macOS 26 and 27 might not be natively supported on GitHub-hosted runners yet.
         # But we specify them as requested. You might need self-hosted runners for 26 and 27.
-        macos_version: [macos-14, macos-15, macos-26, macos-27]
+        macos_version: [macos-14, macos-15, macos-26]
       fail-fast: false
     runs-on: ${{ matrix.macos_version }}
 
@@ -24,37 +24,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Select Xcode Version
-        run: |
-          if [ -d "/Applications/Xcode_16.1.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
-          elif [ -d "/Applications/Xcode_16.0.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
-          else
-            sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
-          fi
-
-      - name: Install Apple Certificate
-        env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-          P12_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Create variables
-          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-
-          # Import certificate from secrets
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-
-          # Create temporary keychain
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          # Import certificate to keychain
-          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychains -d user -s $KEYCHAIN_PATH
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ^16.0
 
       - name: Build and Test
         run: |
@@ -64,6 +36,8 @@ jobs:
             -scheme DynamicIsland \
             -destination "platform=macOS" \
             -enableCodeCoverage YES \
-            OTHER_CODE_SIGN_FLAGS="--keychain $RUNNER_TEMP/app-signing.keychain-db" \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
             CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES
 
