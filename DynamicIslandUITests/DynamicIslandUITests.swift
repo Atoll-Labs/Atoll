@@ -12,9 +12,9 @@ final class DynamicIslandUITests: XCTestCase {
     }
 
     func testNotchExpansion() throws {
-        let notch = app.windows["DynamicIslandNotch"]
+        let notch = app.windows["AtollNotch"]
         
-        XCTAssertTrue(notch.exists, "The Dynamic Island notch should be visible.")
+        XCTAssertTrue(notch.exists, "The Atoll notch should be visible.")
         
         notch.click()
         
