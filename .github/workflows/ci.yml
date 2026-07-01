@@ -36,16 +36,45 @@ jobs:
           done
 
       - name: Build and Test
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           sudo DevToolsSecurity -enable
-          xcodebuild test \
-            -project DynamicIsland.xcodeproj \
-            -scheme DynamicIsland \
-            -destination "platform=macOS" \
-            -enableCodeCoverage YES \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=YES \
-            CODE_SIGN_ENTITLEMENTS="" \
-            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES
+          
+          if [ -n "$CERTIFICATE_BASE64" ]; then
+            # Import certificate to build keychain
+            CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+            KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+            echo -n "$CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+            security create-keychain -p "" $KEYCHAIN_PATH
+            security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+            security unlock-keychain -p "" $KEYCHAIN_PATH
+            security import $CERTIFICATE_PATH -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+            security list-keychain -d user -s $KEYCHAIN_PATH
+            
+            xcodebuild test \
+              -project DynamicIsland.xcodeproj \
+              -scheme DynamicIsland \
+              -destination "platform=macOS" \
+              -enableCodeCoverage YES \
+              OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" \
+              CODE_SIGN_STYLE=Manual \
+              CODE_SIGN_IDENTITY="Developer ID Application" \
+              PROVISIONING_PROFILE_SPECIFIER="" \
+              CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES
+          else
+            # Fallback to ad-hoc with stripped entitlements if no cert is available
+            echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict></dict></plist>' > DynamicIsland/DynamicIsland.entitlements
+            xcodebuild test \
+              -project DynamicIsland.xcodeproj \
+              -scheme DynamicIsland \
+              -destination "platform=macOS" \
+              -enableCodeCoverage YES \
+              CODE_SIGN_IDENTITY="-" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=YES \
+              CODE_SIGN_ENTITLEMENTS="DynamicIsland/DynamicIsland.entitlements" \
+              CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES
+          fi
 
