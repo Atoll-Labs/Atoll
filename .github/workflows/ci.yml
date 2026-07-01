@@ -36,63 +36,25 @@ jobs:
           done
 
       - name: Build and Test
-        env:
-          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           sudo DevToolsSecurity -enable
           
-          if [ -n "$CERTIFICATE_BASE64" ]; then
-            CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-            KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-            echo -n "$CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-            
-            KEYCHAIN_PASSWORD="actions"
-            
-            # Create a temporary keychain with a non-empty password
-            security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-            security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-            security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-            
-            # Set it as the default so Xcode's provisioning engine finds it
-            security default-keychain -s $KEYCHAIN_PATH
-            security list-keychains -d user -s $KEYCHAIN_PATH
-            
-            # Import certificate into the custom keychain
-            security import $CERTIFICATE_PATH -P "$CERTIFICATE_PASSWORD" -A -f pkcs12 -k $KEYCHAIN_PATH
-            
-            # CRITICAL: Allow codesign tool to access the private key without a UI prompt
-            # macOS 14+ silently fails this command if the keychain password is empty!
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-            
-            # Dynamically extract Identity and Team ID from the certificate
-            FULL_IDENTITY=$(security find-identity -v -p codesigning $KEYCHAIN_PATH | head -n 1 | grep -o '".*"' | tr -d '"')
-            TEAM_ID=$(echo $FULL_IDENTITY | grep -o '([A-Z0-9]*)' | tr -d '()')
-            
-            # Extract just the prefix (e.g. "Apple Development" or "Developer ID Application")
-            IDENTITY_TYPE=$(echo "$FULL_IDENTITY" | cut -d ':' -f 1)
-            
-            echo "Extracted Full Identity: $FULL_IDENTITY"
-            echo "Extracted Identity Type: $IDENTITY_TYPE"
-            echo "Extracted Team ID: $TEAM_ID"
-            
-            xcodebuild test \
-              -project DynamicIsland.xcodeproj \
-              -scheme DynamicIsland \
-              -destination "platform=macOS" \
-              -enableCodeCoverage YES \
-              OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" \
-              CODE_SIGN_STYLE=Manual \
-              CODE_SIGN_IDENTITY="$IDENTITY_TYPE" \
-              DEVELOPMENT_TEAM="$TEAM_ID" \
-              PROVISIONING_PROFILE_SPECIFIER="" \
-              CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES || {
-                echo "Tests failed. Searching for crash logs..."
-                find ~/Library/Logs/DiagnosticReports -name "*.crash" -print -exec cat {} +
-                exit 1
-              }
-          else
-            echo "Missing Apple Certificate secrets. Required for CI UI tests on macOS."
-            exit 1
-          fi
+          # Safely remove only the mach-services entitlement for the CI build.
+          # This only affects the ephemeral CI runner and prevents amfid from killing the ad-hoc app.
+          # Your actual repository file and production app are untouched.
+          plutil -remove com.apple.security.mach-services DynamicIsland/DynamicIsland.entitlements || true
+          
+          xcodebuild test \
+            -project DynamicIsland.xcodeproj \
+            -scheme DynamicIsland \
+            -destination "platform=macOS" \
+            -enableCodeCoverage YES \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES || {
+              echo "Tests failed. Searching for crash logs..."
+              find ~/Library/Logs/DiagnosticReports -name "*.crash" -print -exec cat {} +
+              exit 1
+            }
 
