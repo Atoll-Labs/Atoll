@@ -83,8 +83,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		7EA69B202F5AE63200EB2D16 /* Exceptions for "Contents" folder in "" build phase */ = {
+		7EA69B202F5AE63200EB2D16 /* Exceptions for "Contents" folder in "Copy Files" phase from "DynamicIsland" target */ = {
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			attributesByRelativePath = {
+				Helpers/NowPlayingTestClient = (CodeSignOnCopy, );
+			};
 			buildPhase = 7EA69B1B2F5AE13500EB2D16 /* CopyFiles */;
 			membershipExceptions = (
 				Helpers/NowPlayingTestClient,
@@ -97,7 +100,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				7EA69B1E2F5AE61200EB2D16 /* Exceptions for "Contents" folder in "DynamicIsland" target */,
-				7EA69B202F5AE63200EB2D16 /* Exceptions for "Contents" folder in "" build phase */,
+				7EA69B202F5AE63200EB2D16 /* Exceptions for "Contents" folder in "Copy Files" phase from "DynamicIsland" target */,
 			);
 			path = Contents;
 			sourceTree = "<group>";

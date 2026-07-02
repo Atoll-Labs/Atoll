@@ -47,7 +47,7 @@ final class ExtensionXPCServiceHost: NSObject, NSXPCListenerDelegate {
 
         // In UI testing environments (like CI), the mach-services entitlement might be stripped
         // to bypass amfid ad-hoc signing crashes. Starting the listener without the entitlement crashes the app.
-        if CommandLine.arguments.contains("--uitesting") {
+        if AppRuntimeEnvironment.isUITesting {
             Logger.log("Bypassing Atoll XPC listener for UI testing", category: .extensions)
             return
         }
