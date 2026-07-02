@@ -33,8 +33,10 @@ struct DynamicNotchApp: App {
     let updaterController: SPUStandardUpdaterController
 
     init() {
+        // Skip Sparkle's launch-time update check during UI testing.
         updaterController = SPUStandardUpdaterController(
-            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+            startingUpdater: !AppRuntimeEnvironment.isUITesting,
+            updaterDelegate: nil, userDriverDelegate: nil)
 
         // Initialize the settings window controller with the updater controller
         SettingsWindowController.shared.setUpdaterController(updaterController)
@@ -581,17 +583,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         LunarManager.shared.configure(coordinator: coordinator)
         
         // Setup ScreenRecording Manager
-        if Defaults[.enableScreenRecordingDetection] {
+        if Defaults[.enableScreenRecordingDetection] && !AppRuntimeEnvironment.isUITesting {
             ScreenRecordingManager.shared.startMonitoring()
         }
-        
+
         // Setup Do Not Disturb Manager
-        if Defaults[.enableDoNotDisturbDetection] {
+        if Defaults[.enableDoNotDisturbDetection] && !AppRuntimeEnvironment.isUITesting {
             dndManager.startMonitoring()
         }
 
-        // Setup Privacy Indicator Manager (camera and microphone monitoring)
-        PrivacyIndicatorManager.shared.startMonitoring()
+        // Setup Privacy Indicator Manager (camera/mic; skipped under UI testing).
+        if !AppRuntimeEnvironment.isUITesting {
+            PrivacyIndicatorManager.shared.startMonitoring()
+        }
         
         // Setup Real-time Audio Waveform capture if enabled
         if Defaults[.enableRealTimeWaveform] {
@@ -860,7 +864,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             adjustWindowPosition(changeAlpha: true)
         }
         
-        if coordinator.firstLaunch {
+        // Skip onboarding window and welcome sound under UI testing.
+        if coordinator.firstLaunch && !AppRuntimeEnvironment.isUITesting {
             DispatchQueue.main.async {
                 self.showOnboardingWindow()
             }
@@ -869,7 +874,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         previousScreens = NSScreen.screens
 
-        if Defaults[.enableLockScreenWeatherWidget] {
+        // Skip weather under UI testing: prepareLocationAccess prompts for Location.
+        if Defaults[.enableLockScreenWeatherWidget] && !AppRuntimeEnvironment.isUITesting {
             LockScreenWeatherManager.shared.prepareLocationAccess()
             Task { @MainActor in
                 await LockScreenWeatherManager.shared.refresh(force: true)

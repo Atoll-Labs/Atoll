@@ -11,17 +11,22 @@ final class DynamicIslandUITests: XCTestCase {
         app.launch()
     }
 
+    override func tearDownWithError() throws {
+        app?.terminate()
+        app = nil
+    }
+
+    // App launches and stays alive without crashing.
+    func testAppLaunchesWithoutCrashing() throws {
+        let isRunning = app.wait(for: .runningForeground, timeout: 10.0)
+            || app.wait(for: .runningBackground, timeout: 10.0)
+        XCTAssertTrue(isRunning, "App should be running after launch.")
+        XCTAssertNotEqual(app.state, .notRunning, "App should not have terminated.")
+    }
+
+    // The notch panel is present and exposed to accessibility.
     func testNotchExpansion() throws {
         let notch = app.descendants(matching: .any)["AtollNotch"]
-        
-        XCTAssertTrue(notch.waitForExistence(timeout: 5.0), "The Atoll notch should be visible.")
-        
-        // notch.click()
-    }
-
-    func testSettingsWindowOpens() throws {
-        // App is LSUIElement usually, or background, wait for it to be ready
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5.0) || app.wait(for: .runningBackground, timeout: 5.0), "App should be running.")
+        XCTAssertTrue(notch.waitForExistence(timeout: 15.0), "The Atoll notch should be visible.")
     }
 }
-

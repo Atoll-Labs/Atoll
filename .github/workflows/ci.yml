@@ -13,8 +13,6 @@ jobs:
     name: End-to-End Tests
     strategy:
       matrix:
-        # macOS 26 and 27 might not be natively supported on GitHub-hosted runners yet.
-        # But we specify them as requested. You might need self-hosted runners for 26 and 27.
         macos_version: [macos-14, macos-15, macos-26]
       fail-fast: false
     runs-on: ${{ matrix.macos_version }}
@@ -29,32 +27,54 @@ jobs:
           xcode-version: latest-stable
 
       - name: Download Metal Toolchain
+        # The downloadable Metal Toolchain is an Xcode 26+ (macOS 26) component; older Xcode ships metal.
         run: |
-          sudo xcodebuild -runFirstLaunch
-          for i in 1 2 3 4 5; do
-            sudo xcodebuild -downloadComponent MetalToolchain && break || sleep 10
-          done
+          sudo xcodebuild -runFirstLaunch || true
+          MAJOR=$(sw_vers -productVersion | cut -d. -f1)
+          if [ "$MAJOR" -ge 26 ]; then
+            for i in 1 2 3 4 5; do
+              sudo xcodebuild -downloadComponent MetalToolchain && break || sleep 10
+            done
+          else
+            echo "macOS $MAJOR: Metal ships with Xcode, skipping download."
+          fi
 
       - name: Build and Test
         run: |
           sudo DevToolsSecurity -enable
-          
-          # Safely remove only the mach-services entitlement for the CI build.
-          # This only affects the ephemeral CI runner and prevents amfid from killing the ad-hoc app.
-          # Your actual repository file and production app are untouched.
+
+          # Strip the mach-services entitlement so amfid does not kill the ad-hoc app on CI.
           plutil -remove com.apple.security.mach-services DynamicIsland/DynamicIsland.entitlements || true
-          
+
           xcodebuild test \
             -project DynamicIsland.xcodeproj \
             -scheme DynamicIsland \
             -destination "platform=macOS" \
             -enableCodeCoverage YES \
+            -resultBundlePath TestResults.xcresult \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=YES \
-            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES || {
-              echo "Tests failed. Searching for crash logs..."
-              find ~/Library/Logs/DiagnosticReports -name "*.crash" -print -exec cat {} +
-              exit 1
-            }
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES
 
+      - name: Surface Failure Diagnostics
+        if: failure()
+        run: |
+          echo "===== xcresult failure summary ====="
+          xcrun xcresulttool get test-results summary --path TestResults.xcresult 2>/dev/null \
+            || xcrun xcresulttool get --path TestResults.xcresult --format json 2>/dev/null | head -c 20000 \
+            || echo "No xcresult available."
+          echo "===== crash reports (.ips / .crash) ====="
+          find ~/Library/Logs/DiagnosticReports -type f \( -name "*.ips" -o -name "*.crash" \) -print -exec cat {} + 2>/dev/null \
+            || echo "No crash reports found."
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.macos_version }}
+          path: |
+            TestResults.xcresult
+            ~/Library/Logs/DiagnosticReports
+          if-no-files-found: ignore
+          retention-days: 7
