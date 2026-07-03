@@ -67,7 +67,7 @@ struct JSONLUsageParser {
                 func add(_ t: inout UsageTotals) {
                     t.inputTokens += rec.inputTokens
                     t.outputTokens += rec.outputTokens
-                    t.costUSD += cost
+                    if let cost { t.costUSD += cost } else { t.hasUnpricedModel = true }
                 }
                 add(&snapshot.week)
                 if cal.isDate(rec.timestamp, inSameDayAs: now) { add(&snapshot.today) }

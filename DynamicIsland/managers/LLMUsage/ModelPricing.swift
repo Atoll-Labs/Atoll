@@ -11,9 +11,9 @@ enum ModelPricing {
         ("o3",       2.0,  8.0),
     ]
 
-    static func cost(model: String, inputTokens: Int, outputTokens: Int) -> Double {
+    static func cost(model: String, inputTokens: Int, outputTokens: Int) -> Double? {
         let key = model.lowercased()
-        let rate = perMillion.first { key.contains($0.match) } ?? ("", 0, 0)
+        guard let rate = perMillion.first(where: { key.contains($0.match) }) else { return nil }
         let inCost = Double(inputTokens) / 1_000_000 * rate.input
         let outCost = Double(outputTokens) / 1_000_000 * rate.output
         return inCost + outCost

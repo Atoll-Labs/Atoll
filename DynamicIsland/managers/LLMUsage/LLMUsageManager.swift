@@ -10,6 +10,8 @@ final class LLMUsageManager: ObservableObject {
     @Published var isRefreshing = false
 
     private let injectedProviders: [UsageProvider]? // overrides the flag-based default when non-nil
+    private var lastRefresh: Date = .distantPast
+    private static let minRefreshInterval: TimeInterval = 60
 
     init(providers: [UsageProvider]? = nil) {
         self.injectedProviders = providers
@@ -22,8 +24,10 @@ final class LLMUsageManager: ObservableObject {
         return Self.allProviders.filter { Defaults[$0.id.enabledKey] }
     }
 
-    func refreshAll() {
+    func refreshAll(force: Bool = false) {
         guard !isRefreshing else { return }
+        guard force || Date().timeIntervalSince(lastRefresh) >= Self.minRefreshInterval else { return }
+        lastRefresh = Date()
         isRefreshing = true
         let providers = enabledProviders
         let enabledIDs = Set(providers.map { $0.id })

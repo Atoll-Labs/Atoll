@@ -24,6 +24,7 @@ struct UsageTotals: Equatable {
     var inputTokens: Int = 0
     var outputTokens: Int = 0
     var costUSD: Double = 0
+    var hasUnpricedModel: Bool = false
     var totalTokens: Int { inputTokens + outputTokens }
 }
 

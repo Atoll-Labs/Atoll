@@ -120,7 +120,8 @@ struct NotchLLMUsageView: View {
                 .font(.system(size: compact ? 11 : (prominent ? 17 : 13), weight: prominent ? .bold : .semibold, design: .rounded))
                 .monospacedDigit()
             Spacer(minLength: 4)
-            Text(money(totals.costUSD)).font(.caption2).foregroundStyle(.secondary).monospacedDigit()
+            Text(totals.hasUnpricedModel ? money(totals.costUSD) + "+" : money(totals.costUSD))
+                .font(.caption2).foregroundStyle(.secondary).monospacedDigit()
         }
     }
 
@@ -132,5 +133,15 @@ struct NotchLLMUsageView: View {
         }
     }
 
-    private func money(_ v: Double) -> String { String(format: "$%.2f", v) }
+    // Locale-aware formatting pinned to USD — amounts come from the USD pricing table, so the currency code stays fixed.
+    private static let currencyFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = "USD"
+        return f
+    }()
+
+    private func money(_ v: Double) -> String {
+        Self.currencyFormatter.string(from: v as NSNumber) ?? String(format: "$%.2f", v)
+    }
 }
