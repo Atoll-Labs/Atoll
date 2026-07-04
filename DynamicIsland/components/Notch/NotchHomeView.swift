@@ -309,7 +309,9 @@ struct MusicControlsView: View {
         GeometryReader { geo in
             VStack(alignment: .leading, spacing: 4) {
                 songInfo(width: geo.size.width)
+                    .zIndex(1) // Ensure it draws above the waveform scrubber
                 musicSlider
+                    .zIndex(0)
             }
         }
         .padding(.top, 10)
@@ -775,8 +777,8 @@ struct MusicSliderView: View {
     var onValueChange: (Double) -> Void
     var labelLayout: TimeLabelLayout = .stacked
     var trailingLabel: TrailingLabel = .duration
-    var restingTrackHeight: CGFloat = 5
-    var draggingTrackHeight: CGFloat = 9
+    var restingTrackHeight: CGFloat = 8
+    var draggingTrackHeight: CGFloat = 14
 
     enum TimeLabelLayout {
         case stacked
@@ -832,16 +834,16 @@ struct MusicSliderView: View {
             }
             .fontWeight(.medium)
             .foregroundColor(timeLabelColor)
-            .font(.caption)
+            .font(.system(size: 11, weight: .medium, design: .default).monospacedDigit())
         }
     }
 
     private var inlineContent: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 6) {
             Text(timeString(from: sliderValue))
                 .font(inlineLabelFont)
                 .foregroundColor(timeLabelColor)
-                .frame(width: 42, alignment: .leading)
+                .frame(width: 36, alignment: .leading)
 
             sliderCore
                 .frame(height: sliderFrameHeight)
@@ -850,7 +852,7 @@ struct MusicSliderView: View {
             Text(trailingTimeText)
                 .font(inlineLabelFont)
                 .foregroundColor(timeLabelColor)
-                .frame(width: 48, alignment: .trailing)
+                .frame(width: 42, alignment: .trailing)
         }
     }
 
@@ -863,15 +865,15 @@ struct MusicSliderView: View {
                 .frame(height: sliderFrameHeight)
                 
         case .inline:
-            HStack(spacing: 10) {
+            HStack(spacing: 6) {
                 Spacer()
-                    .frame(width: 42)
+                    .frame(width: 36)
                 LiveStreamProgressIndicator(tint: sliderTint)
                     .frame(maxWidth: .infinity)
                     .frame(height: sliderFrameHeight)
 
                 Spacer()
-                    .frame(width: 48)
+                    .frame(width: 42)
             }
         }
     }
@@ -917,7 +919,7 @@ struct MusicSliderView: View {
     }
 
     private var inlineLabelFont: Font {
-        .system(size: 11, weight: .medium, design: .monospaced)
+        .system(size: 11, weight: .medium, design: .default).monospacedDigit()
     }
 
     private var sliderFrameHeight: CGFloat {
@@ -948,8 +950,12 @@ struct CustomSlider: View {
     @Binding var lastDragged: Date
     var onValueChange: ((Double) -> Void)?
     var thumbSize: CGFloat = 12
-    var restingTrackHeight: CGFloat = 5
-    var draggingTrackHeight: CGFloat = 9
+    var restingTrackHeight: CGFloat = 8
+    var draggingTrackHeight: CGFloat = 14
+    
+    @State private var isHovering: Bool = false
+    @Default(.enableRealTimeWaveform) var enableRealTimeWaveform
+    @Default(.enableWaveformScrubber) var enableWaveformScrubber
 
     var body: some View {
         GeometryReader { geometry in
@@ -959,20 +965,36 @@ struct CustomSlider: View {
 
             let progress = rangeSpan == .zero ? 0 : (value - range.lowerBound) / rangeSpan
             let filledTrackWidth = min(max(progress, 0), 1) * width
+            
+            let showScrubber = isHovering && enableRealTimeWaveform && enableWaveformScrubber
 
-            ZStack(alignment: .leading) {
+            ZStack(alignment: .bottomLeading) {
                 // Background track
-                Rectangle()
-                    .fill(.gray.opacity(0.3))
-                    .frame(height: trackHeight)
+                if showScrubber {
+                    RealTimeWaveformScrubberView(
+                        color: color,
+                        secondaryColor: Defaults[.coloredSpectrogram] ? Color(nsColor: MusicManager.shared.secondaryColor) : nil,
+                        progress: progress,
+                        minHeight: trackHeight
+                    )
+                    .frame(height: trackHeight * 3.5)
+                    .offset(y: trackHeight * 0.2)
+                } else {
+                    Rectangle()
+                        .fill(.gray.opacity(0.3))
+                        .frame(height: trackHeight)
+                        .cornerRadius(trackHeight / 2)
+                }
 
                 // Filled track
-                Rectangle()
-                    .fill(color)
-                    .frame(width: filledTrackWidth, height: trackHeight)
+                if !showScrubber {
+                    Rectangle()
+                        .fill(color)
+                        .frame(width: filledTrackWidth, height: trackHeight)
+                        .cornerRadius(trackHeight / 2)
+                }
             }
-            .cornerRadius(trackHeight / 2)
-            .frame(height: max(restingTrackHeight, draggingTrackHeight))
+            .frame(height: max(restingTrackHeight, draggingTrackHeight), alignment: .bottom)
             .contentShape(Rectangle())
             .highPriorityGesture(
                 DragGesture(minimumDistance: 0)
@@ -990,6 +1012,11 @@ struct CustomSlider: View {
                     }
             )
             .animation(.bouncy.speed(1.4), value: dragging)
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isHovering = hovering
+                }
+            }
         }
     }
 }
