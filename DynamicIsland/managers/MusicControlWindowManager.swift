@@ -214,7 +214,12 @@ final class MusicControlWindowManager {
 
         let clampedOriginX = max(screenFrame.minX + 8, min(rawOriginX, screenFrame.maxX - size.width - 8))
 
-        return NSRect(x: clampedOriginX, y: originY, width: size.width, height: size.height)
+        return NSRect(
+            x: clampedOriginX.rounded(),
+            y: originY.rounded(),
+            width: size.width.rounded(),
+            height: size.height.rounded()
+        )
     }
 
     private func initialFrame(for targetFrame: NSRect, metrics: MusicControlWindowMetrics) -> NSRect {
