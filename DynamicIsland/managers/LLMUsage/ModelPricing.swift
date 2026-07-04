@@ -23,26 +23,13 @@ struct ModelPricing {
     /// Resolves prompt and completion rates for a given model
     /// Rates are per 1M tokens or as defined by the pricing.json structure
     static func resolveRates(for modelId: String) -> (prompt: Double, completion: Double) {
-        // Try to get dynamic rates from the manager
+        // Try to get dynamic rates from the manager (Remote or Local Bundled Fallback)
         if let dynamicRates = ModelPricingManager.shared.getPricing(for: modelId) {
             return dynamicRates
         }
         
-        // Hardcoded fallbacks for known models if manager is not yet populated
-        switch modelId {
-        case "anthropic/claude-3-opus":
-            return (0.000015, 0.000075)
-        case "anthropic/claude-3-5-sonnet", "claude-3-5-sonnet":
-            return (0.000003, 0.000015)
-        case "anthropic/claude-3-haiku", "claude-3-haiku":
-            return (0.00000025, 0.00000125)
-        case "openai/gpt-4o", "gpt-4o":
-            return (0.000005, 0.000015)
-        case "openai/gpt-4o-mini", "gpt-4o-mini":
-            return (0.00000015, 0.0000006)
-        default:
-            // Default low-cost fallback
-            return (0.000002, 0.000002)
-        }
+        // If the manager has no data (e.g. initialization failed),
+        // use a static safe default to avoid 0.0 calculations.
+        return (0.000002, 0.000002)
     }
 }
