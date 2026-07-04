@@ -60,34 +60,28 @@ actor AnimatedArtworkManager {
             return cachedVideoURL
         }
 
-
-        cachedKey = key
-
         // If MusicKit token has been consistently failing, honour the back-off
         // window before making another network request.
+        // We do NOT cache this failure, allowing a retry on the same song once backoff expires.
         if isWithinTokenBackoff() {
-            cachedVideoURL = nil
             return nil
         }
 
         guard await requestMusicAuthorization() else {
-            cachedVideoURL = nil
             return nil
         }
 
+        // Auth and backoff checks passed. Cache the key and clear old video URL.
+        cachedKey = key
+        cachedVideoURL = nil
+
         guard let songID = await searchSongID(title: title, artist: artist) else {
-            cachedVideoURL = nil
             return nil
         }
 
         guard let videoURL = await fetchEditorialVideoURL(songID: songID) else {
-            cachedVideoURL = nil
             return nil
         }
-
-        // Success — clear any outstanding failure state.
-        tokenFailureCount = 0
-        tokenFailureLastAttempt = nil
 
         cachedSongID = songID
         cachedVideoURL = videoURL
@@ -98,6 +92,10 @@ actor AnimatedArtworkManager {
         cachedKey = nil
         cachedSongID = nil
         cachedVideoURL = nil
+        resetTokenFailureState()
+    }
+
+    private func resetTokenFailureState() {
         tokenFailureCount = 0
         tokenFailureLastAttempt = nil
     }
@@ -121,6 +119,8 @@ actor AnimatedArtworkManager {
 
         do {
             let response = try await request.response()
+            resetTokenFailureState()
+            
             let normalizedTitle = title.lowercased()
             let normalizedArtist = artist.lowercased()
 
@@ -163,6 +163,7 @@ actor AnimatedArtworkManager {
         do {
             let request = MusicDataRequest(urlRequest: URLRequest(url: url))
             let response = try await request.response()
+            resetTokenFailureState()
 
             guard let json = try JSONSerialization.jsonObject(with: response.data) as? [String: Any],
                   let data = json["data"] as? [[String: Any]],
