@@ -806,9 +806,7 @@ struct MusicSliderView: View {
         .onChange(of: currentDate) { newDate in
             guard !isLiveStream else { return }
             guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
-            withAnimation(.linear(duration: 1.0)) {
-                sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: newDate)
-            }
+            sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: newDate)
         }
         .onChange(of: isPlaying) { _, playing in
             // Snap slider to the exact position when music pauses so

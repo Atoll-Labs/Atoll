@@ -773,7 +773,6 @@ private struct MinimalisticReminderDetailsView: View {
     private var progressBar: some View {
         TimelineView(
             .animation(
-                minimumInterval: 1.0,
                 paused: isProgressTimelinePaused
             )
         ) { timeline in
