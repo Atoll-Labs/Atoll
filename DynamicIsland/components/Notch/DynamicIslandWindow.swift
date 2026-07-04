@@ -37,6 +37,7 @@ class DynamicIslandWindow: NSPanel {
         )
         
         isFloatingPanel = true
+        hidesOnDeactivate = false
         isOpaque = false
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
@@ -45,9 +46,9 @@ class DynamicIslandWindow: NSPanel {
         
         collectionBehavior = [
             .fullScreenAuxiliary,
-            .stationary,
             .canJoinAllSpaces,
             .ignoresCycle,
+            .stationary,
         ]
         
         isReleasedWhenClosed = false
