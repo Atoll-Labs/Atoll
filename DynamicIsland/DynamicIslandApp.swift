@@ -306,17 +306,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // (`.onDisappear` is unreliable for borderless panels).
                 viewModels[screen]?.onViewTeardown?()
                 viewModels[screen]?.onViewTeardown = nil
-                window.close()
                 NotchSpaceManager.shared.notchSpace.windows.remove(window)
+                window.close()
             }
             windows.removeAll()
             viewModels.removeAll()
         } else if let window = window {
             vm.onViewTeardown?()
             vm.onViewTeardown = nil
-            window.close()
             NotchSpaceManager.shared.notchSpace.windows.remove(window)
+            window.close()
             self.window = nil
+        }
+    }
+
+    /// Rebuilds the notch's CGSSpace membership from the current hide option and the
+    /// live windows. The space pins the notch above every space (fullscreen included)
+    /// and is used **only** for "Never hide"; the hide options keep the set empty so
+    /// FullscreenMediaDetector can hide the notch. Assigning the whole set lets the
+    /// CGSSpace diff additions/removals, so this is safe to call on any change.
+    @MainActor
+    private func syncNotchSpaceMembership() {
+        guard Defaults[.hideNotchOption] == .never else {
+            NotchSpaceManager.shared.notchSpace.windows = []
+            return
+        }
+        if Defaults[.showOnAllDisplays] {
+            NotchSpaceManager.shared.notchSpace.windows = Set(windows.values)
+        } else if let window = window {
+            NotchSpaceManager.shared.notchSpace.windows = [window]
+        } else {
+            NotchSpaceManager.shared.notchSpace.windows = []
         }
     }
 
@@ -326,17 +346,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Use the current required size instead of always using openNotchSize
         let baseSize = calculateRequiredNotchSize()
         let requiredSize = adjustedSizeForScreen(baseSize, screen: screen)
+        let roundedWidth = requiredSize.width.rounded()
+        let roundedHeight = requiredSize.height.rounded()
         
         let window = DynamicIslandWindow(
             contentRect: NSRect(
-                x: 0, y: 0, width: requiredSize.width, height: requiredSize.height),
-            styleMask: [.borderless, .nonactivatingPanel, .utilityWindow, .hudWindow],
+                x: 0, y: 0, width: roundedWidth, height: roundedHeight),
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
 
         window.animationBehavior = .none
-        
+        // collectionBehavior is configured in DynamicIslandWindow.init
+
         window.contentView = FirstMouseHostingView(
             rootView: ContentView()
                 .environmentObject(viewModel)
@@ -345,7 +368,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         
         window.orderFrontRegardless()
-        NotchSpaceManager.shared.notchSpace.windows.insert(window)
+        // Pin above every space (fullscreen included) only for "Never hide"; the
+        // hide options leave the window on the collectionBehavior path so
+        // FullscreenMediaDetector can hide it. See NotchSpaceManager.
+        if Defaults[.hideNotchOption] == .never {
+            NotchSpaceManager.shared.notchSpace.windows.insert(window)
+        }
         //SkyLightOperator.shared.delegateWindow(window)
         return window
     }
@@ -359,14 +387,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Use the same centering logic as updateWindowSizeIfNeeded()
         let screenFrame = screen.frame
         let centerX = screenFrame.origin.x + (screenFrame.width / 2)
-        let newX = centerX - (window.frame.width / 2)
-        let newY = screenFrame.origin.y + screenFrame.height - window.frame.height
-        
+        let roundedWidth = window.frame.width.rounded()
+        let roundedHeight = window.frame.height.rounded()
+        let newX = (centerX - (roundedWidth / 2)).rounded()
+        let newY = (screenFrame.origin.y + screenFrame.height - roundedHeight).rounded()
+
         window.setFrame(NSRect(
             x: newX,
             y: newY,
-            width: window.frame.width,
-            height: window.frame.height
+            width: roundedWidth,
+            height: roundedHeight
         ), display: false)
         
         if changeAlpha {
@@ -507,11 +537,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func resizeWindow(_ window: NSWindow, on screen: NSScreen, to size: CGSize, animated: Bool) {
         let screenFrame = screen.frame
         // Clamp width to screen width so the notch never extends beyond screen edges on scaled displays
-        let clampedWidth = min(size.width, screenFrame.width)
-        let clampedHeight = min(size.height, screenFrame.height)
+        let clampedWidth = min(size.width, screenFrame.width).rounded()
+        let clampedHeight = min(size.height, screenFrame.height).rounded()
         let centerX = screenFrame.midX
-        let newX = centerX - (clampedWidth / 2)
-        let newY = screenFrame.origin.y + screenFrame.height - clampedHeight
+        let newX = (centerX - (clampedWidth / 2)).rounded()
+        let newY = (screenFrame.origin.y + screenFrame.height - clampedHeight).rounded()
         let targetFrame = NSRect(x: newX, y: newY, width: clampedWidth, height: clampedHeight)
 
         window.setFrame(targetFrame, display: true)
@@ -715,6 +745,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Defaults.publisher(.enableScreenAssistant, options: []).sink { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.updateFeatureShortcutAvailability()
+            }
+        }.store(in: &cancellables)
+
+        // Pin/unpin the notch above all spaces when the hide option changes:
+        // "Never hide" joins the max-level CGSSpace, the hide options leave it.
+        Defaults.publisher(.hideNotchOption, options: []).sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.syncNotchSpaceMembership()
             }
         }.store(in: &cancellables)
         
@@ -1308,7 +1346,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     viewModels[screen]?.onViewTeardown?()
                     viewModels[screen]?.onViewTeardown = nil
                     window.close()
-                    NotchSpaceManager.shared.notchSpace.windows.remove(window)
                     windows.removeValue(forKey: screen)
                     viewModels.removeValue(forKey: screen)
                 }
