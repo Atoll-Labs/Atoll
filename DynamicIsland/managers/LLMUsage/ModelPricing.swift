@@ -32,4 +32,12 @@ struct ModelPricing {
         // use a static safe default to avoid 0.0 calculations.
         return (0.000002, 0.000002)
     }
+
+    /// Calculates the total cost for a given model and token counts. Returns nil if the model is unpriced.
+    static func cost(model: String, inputTokens: Int, outputTokens: Int) -> Double? {
+        guard let rates = ModelPricingManager.shared.getPricing(for: model) else {
+            return nil
+        }
+        return (Double(inputTokens) * rates.prompt) + (Double(outputTokens) * rates.completion)
+    }
 }
