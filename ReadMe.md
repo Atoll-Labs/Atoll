@@ -123,6 +123,8 @@ Atoll builds upon the work of several open-source projects and draws inspiration
 
 - [**OpenUsage**](https://github.com/robinebers/openusage) - LLM Usage Tracking features
 
+- [**OpenRouter**](https://openrouter.ai) - API for getting automated model pricing
+
 ## Contributors
 
 <a href="https://github.com/Ebullioscopic/Atoll/graphs/contributors">
