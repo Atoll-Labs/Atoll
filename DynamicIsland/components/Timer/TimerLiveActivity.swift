@@ -105,7 +105,10 @@ struct TimerLiveActivity: View {
     }
 
     private var leftWingWidth: CGFloat {
-        var width = iconWidth + wingPadding
+        // Only reserve the outer half of the wing padding so the icon sits flush
+        // against the notch (matching the album-art / Toggl layout) instead of
+        // leaving an empty gap between the icon and the notch body.
+        var width = iconWidth + wingPadding / 2
         if showsInfoSection {
             width += 8 + infoWidth
         }
@@ -135,7 +138,7 @@ struct TimerLiveActivity: View {
     }
 
     private var countdownTextWidth: CGFloat {
-        measureTextWidth(timerManager.formattedRemainingTime(), font: monospacedDigitFont(size: 13, weight: .semibold))
+        measureTextWidth(timerManager.formattedRemainingTime(), font: monospacedFont(size: 13, weight: .semibold))
     }
 
     private var countdownWidth: CGFloat {
@@ -240,6 +243,17 @@ struct TimerLiveActivity: View {
         return NSFont.monospacedDigitSystemFont(ofSize: size, weight: weight)
         #else
         return UIFont.monospacedDigitSystemFont(ofSize: size, weight: weight)
+        #endif
+    }
+
+    // Fully monospaced font matching the countdown's `.monospaced` design so the
+    // measured width equals the rendered width (digit-only monospacing under-measures
+    // separators, clipping hour-format times like 1:00:00).
+    private func monospacedFont(size: CGFloat, weight: PlatformFont.Weight) -> PlatformFont {
+        #if canImport(AppKit)
+        return NSFont.monospacedSystemFont(ofSize: size, weight: weight)
+        #else
+        return UIFont.monospacedSystemFont(ofSize: size, weight: weight)
         #endif
     }
 
@@ -360,7 +374,9 @@ struct TimerLiveActivity: View {
                         countdownSection
                     }
                 }
-                .padding(.trailing, wingPadding / 2)
+                // Tighter trailing margin (~6px) so the countdown sits a little further
+                // right, keeping the leading hour digit clear of the notch region.
+                .padding(.trailing, wingPadding / 2 - 5)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             }
     }
@@ -466,10 +482,12 @@ struct TimerLiveActivity: View {
             Text(timerManager.formattedRemainingTime())
                 .font(.system(size: 13, weight: .semibold, design: .monospaced))
                 .foregroundColor(timerManager.isOvertime ? .red : .white)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .contentTransition(.numericText())
                 .animation(.smooth(duration: 0.25), value: timerManager.remainingTime)
                 .frame(maxWidth: .infinity, alignment: .trailing)
-            
+
             if showsBarProgress {
                 Capsule()
                     .fill(Color.white.opacity(0.12))
@@ -483,7 +501,9 @@ struct TimerLiveActivity: View {
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
-     .padding(.trailing, 8)
+     // Note: rightWingView already applies a trailing wing padding, so no extra
+     // trailing padding here — a second one pushes the digits left and clips the
+     // hour under the notch while wasting space on the right.
      .frame(width: countdownWidth,
          height: notchContentHeight, alignment: .center)
     }

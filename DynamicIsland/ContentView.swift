@@ -2750,6 +2750,8 @@ private struct MusicTimerSupplementView: View {
             Text(countdownText)
                 .font(.system(size: 13, weight: .semibold, design: .monospaced))
                 .foregroundColor(timerManager.isOvertime ? .red : .white)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .contentTransition(.numericText())
                 .animation(.smooth(duration: 0.25), value: timerManager.remainingTime)
                 .frame(width: countdownFrameWidth, alignment: .trailing)
@@ -2758,7 +2760,7 @@ private struct MusicTimerSupplementView: View {
                 barView(width: countdownTextWidth)
             }
         }
-        .padding(.trailing, 8)
+        .padding(.trailing, 2)
         .frame(maxWidth: .infinity, alignment: .trailing)
     }
 
@@ -2905,7 +2907,9 @@ private typealias MusicSupplementFont = UIFont
 
 private enum TimerSupplementMetrics {
     static func countdownTextWidth(for text: String) -> CGFloat {
-        musicMeasureText(text, font: MusicSupplementFont.monospacedDigitSystemFont(ofSize: 13, weight: .semibold))
+        // Measure with a fully monospaced font (matching the `.monospaced` design used
+        // to render) so hour-format times like 1:00:00 aren't under-measured and clipped.
+        musicMeasureText(text, font: MusicSupplementFont.monospacedSystemFont(ofSize: 13, weight: .semibold))
     }
 
     static func countdownFrameWidth(for text: String) -> CGFloat {
