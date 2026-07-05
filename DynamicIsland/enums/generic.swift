@@ -153,11 +153,11 @@ enum SliderColorEnum: String, CaseIterable, Defaults.Serializable {
     var localizedName: String {
         switch self {
             case .white:
-                return String(localized: "Standard")
+                return String(localized: "White")
             case .albumArt:
-                return String(localized: "Custom Liquid")
+                return String(localized: "Match album art")
             case .accent:
-            return String(localized: "Accent color")
+                return String(localized: "Accent color")
         }
     }
 }
@@ -345,4 +345,3 @@ enum TimerInputStyle: String, CaseIterable, Defaults.Serializable, Identifiable 
         }
     }
 }
-
