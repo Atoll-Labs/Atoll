@@ -5,13 +5,12 @@ on:
 
 permissions:
   issues: write
-  pull-requests: write
 
 jobs:
   slash_commands:
     runs-on: ubuntu-latest
     # Only run if the commenter is the repository owner or a trusted contributor
-    if: contains(fromJSON('["Ebullioscopic", "danfq", "Ruken16", "StudioKeys"]'), github.event.comment.user.login)
+    if: contains(fromJSON(vars.TRUSTED_TRIAGE_USERS), github.event.comment.user.login)
     steps:
       - name: Check for /close command
         if: startsWith(github.event.comment.body, '/close')
@@ -30,12 +29,16 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const label = context.payload.comment.body.replace('/label ', '').trim();
-            if (label) {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                labels: [label]
-              });
+            const firstLine = context.payload.comment.body.split(/\r?\n/)[0];
+            const labelStr = firstLine.replace('/label ', '').trim();
+            if (labelStr) {
+              const labelsToApply = labelStr.split(',').map(l => l.trim()).filter(Boolean);
+              if (labelsToApply.length > 0) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  labels: labelsToApply
+                });
+              }
             }
