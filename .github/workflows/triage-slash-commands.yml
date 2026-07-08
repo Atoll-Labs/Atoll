@@ -1,0 +1,41 @@
+name: Triage Slash Commands
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  slash_commands:
+    runs-on: ubuntu-latest
+    # Only run if the commenter is the repository owner or a trusted contributor
+    if: contains(fromJSON('["Ebullioscopic", "danfq", "Ruken16", "StudioKeys"]'), github.event.comment.user.login)
+    steps:
+      - name: Check for /close command
+        if: startsWith(github.event.comment.body, '/close')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed'
+            });
+
+      - name: Check for /label command
+        if: startsWith(github.event.comment.body, '/label ')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = context.payload.comment.body.replace('/label ', '').trim();
+            if (label) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [label]
+              });
+            }
