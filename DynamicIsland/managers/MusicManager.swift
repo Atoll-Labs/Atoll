@@ -783,6 +783,18 @@ class MusicManager: ObservableObject {
             self.videoArtworkURL = state.liveArtworkURL
         }
 
+        if state.title != self.songTitle {
+            self.songTitle = state.title
+        }
+
+        if state.artist != self.artistName {
+            self.artistName = state.artist
+        }
+
+        if state.album != self.album {
+            self.album = state.album
+        }
+
         // Handle artwork and visual transitions for changed content
         let shouldAutoPeekOnTrackChange = Defaults[.showSneakPeekOnTrackChange]
 
@@ -831,18 +843,6 @@ class MusicManager: ObservableObject {
         let playbackRateChanged = state.playbackRate != self.playbackRate
         let shuffleChanged = state.isShuffled != self.isShuffled
         let repeatModeChanged = state.repeatMode != self.repeatMode
-
-        if state.title != self.songTitle {
-            self.songTitle = state.title
-        }
-
-        if state.artist != self.artistName {
-            self.artistName = state.artist
-        }
-
-        if state.album != self.album {
-            self.album = state.album
-        }
 
         if timeChanged {
             self.elapsedTime = state.currentTime
