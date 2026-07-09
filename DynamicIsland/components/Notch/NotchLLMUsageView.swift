@@ -31,6 +31,7 @@ struct NotchLLMUsageView: View {
             }
         }
         .padding(.horizontal, 8)
+        .environment(\.colorScheme, .dark)
         .onAppear { manager.refreshAll() }
     }
 

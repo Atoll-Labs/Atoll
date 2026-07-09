@@ -773,6 +773,7 @@ struct NoteListView: View {
                             TextField("Search notes...", text: $searchText)
                                 .textFieldStyle(.plain)
                                 .font(.system(size: 12))
+                                .foregroundStyle(.white)
                             if !searchText.isEmpty {
                                 Button(action: { searchText = "" }) {
                                     Image(systemName: "xmark.circle.fill")
@@ -1112,6 +1113,7 @@ struct NoteEditorView: View {
                 TextField("Title", text: $title)
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     .textFieldStyle(.plain)
+                    .foregroundStyle(.white)
                 
                 Spacer()
                 
@@ -1153,7 +1155,7 @@ struct NoteEditorView: View {
                 if content.isEmpty { // Placeholder
                     Text("Start typing...")
                         .font(.system(size: 13, design: .rounded)) // Reduced from 14
-                        .foregroundStyle(.secondary.opacity(0.5))
+                        .foregroundStyle(.white.opacity(0.5))
                         .padding(.top, 10)
                         .padding(.leading, 12)
                         .allowsHitTesting(false)

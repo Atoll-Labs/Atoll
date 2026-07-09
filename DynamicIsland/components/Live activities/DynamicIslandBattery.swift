@@ -274,7 +274,7 @@ struct BatteryMenuView: View {
             }
             .padding(.vertical, 8)
 
-            Divider().background(Color.white)
+            Divider()
 
             Button(action: openBatteryPreferences) {
                 Label("Battery Settings", systemImage: "gearshape")
@@ -286,7 +286,7 @@ struct BatteryMenuView: View {
         }
         .padding()
         .frame(width: 280)
-        .foregroundColor(.white)
+        .foregroundStyle(.primary)
     }
 
     private func openBatteryPreferences() {
