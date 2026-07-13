@@ -682,6 +682,8 @@ class MusicManager: ObservableObject {
             newController = YouTubeMusicController()
         case .amazonMusic:
             newController = AmazonMusicController()
+        case .cider:
+            newController = CiderController()
         }
 
         // Set up state observation for the new controller
@@ -1726,6 +1728,8 @@ extension MusicManager {
             return spotifyGreen
         case .amazonMusic:
             return amazonOrange
+        case .cider:
+            return .accentColor
         case .nowPlaying:
             if let bundleIdentifier,
                let bundleColor = brandAccentColor(forBundleIdentifier: bundleIdentifier) {
@@ -1745,6 +1749,8 @@ extension MusicManager {
             return spotifyGreen
         case AmazonMusicController.bundleIdentifier:
             return amazonOrange
+        case CiderController.bundleIdentifier:
+            return .accentColor
         default:
             return nil
         }
