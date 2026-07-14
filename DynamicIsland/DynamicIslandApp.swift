@@ -187,6 +187,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             "com.apple.Music",
             "com.spotify.client",
             "com.amazon.music",
+            "sh.cider.genten.mac",
             "com.apple.Safari",
             "com.tidal.desktop",
             "tv.plex.plexamp",
