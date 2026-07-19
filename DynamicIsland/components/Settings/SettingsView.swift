@@ -3603,6 +3603,46 @@ struct About: View {
 
                 UpdaterSettingsView(updater: updaterController.updater)
 
+                HStack(spacing: 30) {
+                    Spacer(minLength: 0)
+                    Button {
+                        NSWorkspace.shared.open(sponsorPage)
+                    } label: {
+                        VStack(spacing: 5) {
+                            Image(systemName: "cup.and.saucer.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.primary)
+                                .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+                            Text("Donate")
+                                .foregroundStyle(.primary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        NSWorkspace.shared.open(productPage)
+                    } label: {
+                        VStack(spacing: 5) {
+                            Image("Github")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 18)
+                                .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+                            Text("GitHub")
+                                .foregroundStyle(.primary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    Spacer(minLength: 0)
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                Text("Your support funds software development learning for students in 9th–12th grade.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 5)
+
                 Section {
                     ForEach(UpdateChannel.availableChannels) { channel in
                         Button {
@@ -3641,44 +3681,6 @@ struct About: View {
                 } header: {
                     Text("Update channel")
                 }
-
-                HStack(spacing: 30) {
-                    Spacer(minLength: 0)
-                    Button {
-                        NSWorkspace.shared.open(sponsorPage)
-                    } label: {
-                        VStack(spacing: 5) {
-                            Image(systemName: "cup.and.saucer.fill")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.primary)
-                                .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
-                            Text("Donate")
-                                .foregroundStyle(.primary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    Spacer(minLength: 0)
-                    Button {
-                        NSWorkspace.shared.open(productPage)
-                    } label: {
-                        VStack(spacing: 5) {
-                            Image("Github")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 18)
-                                .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
-                            Text("GitHub")
-                                .foregroundStyle(.primary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    Spacer(minLength: 0)
-                }
-                .buttonStyle(PlainButtonStyle())
-                Text("Your support funds software development learning for students in 9th–12th grade.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
             }
             VStack(spacing: 0) {
                 Divider()
