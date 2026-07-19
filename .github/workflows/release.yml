@@ -32,6 +32,12 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
 
+    # Skip CI-generated commits to prevent infinite loops
+    # (appcast/changelog commits pushed by this workflow)
+    if: >-
+      !contains(github.event.head_commit.message, 'ci: update appcast') &&
+      !contains(github.event.head_commit.message, 'ci: archive changelog')
+
     steps:
       # ─────────────────────────────────────────────────────────────────
       # 1. Checkout
@@ -249,7 +255,7 @@ jobs:
 
           EXTRA_FLAGS=""
           if [ -n "$SWIFT_FLAG" ]; then
-            EXTRA_FLAGS="OTHER_SWIFT_FLAGS=-D ${SWIFT_FLAG}"
+            EXTRA_FLAGS="SWIFT_ACTIVE_COMPILATION_CONDITIONS=${SWIFT_FLAG}"
           fi
 
           sudo DevToolsSecurity -enable
@@ -404,10 +410,10 @@ jobs:
             exit 1
           fi
 
-          # Also sign the DMG and capture signature for manual appcast updates
+          # Also sign the DMG and capture the EdDSA signature
           if [ -n "$SIGN_UPDATE" ]; then
-            SIGNATURE=$("$SIGN_UPDATE" "build/${DMG_NAME}" 2>&1 | grep -oE 'sparkle:edSignature="[^"]*"' | head -1 || true)
-            echo "Sparkle signature: $SIGNATURE"
+            SIGN_OUTPUT=$("$SIGN_UPDATE" "build/${DMG_NAME}" 2>&1 || true)
+            echo "sign_update output: $SIGN_OUTPUT"
           fi
 
       # ─────────────────────────────────────────────────────────────────
@@ -438,29 +444,13 @@ jobs:
               CONTRIBUTORS=$(git shortlog -sn -30)
             fi
 
-            NOTES="${NOTES}
-
----
-
-### Commits since last release
-\`\`\`
-${COMMITS}
-\`\`\`
-
-### Contributors
-\`\`\`
-${CONTRIBUTORS}
-\`\`\`"
+            HR="---"
+            NOTES=$(printf "%s\n\n%s\n\n### Commits since last release\n\`\`\`\n%s\n\`\`\`\n\n### Contributors\n\`\`\`\n%s\n\`\`\`" "$NOTES" "$HR" "$COMMITS" "$CONTRIBUTORS")
           fi
 
           # Prepend channel badge
-          HEADER="## ${APP_NAME} ${VERSION}
+          HEADER=$(printf "## %s %s\n\n> **Channel:** %s\n> **Build:** %s\n> **Date:** %s\n\n" "$APP_NAME" "$VERSION" "$CHANNEL" "${{ steps.version.outputs.build_number }}" "$(date -u +%Y-%m-%d)")
 
-> **Channel:** ${CHANNEL}
-> **Build:** ${{ steps.version.outputs.build_number }}
-> **Date:** $(date -u +%Y-%m-%d)
-
-"
           FULL_NOTES="${HEADER}${NOTES}"
 
           # Write to file for gh release
@@ -528,23 +518,17 @@ ${CONTRIBUTORS}
           DMG_SIZE=$(stat -f%z "build/${DMG_NAME}" 2>/dev/null || stat -c%s "build/${DMG_NAME}" 2>/dev/null)
 
           # Get the sparkle signature from the generated appcast
+          # Note: grep -oP is not available on macOS, use grep -o with sed instead
           SIGNATURE=""
           if [ -f "build/appcast-staging/appcast.xml" ]; then
-            SIGNATURE=$(grep -oP 'sparkle:edSignature="\K[^"]+' "build/appcast-staging/appcast.xml" | head -1 || true)
+            SIGNATURE=$(grep -o 'sparkle:edSignature="[^"]*"' "build/appcast-staging/appcast.xml" | head -1 | sed 's/sparkle:edSignature="//;s/"//' || true)
           fi
 
           # Build the download URL (GitHub Release asset)
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${DMG_NAME}"
 
           # Create/update the channel appcast
-          NEW_ITEM="        <item>
-            <title>${VERSION}</title>
-            <pubDate>$(date -u '+%a, %d %b %Y %H:%M:%S %z')</pubDate>
-            <sparkle:version>${BUILD_NUMBER}</sparkle:version>
-            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
-            <enclosure url=\"${DOWNLOAD_URL}\" length=\"${DMG_SIZE}\" type=\"application/octet-stream\" sparkle:edSignature=\"${SIGNATURE}\"/>
-        </item>"
+          NEW_ITEM=$(printf "        <item>\n            <title>%s</title>\n            <pubDate>%s</pubDate>\n            <sparkle:version>%s</sparkle:version>\n            <sparkle:shortVersionString>%s</sparkle:shortVersionString>\n            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>\n            <enclosure url=\"%s\" length=\"%s\" type=\"application/octet-stream\" sparkle:edSignature=\"%s\"/>\n        </item>" "$VERSION" "$(date -u '+%a, %d %b %Y %H:%M:%S %z')" "$BUILD_NUMBER" "$VERSION" "$DOWNLOAD_URL" "$DMG_SIZE" "$SIGNATURE")
 
           if [ -f "$APPCAST_PATH" ]; then
             # Insert new item at the top of the channel element
@@ -556,23 +540,32 @@ ${CONTRIBUTORS}
             mv "${APPCAST_PATH}.tmp" "$APPCAST_PATH"
           else
             # Create new appcast file
-            cat > "$APPCAST_PATH" << APPCAST_EOF
-<?xml version="1.0" standalone="yes"?>
-<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
-    <channel>
-        <title>Atoll</title>
-${NEW_ITEM}
-    </channel>
-</rss>
-APPCAST_EOF
+            printf '<?xml version="1.0" standalone="yes"?>\n' > "$APPCAST_PATH"
+            printf '<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">\n' >> "$APPCAST_PATH"
+            printf '    <channel>\n' >> "$APPCAST_PATH"
+            printf '        <title>Atoll</title>\n' >> "$APPCAST_PATH"
+            echo "$NEW_ITEM" >> "$APPCAST_PATH"
+            printf '    </channel>\n' >> "$APPCAST_PATH"
+            printf '</rss>\n' >> "$APPCAST_PATH"
           fi
 
-          # Commit and push the updated appcast
+          # Commit and push the updated appcast to main
+          # All feed URLs point to raw.githubusercontent.com/.../main/Updates/
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stash appcast changes, checkout main, apply, push
+          cp "$APPCAST_PATH" "/tmp/${APPCAST_FILE}"
+          git stash --include-untracked || true
+          git fetch origin main
+          git checkout main
+          cp "/tmp/${APPCAST_FILE}" "$APPCAST_PATH"
           git add "$APPCAST_PATH"
-          git commit -m "ci: update ${APPCAST_FILE} for ${VERSION}" || echo "No changes to commit"
-          git push origin "$BRANCH"
+          git commit -m "ci: update appcast ${APPCAST_FILE} for ${VERSION} [skip ci]" || echo "No changes to commit"
+          git push origin main
+
+          # Return to the original branch
+          git checkout "$BRANCH" || true
 
       # ─────────────────────────────────────────────────────────────────
       # 21. Archive CHANGELOG for stable releases
@@ -584,12 +577,30 @@ APPCAST_EOF
           DATE=$(date -u +%Y-%m-%d)
 
           # Move [Unreleased] content to a versioned section
-          sed -i '' "s/## \[Unreleased\]/## [Unreleased]\n\n### Added\n\n### Changed\n\n### Fixed\n\n### Removed\n\n## [${VERSION}] - ${DATE}/" CHANGELOG.md
+          # Use awk instead of sed for reliable multiline insertion on macOS
+          awk -v ver="${VERSION}" -v dt="${DATE}" '
+            /^## \[Unreleased\]/ {
+              print $0
+              print ""
+              print "### Added"
+              print ""
+              print "### Changed"
+              print ""
+              print "### Fixed"
+              print ""
+              print "### Removed"
+              print ""
+              print "## [" ver "] - " dt
+              next
+            }
+            { print }
+          ' CHANGELOG.md > CHANGELOG.md.tmp
+          mv CHANGELOG.md.tmp CHANGELOG.md
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
-          git commit -m "ci: archive changelog for v${VERSION}" || echo "No changes to commit"
+          git commit -m "ci: archive changelog for v${VERSION} [skip ci]" || echo "No changes to commit"
           git push origin main
 
       # ─────────────────────────────────────────────────────────────────

@@ -3604,23 +3604,36 @@ struct About: View {
                 UpdaterSettingsView(updater: updaterController.updater)
 
                 Section {
-                    Picker("Update channel", selection: $updateChannel) {
-                        ForEach(UpdateChannel.availableChannels) { channel in
-                            HStack {
+                    ForEach(UpdateChannel.availableChannels) { channel in
+                        Button {
+                            updateChannel = channel
+                        } label: {
+                            HStack(spacing: 10) {
                                 Image(systemName: channel.badgeIcon)
+                                    .font(.system(size: 13))
                                     .foregroundStyle(Color(channel.badgeColor))
-                                    .frame(width: 16)
-                                VStack(alignment: .leading, spacing: 2) {
+                                    .frame(width: 20, alignment: .center)
+
+                                VStack(alignment: .leading, spacing: 1) {
                                     Text(channel.displayName)
+                                        .foregroundStyle(.primary)
                                     Text(channel.description)
                                         .font(.caption2)
                                         .foregroundStyle(.secondary)
                                 }
+
+                                Spacer()
+
+                                if updateChannel == channel {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(Color(channel.badgeColor))
+                                }
                             }
-                            .tag(channel)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                     }
-                    .pickerStyle(.radioGroup)
 
                     Text("Current build: \(UpdateChannel.buildChannel.displayName)")
                         .font(.caption)
@@ -3637,9 +3650,10 @@ struct About: View {
                         VStack(spacing: 5) {
                             Image(systemName: "cup.and.saucer.fill")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
+                                .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
                             Text("Donate")
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
                         }
                         .contentShape(Rectangle())
                     }
@@ -3652,8 +3666,9 @@ struct About: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .frame(width: 18)
+                                .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
                             Text("GitHub")
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
                         }
                         .contentShape(Rectangle())
                     }
@@ -3675,7 +3690,6 @@ struct About: View {
                     .padding(.horizontal, 10)
             }
             .frame(maxWidth: .infinity, alignment: .center)
-            .background(.regularMaterial)
         }
         .toolbar {
             //            Button("Welcome window") {

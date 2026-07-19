@@ -78,22 +78,12 @@ jobs:
             gh pr comment "$EXISTING" --body "🔄 Nightly merge attempted on $(date -u +%Y-%m-%d) but conflicts remain. Please resolve manually."
           else
             echo "📝 Creating conflict PR"
+            BODY=$(printf "## Automatic nightly merge failed due to conflicts\n\nThe scheduled merge from \`dev\` into \`nightly\` encountered merge conflicts.\n\n**Please resolve the conflicts manually and merge this PR.**\n\n### Steps to resolve:\n1. Check out the \`nightly\` branch locally\n2. Merge \`dev\` into it: \`git merge origin/dev\`\n3. Resolve conflicts\n4. Push the resolved \`nightly\` branch\n\n_This PR was created automatically by the nightly-merge workflow._")
+            
             gh pr create \
               --head dev \
               --base nightly \
               --title "🌙 Nightly merge: dev → nightly (conflicts)" \
-              --body "## Automatic nightly merge failed due to conflicts
-
-The scheduled merge from \`dev\` into \`nightly\` encountered merge conflicts.
-
-**Please resolve the conflicts manually and merge this PR.**
-
-### Steps to resolve:
-1. Check out the \`nightly\` branch locally
-2. Merge \`dev\` into it: \`git merge origin/dev\`
-3. Resolve conflicts
-4. Push the resolved \`nightly\` branch
-
-_This PR was created automatically by the nightly-merge workflow._" \
+              --body "$BODY" \
               --label "merge-conflict,nightly" || echo "PR creation failed (labels may not exist yet)"
           fi

@@ -15,6 +15,12 @@ on:
 jobs:
   build:
     name: Build
+
+    # Skip CI-generated commits (appcast updates, changelog archives)
+    if: >-
+      !contains(github.event.head_commit.message, 'ci: update appcast') &&
+      !contains(github.event.head_commit.message, 'ci: archive changelog')
+
     strategy:
       matrix:
         # macos-14 runners cap at Xcode 16.2 (Swift 6.0); the app source needs Swift 6.1+.
