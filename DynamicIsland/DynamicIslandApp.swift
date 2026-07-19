@@ -31,12 +31,17 @@ struct DynamicNotchApp: App {
     @Environment(\.openWindow) var openWindow
 
     let updaterController: SPUStandardUpdaterController
+    /// Retained delegate instance that dynamically selects the Sparkle feed URL
+    /// based on the user's update channel preference.
+    private let updaterDelegate = AtollUpdaterDelegate()
 
     init() {
         // Skip Sparkle's launch-time update check during UI testing.
+        // The AtollUpdaterDelegate overrides the feed URL at runtime
+        // based on the user's selected update channel.
         updaterController = SPUStandardUpdaterController(
             startingUpdater: !AppRuntimeEnvironment.isUITesting,
-            updaterDelegate: nil, userDriverDelegate: nil)
+            updaterDelegate: updaterDelegate, userDriverDelegate: nil)
 
         // Initialize the settings window controller with the updater controller
         SettingsWindowController.shared.setUpdaterController(updaterController)

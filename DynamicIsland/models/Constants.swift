@@ -832,6 +832,7 @@ enum ColorExtractionMode: String, CaseIterable, Identifiable, Defaults.Serializa
 
 extension Defaults.Keys {
         // MARK: General
+    static let updateChannel = Key<UpdateChannel>("updateChannel", default: .stable)
     static let logLevel = Key<LogLevel>("logLevel", default: .none)
     static let menubarIcon = Key<Bool>("menubarIcon", default: true)
     static let showOnAllDisplays = Key<Bool>("showOnAllDisplays", default: false)

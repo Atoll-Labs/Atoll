@@ -3558,6 +3558,7 @@ struct CalendarSettings: View {
 
 struct About: View {
     @State private var showBuildNumber: Bool = false
+    @Default(.updateChannel) var updateChannel
     let updaterController: SPUStandardUpdaterController
     @Environment(\.openWindow) var openWindow
     var body: some View {
@@ -3573,6 +3574,17 @@ struct About: View {
                     HStack {
                         Text("Version")
                         Spacer()
+
+                        // Channel badge
+                        Text(UpdateChannel.buildChannel.displayName)
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color(UpdateChannel.buildChannel.badgeColor).opacity(0.2))
+                            .foregroundStyle(Color(UpdateChannel.buildChannel.badgeColor))
+                            .clipShape(Capsule())
+
                         if showBuildNumber {
                             Text("(\(Bundle.main.buildVersionNumber ?? ""))")
                                 .foregroundStyle(.secondary)
@@ -3599,9 +3611,10 @@ struct About: View {
                         VStack(spacing: 5) {
                             Image(systemName: "cup.and.saucer.fill")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
+                                .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
                             Text("Donate")
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
                         }
                         .contentShape(Rectangle())
                     }
@@ -3614,18 +3627,60 @@ struct About: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .frame(width: 18)
+                                .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
                             Text("GitHub")
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
                         }
                         .contentShape(Rectangle())
                     }
                     Spacer(minLength: 0)
                 }
                 .buttonStyle(PlainButtonStyle())
+                
                 Text("Your support funds software development learning for students in 9th–12th grade.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 5)
+
+                Section {
+                    ForEach(UpdateChannel.availableChannels) { channel in
+                        Button {
+                            updateChannel = channel
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: channel.badgeIcon)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Color(channel.badgeColor))
+                                    .frame(width: 20, alignment: .center)
+
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(channel.displayName)
+                                        .foregroundStyle(.primary)
+                                    Text(channel.description)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                if updateChannel == channel {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(Color(channel.badgeColor))
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Text("Current build: \(UpdateChannel.buildChannel.displayName)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Update channel")
+                }
             }
             VStack(spacing: 0) {
                 Divider()
@@ -3637,7 +3692,6 @@ struct About: View {
                     .padding(.horizontal, 10)
             }
             .frame(maxWidth: .infinity, alignment: .center)
-            .background(.regularMaterial)
         }
         .toolbar {
             //            Button("Welcome window") {
