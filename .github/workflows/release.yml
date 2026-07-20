@@ -536,8 +536,9 @@ jobs:
           if [ -f "$APPCAST_PATH" ]; then
             # Insert new item at the top of the channel element
             # Use awk to insert after <channel> + <title>
-            awk -v item="$NEW_ITEM" '
-              /<title>Atoll<\/title>/ { print; print item; next }
+            export NEW_ITEM
+            awk '
+              /<title>Atoll<\/title>/ { print; print ENVIRON["NEW_ITEM"]; next }
               { print }
             ' "$APPCAST_PATH" > "${APPCAST_PATH}.tmp"
             mv "${APPCAST_PATH}.tmp" "$APPCAST_PATH"
