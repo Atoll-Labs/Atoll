@@ -8,17 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Multi-channel update system (nightly, alpha, beta, stable)
-- Custom Sparkle updater UI with SwiftUI views
-- Update channel picker in Settings → About
-- Automated release pipeline via GitHub Actions
+- **Lock Screen & Live Activities**: Full support for Lock Screen widgets, Live Activities, and expanding lock screen music players with flip animations.
+- **Screen Assistant (AI)**: Introducing Screen Assistant with snipping capabilities and Gemini API integration.
+- **Advanced System HUDs**: Dynamic polling HUDs for Volume (mute/unmute), Brightness, Bluetooth, and Privacy Access Indicators.
+- **Clipboard Manager**: New floating clipboard manager panel with customizable settings and quick access.
+- **System Stats Panel**: Real-time tracking of CPU usage, Memory, Disk Read/Write, and Network usage with circular progress graphs.
+- **Custom Timer**: Dedicated Timer UI with custom timer capabilities.
+- **Multi-channel Updates**: Switch seamlessly between Nightly, Alpha, Beta, and Stable update channels directly from Settings.
+- **Automated CI/CD**: Full automated release pipeline via GitHub Actions using Sparkle.
 
 ### Changed
-- Sparkle feed URL is now dynamically selected based on update channel
+- **UI & Aesthetics**: Major overhaul to support a new Minimalistic UI option, as well as a Frutiger Aero aesthetic option.
+- **Onboarding & Settings**: Revamped the onboarding experience and Settings window layout for a cleaner, native macOS feel.
+- **Media Player**: Refined NowPlaying detection, expanded the Lock Screen music player, and smoothed out slider behavior.
+- **Performance**: Disabled `OSDUIHelper` polling in favor of event-driven system HUD monitoring to drastically reduce CPU footprint.
 
 ### Fixed
+- Fixed timeline reset and playback jumping issues in the Media Player.
+- Fixed jittering animations on brightness and volume HUDs.
+- Fixed corner radius clipping and window alignment bugs across multiple popup panels.
+- Fixed double conversion network errors and memory usage spikes in the System Stats panel.
+- Fixed lock screen GIF tracking via Git LFS.
 
-### Removed
+### ❤️ Special Thanks to Our Contributors
+A massive shoutout to everyone who contributed to this milestone release:
+Hariharan Mudaliar, Jis G Jacob, Felipe Giacomini Cocco, delli, Federico Imberti, Dan Querido, Soham Sharma, 杨锟, DanFQ, Amir Zarrinkafsh, HerbJul, StellarSea, XiNian-dada, AkhilKonduru1, createthisnl, fatih ozdil, Santiago Quihui, Venkatesh, A-Akhil, Alex, JoelVR2k, Ninzorn, SSylvain1989, landuoduo, and dozens of others!
 
 ## [2.2.0] - 2026-05-30
 ### Added

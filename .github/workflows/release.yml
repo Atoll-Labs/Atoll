@@ -46,10 +46,18 @@ jobs:
       # ─────────────────────────────────────────────────────────────────
       # 1. Checkout
       # ─────────────────────────────────────────────────────────────────
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
           persist-credentials: true
 
       # ─────────────────────────────────────────────────────────────────
@@ -199,15 +207,9 @@ jobs:
         env:
           SPARKLE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
-          # Sparkle's generate_appcast reads the key from the Keychain.
-          # We store it in the CI keychain the same way Sparkle expects.
-          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
-          security add-generic-password \
-            -a "ed25519" \
-            -s "https://sparkle-project.org" \
-            -w "$SPARKLE_KEY" \
-            -U \
-            "$KEYCHAIN_PATH"
+          # Write Sparkle key to a file to bypass keychain entirely (foolproof for CI)
+          mkdir -p ~/private_keys
+          echo "$SPARKLE_KEY" > ~/private_keys/sparkle_ed.key
 
       # ─────────────────────────────────────────────────────────────────
       # 8. Resolve SPM dependencies
@@ -403,8 +405,8 @@ jobs:
           mkdir -p build/appcast-staging
           cp "build/${DMG_NAME}" "build/appcast-staging/"
 
-          # Generate the appcast
-          "$GENERATE_APPCAST" build/appcast-staging
+          # Generate the appcast using the explicit key file to bypass keychain prompts
+          "$GENERATE_APPCAST" --ed-key-file ~/private_keys/sparkle_ed.key build/appcast-staging
 
           # The generated appcast.xml is in build/appcast-staging/
           if [ -f "build/appcast-staging/appcast.xml" ]; then
@@ -416,7 +418,7 @@ jobs:
 
           # Also sign the DMG and capture the EdDSA signature
           if [ -n "$SIGN_UPDATE" ]; then
-            SIGN_OUTPUT=$("$SIGN_UPDATE" "build/${DMG_NAME}" 2>&1 || true)
+            SIGN_OUTPUT=$("$SIGN_UPDATE" --ed-key-file ~/private_keys/sparkle_ed.key "build/${DMG_NAME}" 2>&1 || true)
             echo "sign_update output: $SIGN_OUTPUT"
           fi
 
@@ -542,8 +544,9 @@ jobs:
           if [ -f "$APPCAST_PATH" ]; then
             # Insert new item at the top of the channel element
             # Use awk to insert after <channel> + <title>
-            awk -v item="$NEW_ITEM" '
-              /<title>Atoll<\/title>/ { print; print item; next }
+            export NEW_ITEM
+            awk '
+              /<title>Atoll<\/title>/ { print; print ENVIRON["NEW_ITEM"]; next }
               { print }
             ' "$APPCAST_PATH" > "${APPCAST_PATH}.tmp"
             mv "${APPCAST_PATH}.tmp" "$APPCAST_PATH"
@@ -560,8 +563,8 @@ jobs:
 
           # Commit and push the updated appcast to main
           # All feed URLs point to raw.githubusercontent.com/.../main/Updates/
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Atoll-XML-Updater[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Stash appcast changes, checkout main, apply, push
           cp "$APPCAST_PATH" "/tmp/${APPCAST_FILE}"
@@ -606,8 +609,8 @@ jobs:
           ' CHANGELOG.md > CHANGELOG.md.tmp
           mv CHANGELOG.md.tmp CHANGELOG.md
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Atoll-XML-Updater[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
           git commit -m "ci: archive changelog for v${VERSION} [skip ci]" || echo "No changes to commit"
           git push origin main

@@ -3681,17 +3681,17 @@ struct About: View {
                 } header: {
                     Text("Update channel")
                 }
+                VStack(spacing: 0) {
+                    Divider()
+                        .padding(.bottom, 5)
+                    Text("Made with ❤️ by Ebullioscopic")
+                        .foregroundStyle(.secondary)
+                        .padding(.bottom, 7)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 10)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
             }
-            VStack(spacing: 0) {
-                Divider()
-                Text("Made with ❤️ by Ebullioscopic")
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 5)
-                    .padding(.bottom, 7)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 10)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
         }
         .toolbar {
             //            Button("Welcome window") {
