@@ -112,9 +112,6 @@ jobs:
               ;;
             stable)
               VERSION="${BASE_VERSION}"
-              # Continue existing build number sequence
-              LAST_BUILD=$(git tag -l 'v*' | xargs -I{} git tag -l --format='%(creatordate:unix) {}' {} 2>/dev/null | sort -rn | head -1 | awk '{print $2}' | sed 's/v//' | grep -oE '[0-9]+$' || echo "12")
-              BUILD_NUMBER=$((LAST_BUILD + 1))
               PRERELEASE="false"
               ;;
           esac
