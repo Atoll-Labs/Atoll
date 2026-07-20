@@ -46,10 +46,18 @@ jobs:
       # ─────────────────────────────────────────────────────────────────
       # 1. Checkout
       # ─────────────────────────────────────────────────────────────────
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
           persist-credentials: true
 
       # ─────────────────────────────────────────────────────────────────
@@ -555,8 +563,8 @@ jobs:
 
           # Commit and push the updated appcast to main
           # All feed URLs point to raw.githubusercontent.com/.../main/Updates/
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Atoll-XML-Updater[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Stash appcast changes, checkout main, apply, push
           cp "$APPCAST_PATH" "/tmp/${APPCAST_FILE}"
@@ -601,8 +609,8 @@ jobs:
           ' CHANGELOG.md > CHANGELOG.md.tmp
           mv CHANGELOG.md.tmp CHANGELOG.md
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Atoll-XML-Updater[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
           git commit -m "ci: archive changelog for v${VERSION} [skip ci]" || echo "No changes to commit"
           git push origin main
