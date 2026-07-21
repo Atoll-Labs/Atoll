@@ -61,11 +61,11 @@ class PrivacyConfigurationTests(unittest.TestCase):
             workflow,
         )
         self.assertIn(
-            'plutil -extract com.apple.security.device.camera raw "$FINAL_ENTITLEMENTS_PATH" | grep -qx "true"',
+            '/usr/libexec/PlistBuddy -c "Print :com.apple.security.device.camera" "$FINAL_ENTITLEMENTS_PATH" | grep -qx "true"',
             workflow,
         )
         self.assertIn(
-            'plutil -extract com.apple.security.automation.apple-events raw "$FINAL_ENTITLEMENTS_PATH" | grep -qx "true"',
+            '/usr/libexec/PlistBuddy -c "Print :com.apple.security.automation.apple-events" "$FINAL_ENTITLEMENTS_PATH" | grep -qx "true"',
             workflow,
         )
 

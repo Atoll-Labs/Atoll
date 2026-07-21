@@ -328,8 +328,8 @@ jobs:
           # signing change that would silently strip the app's entitlements.
           FINAL_ENTITLEMENTS_PATH="$RUNNER_TEMP/${APP_NAME}-final.entitlements"
           codesign -d --entitlements :- "$APP_PATH" > "$FINAL_ENTITLEMENTS_PATH"
-          plutil -extract com.apple.security.device.camera raw "$FINAL_ENTITLEMENTS_PATH" | grep -qx "true"
-          plutil -extract com.apple.security.automation.apple-events raw "$FINAL_ENTITLEMENTS_PATH" | grep -qx "true"
+          /usr/libexec/PlistBuddy -c "Print :com.apple.security.device.camera" "$FINAL_ENTITLEMENTS_PATH" | grep -qx "true"
+          /usr/libexec/PlistBuddy -c "Print :com.apple.security.automation.apple-events" "$FINAL_ENTITLEMENTS_PATH" | grep -qx "true"
 
       # ─────────────────────────────────────────────────────────────────
       # 14. Create DMG
