@@ -127,12 +127,15 @@ jobs:
               ;;
             stable)
               if git tag -l "v${BASE_VERSION}" | grep -q .; then
-                # Base tag exists — find the next unused patch.N
-                N=1
-                while git tag -l "v${BASE_VERSION}-patch.${N}" | grep -q .; do
-                  N=$((N + 1))
+                # Base tag exists — find the next unused X.Y.Z version
+                MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
+                MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
+                PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
+                PATCH=$((PATCH + 1))
+                while git tag -l "v${MAJOR}.${MINOR}.${PATCH}" | grep -q .; do
+                  PATCH=$((PATCH + 1))
                 done
-                VERSION="${BASE_VERSION}-patch.${N}"
+                VERSION="${MAJOR}.${MINOR}.${PATCH}"
                 echo "⚠️  Tag v${BASE_VERSION} exists — releasing as ${VERSION}"
               else
                 VERSION="${BASE_VERSION}"
