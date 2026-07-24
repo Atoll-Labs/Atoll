@@ -90,6 +90,22 @@ jobs:
           # Use the total commit count for a perfectly monotonically increasing build number
           BUILD_NUMBER=$(git rev-list HEAD --count)
 
+          # ── Auto-patch-bump for stable releases ──
+          # If the VERSION file matches an already-published tag, automatically
+          # increment the patch number so devs can merge to main without manually
+          # editing the VERSION file every time.
+          if [ "$CHANNEL" = "stable" ] && git tag -l "v${BASE_VERSION}" | grep -q .; then
+            echo "⚠️  Tag v${BASE_VERSION} already exists — auto-bumping patch version"
+            MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
+            MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
+            PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
+            PATCH=$((PATCH + 1))
+            BASE_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            # Persist the bumped version so future merges start from the new base
+            echo "$BASE_VERSION" > VERSION
+            echo "📦 Auto-bumped VERSION to ${BASE_VERSION}"
+          fi
+
           case "$CHANNEL" in
             nightly)
               COUNT=$(git tag -l "v${BASE_VERSION}-nightly.*" 2>/dev/null | wc -l | tr -d ' ')
@@ -107,7 +123,6 @@ jobs:
               COUNT=$(git tag -l "v${BASE_VERSION}-beta.*" 2>/dev/null | wc -l | tr -d ' ')
               NEXT=$((COUNT + 1))
               VERSION="${BASE_VERSION}-beta.${NEXT}"
-              BUILD_NUMBER="${DATE_STAMP}003"
               PRERELEASE="true"
               ;;
             stable)
@@ -287,6 +302,22 @@ jobs:
             -exportOptionsPlist ExportOptions.plist
 
       # ─────────────────────────────────────────────────────────────────
+      # 12b. Ensure BluetoothHUDAnimations are in the app bundle
+      # ─────────────────────────────────────────────────────────────────
+      - name: Copy BluetoothHUD Animations
+        run: |
+          APP_RESOURCES="build/export/${APP_NAME}.app/Contents/Resources"
+          SRC_DIR="DynamicIsland/BluetoothHUDAnimations"
+          if [ -d "$SRC_DIR" ]; then
+            DEST="$APP_RESOURCES/BluetoothHUDAnimations"
+            mkdir -p "$DEST"
+            cp -n "$SRC_DIR"/*.mov "$DEST/" 2>/dev/null || true
+            echo "✅ BluetoothHUDAnimations copied ($(ls "$DEST" | wc -l | tr -d ' ') files)"
+          else
+            echo "⚠️  BluetoothHUDAnimations source dir not found — skipping"
+          fi
+
+      # ─────────────────────────────────────────────────────────────────
       # 13. Code sign Sparkle XPC services
       # ─────────────────────────────────────────────────────────────────
       - name: Sign Sparkle XPC Services
@@ -331,9 +362,6 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :com.apple.security.device.camera" "$FINAL_ENTITLEMENTS_PATH" | grep -qx "true"
           /usr/libexec/PlistBuddy -c "Print :com.apple.security.automation.apple-events" "$FINAL_ENTITLEMENTS_PATH" | grep -qx "true"
 
-      # ─────────────────────────────────────────────────────────────────
-      # 14. Create DMG
-      # ─────────────────────────────────────────────────────────────────
       # ─────────────────────────────────────────────────────────────────
       # 14. Create DMG
       # ─────────────────────────────────────────────────────────────────
