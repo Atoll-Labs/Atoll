@@ -602,6 +602,9 @@ class MusicManager: ObservableObject {
     @Published var secondaryColor: NSColor = .gray
     @Published var bundleIdentifier: String? = nil
 
+    var currentContentIdentifier: String? { lastArtworkContentIdentifier }
+    var currentContentURL: String? { lastArtworkContentURL }
+
     var isAppleMusicActive: Bool { bundleIdentifier == "com.apple.Music" }
     var isSpotifyActive: Bool { bundleIdentifier == SpotifyController.bundleIdentifier }
     /// Whether favouriting applies to the playing source at all. Decides

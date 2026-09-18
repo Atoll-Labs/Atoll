@@ -146,6 +146,10 @@ final class LockScreenTimerWidgetPanelManager {
     }
 
     func showWidget() {
+        guard !FullScreenArtworkWindowManager.shared.isShowingAmbientColorProjection else {
+            hide(animated: false)
+            return
+        }
         guard let screen = currentScreen() else { return }
         let window = ensureWindow()
         let frame = targetFrame(on: screen)

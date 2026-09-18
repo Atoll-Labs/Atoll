@@ -35,7 +35,15 @@ final class SpotifyOAuthService: SpotifyTokenProviding {
     static let redirectURI = "atoll-spotify://oauth-callback"
 
     private static let callbackScheme = "atoll-spotify"
-    private static let scopes = "user-library-read user-library-modify"
+    private static let scopes = [
+        "user-library-read",
+        "user-library-modify",
+        "user-follow-read",
+        "playlist-read-private",
+        "playlist-read-collaborative",
+        "user-read-playback-state",
+        "user-modify-playback-state"
+    ].joined(separator: " ")
     private static let authorizeURL = URL(string: "https://accounts.spotify.com/authorize")!
     private static let tokenURL = URL(string: "https://accounts.spotify.com/api/token")!
 

@@ -70,6 +70,10 @@ final class LockScreenReminderWidgetPanelManager {
     }
 
     private func render(snapshot: LockScreenReminderWidgetSnapshot, makeVisible: Bool) {
+        guard !FullScreenArtworkWindowManager.shared.isShowingAmbientColorProjection else {
+            hide()
+            return
+        }
         guard let screen = currentScreen() else { return }
         if !makeVisible, window == nil {
             return
@@ -203,4 +207,3 @@ final class LockScreenReminderWidgetPanelManager {
         LockScreenDisplayContextProvider.shared.contextSnapshot()?.screen ?? NSScreen.main
     }
 }
-

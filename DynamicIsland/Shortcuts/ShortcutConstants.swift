@@ -34,4 +34,5 @@ extension KeyboardShortcuts.Name {
     static let toggleTerminalTab = Self("toggleTerminalTab", default: .init(.backtick, modifiers: [.control]))
     static let startDemoTimer = Self("startDemoTimer", default: .init(.t, modifiers: [.command, .shift]))
     static let toggleCaffeinate = Self("toggleCaffeinate", default: .init(.k, modifiers: [.command, .shift]))
+    static let toggleMusicShelf = Self("toggleMusicShelf", default: .init(.m, modifiers: [.option, .command]))
 }

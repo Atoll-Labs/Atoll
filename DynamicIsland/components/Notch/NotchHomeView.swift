@@ -396,7 +396,7 @@ struct AlbumArtView: View {
                 .padding(.bottom, -5)
 
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(AlbumArtworkLaunchButtonStyle())
             .scaleEffect(musicManager.isPlaying ? 1 : 0.85)
             
             albumArtDarkOverlay
@@ -435,6 +435,30 @@ struct AlbumArtView: View {
                 .transition(.scale.combined(with: .opacity).animation(.bouncy.delay(0.3)))
                 .zIndex(2)
         }
+    }
+}
+
+/// Gives the artwork a tactile mouse-down state before its action hands focus
+/// to the source player. The pressed state is driven by `ButtonStyle`, so it is
+/// visible immediately instead of waiting for the app-launch callback.
+struct AlbumArtworkLaunchButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.91 : 1)
+            .brightness(configuration.isPressed ? -0.08 : 0)
+            .saturation(configuration.isPressed ? 0.88 : 1)
+            .shadow(
+                color: .black.opacity(configuration.isPressed ? 0.18 : 0),
+                radius: configuration.isPressed ? 5 : 0,
+                x: 0,
+                y: configuration.isPressed ? 2 : 0
+            )
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.19, dampingFraction: 0.7),
+                value: configuration.isPressed
+            )
     }
 }
 

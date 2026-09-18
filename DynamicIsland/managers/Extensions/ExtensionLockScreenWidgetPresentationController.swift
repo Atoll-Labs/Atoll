@@ -40,6 +40,7 @@ final class ExtensionLockScreenWidgetPresentationController {
         observeLockState()
         observePayloads()
         observeDefaults()
+        observeAmbientMusicMode()
     }
 
     private func observeLockState() {
@@ -80,10 +81,25 @@ final class ExtensionLockScreenWidgetPresentationController {
             .store(in: &cancellables)
     }
 
+    private func observeAmbientMusicMode() {
+        FullScreenArtworkWindowManager.shared.$isShowingAmbientColorProjection
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.refreshPresentation()
+            }
+            .store(in: &cancellables)
+    }
+
     private func refreshPresentation() {
         guard isLocked, LockScreenManager.shared.currentLockStatus, Defaults[.enableExtensionLockScreenWidgets] else {
             windowPool.hideAll()
             updateVisibilityLog(.hidden(reason: "lock-state"))
+            return
+        }
+        guard !FullScreenArtworkWindowManager.shared.isShowingAmbientColorProjection else {
+            windowPool.hideAll()
+            updateVisibilityLog(.hidden(reason: "ambient-music-mode"))
             return
         }
         guard cachedPayloads.isEmpty == false else {

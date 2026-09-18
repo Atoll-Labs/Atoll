@@ -21,7 +21,7 @@ import Foundation
 import Security
 
 /// Official Spotify Web API access via OAuth 2.0 PKCE, scoped to the user's
-/// Liked Songs (user-library-read / user-library-modify). Independent from
+/// Liked Songs and Spotify Connect playback. Independent from
 /// SpotifyAuthManager's sp_dc cookie session: Spotify rejects those web-player
 /// tokens on api.spotify.com, so the like button needs a registered app token.
 ///
@@ -131,6 +131,12 @@ final class SpotifyLibraryManager: ObservableObject {
 
     func setTrackSaved(_ saved: Bool, trackID: String) async -> Bool {
         await api.setTrackSaved(saved, trackID: trackID)
+    }
+
+    /// Reuses the existing PKCE session for catalogue browsing and Spotify
+    /// Connect commands issued by Music Shelf.
+    func catalogAccessToken(forceRefresh: Bool = false) async -> String? {
+        await oauth.validAccessToken(forceRefresh: forceRefresh)
     }
 
     // MARK: - State

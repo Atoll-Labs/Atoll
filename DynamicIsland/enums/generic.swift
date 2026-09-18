@@ -198,6 +198,51 @@ enum LockScreenGlassCustomizationMode: String, CaseIterable, Defaults.Serializab
     }
 }
 
+/// The fullscreen presentation launched by right-clicking the lock-screen artwork.
+///
+/// `liveArtwork` deliberately remains the default so the existing wallpaper flow
+/// keeps exactly the same behaviour until the user explicitly opts into the
+/// non-destructive, colour-based projection.
+enum LockScreenFullscreenArtworkMode: String, CaseIterable, Defaults.Serializable, Identifiable {
+    case liveArtwork = "Live artwork"
+    case ambientColors = "Album colors"
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .liveArtwork:
+            return String(localized: "Live artwork")
+        case .ambientColors:
+            return String(localized: "Album colors")
+        }
+    }
+}
+
+enum MusicShelfEdge: String, CaseIterable, Defaults.Serializable, Identifiable {
+    case left
+    case right
+    case bottom
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .left: return String(localized: "Left edge")
+        case .right: return String(localized: "Right edge")
+        case .bottom: return String(localized: "Bottom edge")
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .left: return "rectangle.lefthalf.inset.filled"
+        case .right: return "rectangle.righthalf.inset.filled"
+        case .bottom: return "rectangle.bottomhalf.inset.filled"
+        }
+    }
+}
+
 enum LockScreenTimerSurfaceMode: String, CaseIterable, Defaults.Serializable, Identifiable {
     case classic = "Classic"
     case glass = "Glass"

@@ -246,10 +246,163 @@ private struct FullScreenLyricsOverlayContent: View {
     }
 }
 
+/// A colour-only backdrop derived from the current cover. It intentionally
+/// contains no copy of the cover itself: the artwork remains a distinct card
+/// above the player, while the original macOS wallpaper stays untouched behind
+/// this temporary lock-screen projection.
+private struct AmbientColorProjectionContent: View {
+    let artwork: NSImage
+    let primaryColor: NSColor
+    let secondaryColor: NSColor
+
+    var body: some View {
+        GeometryReader { geometry in
+            let longestSide = max(geometry.size.width, geometry.size.height)
+
+            ZStack {
+                Color.black
+
+                Image(nsImage: artwork)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .scaleEffect(1.22)
+                    .saturation(0.72)
+                    .contrast(0.88)
+                    .blur(radius: 104)
+                    .opacity(0.4)
+
+                LinearGradient(
+                    colors: [
+                        Color(nsColor: primaryColor).opacity(0.62),
+                        Color(nsColor: secondaryColor).opacity(0.5),
+                        Color(nsColor: primaryColor).opacity(0.38),
+                        Color.black.opacity(0.46)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                Rectangle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color(nsColor: secondaryColor).opacity(0.38), .clear],
+                            center: .topLeading,
+                            startRadius: 0,
+                            endRadius: longestSide * 0.88
+                        )
+                    )
+
+                Rectangle()
+                    .fill(
+                        RadialGradient(
+                            colors: [.clear, .black.opacity(0.44)],
+                            center: .center,
+                            startRadius: longestSide * 0.18,
+                            endRadius: longestSide * 0.78
+                        )
+                    )
+
+                LinearGradient(
+                    colors: [.black.opacity(0.04), .black.opacity(0.2)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .clipped()
+        }
+        .background(Color.black)
+    }
+}
+
+/// Full lyrics presentation used only by the ambient-colour mode. The existing
+/// live-artwork overlay keeps its compact current-line presentation unchanged.
+private struct AmbientFullScreenLyricsOverlayContent: View {
+    @ObservedObject private var musicManager = MusicManager.shared
+
+    var body: some View {
+        GeometryReader { geometry in
+            let lyricSize = min(max(geometry.size.height * 0.07, 27), 38)
+            SyncedLyricsList(
+                musicManager: musicManager,
+                style: SyncedLyricsStyle(
+                    fontSize: lyricSize,
+                    currentFontSize: lyricSize * 1.16,
+                    lineSpacing: lyricSize * 0.5,
+                    lineLimit: 3,
+                    instrumentalFontSize: lyricSize * 0.72,
+                    horizontalPadding: 10,
+                    verticalPadding: lyricSize,
+                    sung: .white.opacity(0.92),
+                    unsung: .white.opacity(0.52),
+                    idle: .white.opacity(0.26),
+                    tint: .white,
+                    placeholder: "No lyrics for this track"
+                )
+            )
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black, location: 0.1),
+                        .init(color: .black, location: 0.9),
+                        .init(color: .clear, location: 1)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        }
+        .foregroundStyle(.white)
+        .shadow(color: .black.opacity(0.24), radius: 9, x: 0, y: 3)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(Color.clear)
+    }
+}
+
+/// Clock shown only while the non-destructive ambient projection is active.
+/// A timeline keeps the time fresh without coupling it to playback updates.
+private struct AmbientLockScreenClockContent: View {
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            HStack(alignment: .lastTextBaseline, spacing: 30) {
+                Text(context.date.formatted(date: .omitted, time: .shortened))
+                    .font(.system(size: 48, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .tracking(-1.2)
+                    .foregroundStyle(.white.opacity(0.96))
+                    .lineLimit(1)
+
+                Text(
+                    context.date.formatted(
+                        .dateTime
+                            .weekday(.abbreviated)
+                            .day()
+                            .month(.wide)
+                    )
+                )
+                .font(.system(size: 38, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.82))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            }
+            .shadow(color: .black.opacity(0.22), radius: 10, x: 0, y: 3)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        }
+        .background(Color.clear)
+    }
+}
+
 private struct SpotifyCanvasFallbackLayoutFrames {
     let artworkFrame: NSRect
     let panelFrame: NSRect
     let groupFrame: NSRect
+    let lyricsFrame: NSRect?
+}
+
+private struct AmbientColorProjectionLayoutFrames {
+    let artworkFrame: NSRect
+    let panelFrame: NSRect
     let lyricsFrame: NSRect?
 }
 
@@ -260,12 +413,14 @@ final class FullScreenArtworkWindowManager: ObservableObject {
     private enum ArtworkOverlayMode {
         case none
         case spotifyFallback
+        case ambientColorProjection
     }
 
     static let shared = FullScreenArtworkWindowManager()
 
     @Published private(set) var isShowing = false
     @Published private(set) var isShowingSpotifyCanvasFallback = false
+    @Published private(set) var isShowingAmbientColorProjection = false
     var onDismiss: (() -> Void)?
 
     private let wallpaperPlistURL: URL = {
@@ -325,6 +480,18 @@ final class FullScreenArtworkWindowManager: ObservableObject {
     private var artworkOverlayWindowDelegated = false
     private var lyricsOverlayWindow: NSWindow?
     private var lyricsOverlayWindowDelegated = false
+    private var ambientBackgroundWindow: NSWindow?
+    private var ambientBackgroundHostingView: NSHostingView<AmbientColorProjectionContent>?
+    private var ambientBackgroundWindowDelegated = false
+    private var ambientLyricsOverlayWindow: NSWindow?
+    private var ambientLyricsOverlayWindowDelegated = false
+    private var ambientClockWindow: NSWindow?
+    private var ambientClockHostingView: NSHostingView<AmbientLockScreenClockContent>?
+    private var ambientClockWindowDelegated = false
+    private var ambientPaletteFingerprint: String?
+    private var ambientArtwork: NSImage?
+    private var ambientPrimaryColor: NSColor = .darkGray
+    private var ambientSecondaryColor: NSColor = .black
     private var currentArtworkOverlayMode: ArtworkOverlayMode = .none
     private var wallpaperTransitionWindow: NSWindow?
     private var wallpaperTransitionView: WallpaperTransitionImageView?
@@ -341,6 +508,8 @@ final class FullScreenArtworkWindowManager: ObservableObject {
     private var artworkLayoutOverCanvasPreferenceCancellable: AnyCancellable?
     private var lyricsTextCancellable: AnyCancellable?
     private var lyricsPreferenceCancellable: AnyCancellable?
+    private var lyricsAvailabilityCancellable: AnyCancellable?
+    private var lyricsListCancellable: AnyCancellable?
     private let spotifyCanvasFallbackHorizontalMargin: CGFloat = 48
 
     private init() {
@@ -350,6 +519,8 @@ final class FullScreenArtworkWindowManager: ObservableObject {
         observeArtworkLayoutOverCanvasPreference()
         observeLyricsChanges()
         observeLyricsPreference()
+        observeLyricsAvailability()
+        observeLyricsList()
         observePlaybackStateChanges()
         observeAppTermination()
     }
@@ -367,8 +538,20 @@ final class FullScreenArtworkWindowManager: ObservableObject {
         observeTrackChanges()
     }
 
+    /// Presents the iPhone-inspired colour treatment without changing the
+    /// system wallpaper plist. Dismissing this window reveals the user's
+    /// original wallpaper immediately because it was never replaced.
+    func showAmbientColorProjection(artwork: NSImage) {
+        guard !isShowing else { return }
+        guard let screen = NSScreen.main else { return }
+        applyAmbientColorPresentation(artwork: artwork, on: screen)
+        observeTrackChanges()
+    }
+
     func hide() {
         guard isShowing else { return }
+        let wasShowingAmbientColorProjection = isShowingAmbientColorProjection
+        let shouldRestoreWallpaper = !wasShowingAmbientColorProjection
         resumeWallpaperAgentIfNeeded()
         isShowing = false
         isLiveWallpaperAllowed = false
@@ -378,6 +561,7 @@ final class FullScreenArtworkWindowManager: ObservableObject {
         pendingFallbackWallpaperKey = nil
         let shouldRestoreStandardPanelLayout = isShowingSpotifyCanvasFallback
         isShowingSpotifyCanvasFallback = false
+        isShowingAmbientColorProjection = false
         removeFallbackRightClickMonitor()
         trackChangeCancellable?.cancel()
         trackChangeCancellable = nil
@@ -389,12 +573,19 @@ final class FullScreenArtworkWindowManager: ObservableObject {
         hideVideoWindow()
         hideArtworkOverlay()
         hideLyricsOverlay()
+        hideAmbientLyricsOverlay()
+        hideAmbientClock()
+        hideAmbientBackground()
         hideWallpaperTransition()
         hideClickReceiver()
         if shouldRestoreStandardPanelLayout, LockScreenManager.shared.isLocked {
             LockScreenPanelManager.shared.applyOffsetAdjustment(animated: true)
         }
-        restoreWallpaper()
+        if shouldRestoreWallpaper {
+            restoreWallpaper()
+        } else if wasShowingAmbientColorProjection, LockScreenManager.shared.isLocked {
+            restoreLockScreenWidgetsAfterAmbientMode()
+        }
 
         activeSongTitle = nil
         activeArtist = nil
@@ -403,7 +594,9 @@ final class FullScreenArtworkWindowManager: ObservableObject {
         onDismiss = nil
         callback?()
 
-        print("[FullScreenArtworkWindowManager] Original wallpaper restored")
+        print(shouldRestoreWallpaper
+              ? "[FullScreenArtworkWindowManager] Original wallpaper restored"
+              : "[FullScreenArtworkWindowManager] Ambient color projection dismissed")
     }
 
     // MARK: - Artwork Pre-Cache
@@ -523,6 +716,42 @@ final class FullScreenArtworkWindowManager: ObservableObject {
         }
     }
 
+    private func applyAmbientColorPresentation(artwork: NSImage, on screen: NSScreen) {
+        let previousFallbackState = isShowingSpotifyCanvasFallback
+
+        isLiveWallpaperAllowed = false
+        activeLiveWallpaperFingerprint = nil
+        activeWallpaperKey = nil
+        pendingFallbackStaticURL = nil
+        pendingFallbackWallpaperKey = nil
+        isShowing = true
+        isShowingAmbientColorProjection = true
+        // The panel already has a purpose-built detached-artwork presentation
+        // for fullscreen content. Reusing that surface preserves the familiar
+        // player while the ambient mode supplies its own layout and lyrics.
+        isShowingSpotifyCanvasFallback = true
+        activeSongTitle = MusicManager.shared.songTitle
+        activeArtist = MusicManager.shared.artistName
+
+        hideVideoWindow()
+        hideWallpaperTransition()
+        suppressLockScreenWidgetsForAmbientMode()
+        showAmbientBackground(on: screen, artwork: artwork)
+        showAmbientClock(on: screen)
+
+        if previousFallbackState != isShowingSpotifyCanvasFallback,
+           LockScreenManager.shared.isLocked {
+            LockScreenPanelManager.shared.applyOffsetAdjustment(animated: true)
+        }
+
+        installFallbackRightClickMonitorIfNeeded()
+        showArtworkOverlay(on: screen, artwork: artwork, mode: .ambientColorProjection)
+        updateLyricsOverlayIfNeeded(on: screen)
+        showClickReceiver(on: screen)
+
+        print("[FullScreenArtworkWindowManager] Ambient color projection shown without changing the wallpaper")
+    }
+
     private func applyPresentation(
         artwork: NSImage,
         videoURL: URL?,
@@ -585,6 +814,7 @@ final class FullScreenArtworkWindowManager: ObservableObject {
         }
 
         isShowing = true
+        isShowingAmbientColorProjection = false
         isShowingSpotifyCanvasFallback = shouldUseFallbackLayout
         activeSongTitle = MusicManager.shared.songTitle
         activeArtist = MusicManager.shared.artistName
@@ -623,6 +853,11 @@ final class FullScreenArtworkWindowManager: ObservableObject {
         guard MusicManager.shared.hasActiveSession else { return }
         guard let screen = NSScreen.main else { return }
 
+        if isShowingAmbientColorProjection {
+            applyAmbientColorPresentation(artwork: MusicManager.shared.albumArt, on: screen)
+            return
+        }
+
         applyPresentation(
             artwork: MusicManager.shared.albumArt,
             videoURL: isLiveWallpaperAllowed ? MusicManager.shared.videoArtworkURL : nil,
@@ -641,6 +876,7 @@ final class FullScreenArtworkWindowManager: ObservableObject {
             Task { @MainActor [weak self] in
                 self?.updateArtworkOverlayFrameIfNeeded()
                 self?.updateLyricsOverlayIfNeeded()
+                self?.updateAmbientBackdropAndClockFramesIfNeeded()
             }
         }
     }
@@ -659,6 +895,9 @@ final class FullScreenArtworkWindowManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self, self.isShowing else { return }
+                // The ambient lyrics view observes MusicManager directly and
+                // preserves its scroll state as the current line advances.
+                guard !self.isShowingAmbientColorProjection else { return }
                 self.updateLyricsOverlayIfNeeded()
             }
     }
@@ -668,6 +907,37 @@ final class FullScreenArtworkWindowManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self, self.isShowing else { return }
+                if self.isShowingAmbientColorProjection,
+                   LockScreenManager.shared.isLocked {
+                    LockScreenPanelManager.shared.applyOffsetAdjustment(animated: true)
+                }
+                self.updateLyricsOverlayIfNeeded()
+            }
+    }
+
+    private func observeLyricsAvailability() {
+        lyricsAvailabilityCancellable = MusicManager.shared.$lyricsAvailability
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, self.isShowing, self.isShowingAmbientColorProjection else { return }
+                if LockScreenManager.shared.isLocked {
+                    LockScreenPanelManager.shared.applyOffsetAdjustment(animated: true)
+                }
+                self.updateArtworkOverlayFrameIfNeeded()
+                self.updateLyricsOverlayIfNeeded()
+            }
+    }
+
+    private func observeLyricsList() {
+        lyricsListCancellable = MusicManager.shared.$syncedLyrics
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, self.isShowing, self.isShowingAmbientColorProjection else { return }
+                if LockScreenManager.shared.isLocked {
+                    LockScreenPanelManager.shared.applyOffsetAdjustment(animated: true)
+                }
+                self.updateArtworkOverlayFrameIfNeeded()
                 self.updateLyricsOverlayIfNeeded()
             }
     }
@@ -718,6 +988,113 @@ final class FullScreenArtworkWindowManager: ObservableObject {
         )
         let maxByHeight = max(min(screenFrame.height * 0.42, 360), 180)
         return min(preferred, maxByWidth, maxByHeight)
+    }
+
+    /// Frame used by `LockScreenPanelManager` while the non-destructive color
+    /// projection is active. When lyrics do not exist, the artwork/player stack
+    /// is centered as a single unit; otherwise it shifts left to make room for
+    /// the read-along column.
+    func ambientColorProjectionPanelFrame(screenFrame: NSRect, panelSize: CGSize) -> NSRect {
+        ambientColorProjectionLayoutFrames(screenFrame: screenFrame, panelSize: panelSize).panelFrame
+    }
+
+    private var hasAmbientLyrics: Bool {
+        guard Defaults[.enableLyrics] else { return false }
+        switch MusicManager.shared.lyricsAvailability {
+        case .timed, .untimed:
+            return !MusicManager.shared.syncedLyrics.isEmpty
+        case .loading, .instrumental, .unavailable:
+            return false
+        }
+    }
+
+    private func ambientColorProjectionLayoutFrames(
+        screenFrame: NSRect,
+        panelSize: CGSize
+    ) -> AmbientColorProjectionLayoutFrames {
+        let horizontalMargin = min(max(screenFrame.width * 0.045, 52), 82)
+        let playerGap = min(max(screenFrame.height * 0.04, 36), 58)
+        let maximumArtworkByWidth = max(screenFrame.width * (hasAmbientLyrics ? 0.34 : 0.42), 280)
+        let artworkSide = min(max(screenFrame.height * 0.42, 320), 500, maximumArtworkByWidth)
+
+        if !hasAmbientLyrics {
+            let stackHeight = artworkSide + playerGap + panelSize.height
+            let idealCenterY = screenFrame.midY - min(screenFrame.height * 0.015, 16)
+            let minimumCenterY = screenFrame.minY + (stackHeight / 2) + 44
+            let maximumCenterY = screenFrame.maxY - (stackHeight / 2) - 138
+            let stackCenterY = maximumCenterY >= minimumCenterY
+                ? min(max(idealCenterY, minimumCenterY), maximumCenterY)
+                : screenFrame.midY
+            let stackOriginY = stackCenterY - (stackHeight / 2)
+            let panelFrame = NSRect(
+                x: screenFrame.midX - (panelSize.width / 2),
+                y: stackOriginY,
+                width: panelSize.width,
+                height: panelSize.height
+            )
+            let artworkFrame = NSRect(
+                x: screenFrame.midX - (artworkSide / 2),
+                y: panelFrame.maxY + playerGap,
+                width: artworkSide,
+                height: artworkSide
+            )
+            return AmbientColorProjectionLayoutFrames(
+                artworkFrame: artworkFrame,
+                panelFrame: panelFrame,
+                lyricsFrame: nil
+            )
+        }
+
+        let lyricsGap = min(max(screenFrame.width * 0.042, 58), 88)
+        let maximumLyricsWidth = max(
+            screenFrame.width - (horizontalMargin * 2) - artworkSide - lyricsGap,
+            320
+        )
+        let lyricsWidth = min(max(screenFrame.width * 0.32, 400), 600, maximumLyricsWidth)
+        let totalContentWidth = artworkSide + lyricsGap + lyricsWidth
+        let maximumOriginX = max(
+            screenFrame.maxX - horizontalMargin - totalContentWidth,
+            screenFrame.minX + horizontalMargin
+        )
+        let contentOriginX = min(
+            max(screenFrame.midX - (totalContentWidth / 2), screenFrame.minX + horizontalMargin),
+            maximumOriginX
+        )
+
+        let bottomClearance = panelSize.height + playerGap + 48
+        let topClearance = min(max(screenFrame.height * 0.17, 150), 210)
+        let minimumCenterY = screenFrame.minY + bottomClearance + (artworkSide / 2)
+        let maximumCenterY = screenFrame.maxY - topClearance - (artworkSide / 2)
+        let idealCenterY = screenFrame.midY + min(screenFrame.height * 0.03, 34)
+        let contentCenterY = maximumCenterY >= minimumCenterY
+            ? min(max(idealCenterY, minimumCenterY), maximumCenterY)
+            : screenFrame.midY
+
+        let artworkFrame = NSRect(
+            x: contentOriginX,
+            y: contentCenterY - (artworkSide / 2),
+            width: artworkSide,
+            height: artworkSide
+        )
+        let lyricsHeight = min(max(artworkSide * 0.96, 360), 500)
+        let lyricsFrame = NSRect(
+            x: contentOriginX + artworkSide + lyricsGap,
+            y: contentCenterY - (lyricsHeight / 2),
+            width: lyricsWidth,
+            height: lyricsHeight
+        )
+        let panelFrame = NSRect(
+            x: screenFrame.midX - (panelSize.width / 2),
+            y: artworkFrame.minY - playerGap - panelSize.height,
+            width: panelSize.width,
+            height: panelSize.height
+        )
+
+        return AmbientColorProjectionLayoutFrames(
+            artworkFrame: artworkFrame,
+            panelFrame: panelFrame,
+            lyricsFrame: lyricsFrame
+        )
     }
 
     private func persistedArtworkFileURL(for artwork: NSImage, fingerprint: String) -> URL? {
@@ -1180,6 +1557,186 @@ final class FullScreenArtworkWindowManager: ObservableObject {
         }
     }
 
+    // MARK: - Ambient Color Projection
+
+    private func showAmbientBackground(on screen: NSScreen, artwork: NSImage) {
+        let fingerprint = imageFingerprint(for: artwork)
+        let needsPaletteExtraction = ambientPaletteFingerprint != fingerprint
+        ambientArtwork = artwork
+
+        if needsPaletteExtraction {
+            ambientPaletteFingerprint = fingerprint
+            // Use the current player palette for the first frame, then replace
+            // it with colors extracted from this exact cover off the main path.
+            ambientPrimaryColor = MusicManager.shared.avgColor
+            ambientSecondaryColor = MusicManager.shared.secondaryColor
+        }
+
+        updateAmbientBackgroundWindow(on: screen)
+        guard needsPaletteExtraction else { return }
+
+        artwork.prominentOpposingColors { [weak self] primary, secondary in
+            guard let self,
+                  self.isShowing,
+                  self.isShowingAmbientColorProjection,
+                  self.ambientPaletteFingerprint == fingerprint
+            else { return }
+
+            self.ambientPrimaryColor = primary
+            self.ambientSecondaryColor = secondary
+            self.updateAmbientBackgroundWindow(on: screen)
+            self.updateAmbientLyricsOverlayIfNeeded(on: screen)
+            self.showAmbientClock(on: screen)
+        }
+    }
+
+    private func updateAmbientBackgroundWindow(on screen: NSScreen) {
+        let screenFrame = screen.frame
+        let content = AmbientColorProjectionContent(
+            artwork: ambientArtwork ?? MusicManager.shared.albumArt,
+            primaryColor: ambientPrimaryColor,
+            secondaryColor: ambientSecondaryColor
+        )
+
+        let window: NSWindow
+        let hostingView: NSHostingView<AmbientColorProjectionContent>
+        if let existingWindow = ambientBackgroundWindow,
+           let existingView = ambientBackgroundHostingView {
+            window = existingWindow
+            hostingView = existingView
+        } else {
+            let newWindow = NSWindow(
+                contentRect: screenFrame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            newWindow.isReleasedWhenClosed = false
+            newWindow.isOpaque = true
+            newWindow.backgroundColor = .black
+            newWindow.ignoresMouseEvents = true
+            newWindow.hasShadow = false
+            // A desktop-level window in the delegated lock-screen space sits
+            // above the wallpaper but below the clock, password field and Atoll
+            // controls. The projection disappears without touching the user's
+            // wallpaper configuration.
+            newWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 1)
+            newWindow.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+
+            let newHostingView = NSHostingView(rootView: content)
+            newHostingView.frame = NSRect(origin: .zero, size: screenFrame.size)
+            newHostingView.autoresizingMask = [.width, .height]
+            newWindow.contentView = newHostingView
+
+            ScreenCaptureVisibilityManager.shared.register(newWindow, scope: .entireInterface)
+            ambientBackgroundWindow = newWindow
+            ambientBackgroundHostingView = newHostingView
+            ambientBackgroundWindowDelegated = false
+            window = newWindow
+            hostingView = newHostingView
+        }
+
+        window.setFrame(screenFrame, display: true)
+        hostingView.frame = NSRect(origin: .zero, size: screenFrame.size)
+        hostingView.rootView = content
+
+        if !ambientBackgroundWindowDelegated {
+            SkyLightOperator.shared.delegateWindow(window)
+            ambientBackgroundWindowDelegated = true
+        }
+
+        window.orderFrontRegardless()
+    }
+
+    private func hideAmbientBackground() {
+        ambientPaletteFingerprint = nil
+        ambientArtwork = nil
+        ambientBackgroundWindow?.orderOut(nil)
+    }
+
+    private func showAmbientClock(on screen: NSScreen) {
+        let screenFrame = screen.frame
+        let height = min(max(screenFrame.height * 0.09, 88), 112)
+        let width = min(max(screenFrame.width * 0.56, 620), 980)
+        let topInset = max(screen.safeAreaInsets.top + 30, 48)
+        let frame = NSRect(
+            x: screenFrame.midX - (width / 2),
+            y: screenFrame.maxY - topInset - height,
+            width: width,
+            height: height
+        )
+
+        let content = AmbientLockScreenClockContent()
+        let window: NSWindow
+        let hostingView: NSHostingView<AmbientLockScreenClockContent>
+
+        if let existingWindow = ambientClockWindow,
+           let existingView = ambientClockHostingView {
+            window = existingWindow
+            hostingView = existingView
+        } else {
+            let newWindow = NSWindow(
+                contentRect: frame,
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            newWindow.isReleasedWhenClosed = false
+            newWindow.isOpaque = false
+            newWindow.backgroundColor = .clear
+            newWindow.ignoresMouseEvents = true
+            newWindow.hasShadow = false
+            newWindow.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
+            newWindow.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+
+            let newHostingView = NSHostingView(rootView: content)
+            newHostingView.frame = NSRect(origin: .zero, size: frame.size)
+            newHostingView.wantsLayer = true
+            newHostingView.layer?.backgroundColor = NSColor.clear.cgColor
+            newWindow.contentView = newHostingView
+
+            ScreenCaptureVisibilityManager.shared.register(newWindow, scope: .entireInterface)
+            ambientClockWindow = newWindow
+            ambientClockHostingView = newHostingView
+            ambientClockWindowDelegated = false
+            window = newWindow
+            hostingView = newHostingView
+        }
+
+        window.setFrame(frame, display: true)
+        hostingView.frame = NSRect(origin: .zero, size: frame.size)
+        hostingView.rootView = content
+
+        if !ambientClockWindowDelegated {
+            SkyLightOperator.shared.delegateWindow(window)
+            ambientClockWindowDelegated = true
+        }
+
+        window.orderFrontRegardless()
+    }
+
+    private func hideAmbientClock() {
+        ambientClockWindow?.orderOut(nil)
+    }
+
+    private func updateAmbientBackdropAndClockFramesIfNeeded() {
+        guard isShowing, isShowingAmbientColorProjection, let screen = NSScreen.main else { return }
+        updateAmbientBackgroundWindow(on: screen)
+        showAmbientClock(on: screen)
+    }
+
+    private func suppressLockScreenWidgetsForAmbientMode() {
+        LockScreenWeatherPanelManager.shared.hide()
+        LockScreenTimerWidgetPanelManager.shared.hide(animated: false)
+        LockScreenReminderWidgetPanelManager.shared.hide()
+    }
+
+    private func restoreLockScreenWidgetsAfterAmbientMode() {
+        LockScreenWeatherManager.shared.showWeatherWidget()
+        LockScreenTimerWidgetManager.shared.handleLockStateChange(isLocked: true)
+        LockScreenReminderWidgetManager.shared.refreshVisibilityForCurrentLockState()
+    }
+
     // MARK: - Click Receiver
 
     private func installFallbackRightClickMonitorIfNeeded() {
@@ -1326,6 +1883,8 @@ final class FullScreenArtworkWindowManager: ObservableObject {
             return nil
         case .spotifyFallback:
             return spotifyFallbackArtworkOverlayFrame(on: screen)
+        case .ambientColorProjection:
+            return ambientColorProjectionLayoutFrames(on: screen)?.artworkFrame
         }
     }
 
@@ -1335,6 +1894,13 @@ final class FullScreenArtworkWindowManager: ObservableObject {
     }
 
     private func updateLyricsOverlayIfNeeded(on screen: NSScreen? = NSScreen.main) {
+        if isShowingAmbientColorProjection {
+            hideLyricsOverlay()
+            updateAmbientLyricsOverlayIfNeeded(on: screen)
+            return
+        }
+
+        hideAmbientLyricsOverlay()
         guard isShowing, isShowingSpotifyCanvasFallback, Defaults[.enableLyrics] else {
             hideLyricsOverlay()
             return
@@ -1404,6 +1970,69 @@ final class FullScreenArtworkWindowManager: ObservableObject {
         lyricsOverlayWindow?.orderOut(nil)
     }
 
+    private func updateAmbientLyricsOverlayIfNeeded(on screen: NSScreen? = NSScreen.main) {
+        guard isShowing,
+              isShowingAmbientColorProjection,
+              hasAmbientLyrics,
+              let screen,
+              let frame = ambientColorProjectionLayoutFrames(on: screen)?.lyricsFrame
+        else {
+            hideAmbientLyricsOverlay()
+            return
+        }
+
+        let content = AmbientFullScreenLyricsOverlayContent()
+        let window: NSWindow
+        let hostingView: NSHostingView<AmbientFullScreenLyricsOverlayContent>
+
+        if let existingWindow = ambientLyricsOverlayWindow,
+           let existingView = existingWindow.contentView as? NSHostingView<AmbientFullScreenLyricsOverlayContent> {
+            window = existingWindow
+            hostingView = existingView
+        } else {
+            let newWindow = NSWindow(
+                contentRect: frame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            newWindow.isReleasedWhenClosed = false
+            newWindow.isOpaque = false
+            newWindow.backgroundColor = .clear
+            newWindow.ignoresMouseEvents = true
+            newWindow.hasShadow = false
+            newWindow.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
+            newWindow.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+
+            let newHostingView = NSHostingView(rootView: content)
+            newHostingView.frame = NSRect(origin: .zero, size: frame.size)
+            newHostingView.wantsLayer = true
+            newHostingView.layer?.backgroundColor = NSColor.clear.cgColor
+            newWindow.contentView = newHostingView
+
+            ScreenCaptureVisibilityManager.shared.register(newWindow, scope: .entireInterface)
+            ambientLyricsOverlayWindow = newWindow
+            window = newWindow
+            hostingView = newHostingView
+            ambientLyricsOverlayWindowDelegated = false
+        }
+
+        window.setFrame(frame, display: true)
+        hostingView.frame = NSRect(origin: .zero, size: frame.size)
+        hostingView.rootView = content
+
+        if !ambientLyricsOverlayWindowDelegated {
+            SkyLightOperator.shared.delegateWindow(window)
+            ambientLyricsOverlayWindowDelegated = true
+        }
+
+        window.orderFrontRegardless()
+    }
+
+    private func hideAmbientLyricsOverlay() {
+        ambientLyricsOverlayWindow?.orderOut(nil)
+    }
+
     private func spotifyCanvasFallbackLayoutFrames(on screen: NSScreen) -> SpotifyCanvasFallbackLayoutFrames? {
         let screenFrame = screen.frame
         guard let panelFrame = LockScreenPanelManager.shared.latestFrame else { return nil }
@@ -1440,6 +2069,14 @@ final class FullScreenArtworkWindowManager: ObservableObject {
             panelFrame: panelFrame,
             groupFrame: groupFrame,
             lyricsFrame: lyricsFrame
+        )
+    }
+
+    private func ambientColorProjectionLayoutFrames(on screen: NSScreen) -> AmbientColorProjectionLayoutFrames? {
+        guard let panelFrame = LockScreenPanelManager.shared.latestFrame else { return nil }
+        return ambientColorProjectionLayoutFrames(
+            screenFrame: screen.frame,
+            panelSize: panelFrame.size
         )
     }
 

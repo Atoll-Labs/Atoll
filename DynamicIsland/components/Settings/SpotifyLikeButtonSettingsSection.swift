@@ -26,7 +26,7 @@ struct SpotifyLikeButtonSettingsSection: View {
     var body: some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
-                Text("The like button needs its own Spotify app registration (the Canvas cookie session cannot modify your library). Create a free app at developer.spotify.com, add the redirect URI below, then paste the app's Client ID here.")
+                Text("Library browsing, Spotify Connect playback, and the like button use Spotify's official Web API. Music Shelf can fall back to a public catalog for search, while Free accounts use the already-running Spotify desktop app for local background playback.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -74,9 +74,9 @@ struct SpotifyLikeButtonSettingsSection: View {
                     .font(.caption)
             }
         } header: {
-            Text("Spotify Like Button")
+            Text("Spotify Web API")
         } footer: {
-            Text("Uses Spotify's official Web API (OAuth) with access limited to reading and changing your Liked Songs. Add the 'Like Song' control to a media slot to show the button.")
+            Text("Allows Atoll to control an active Spotify Connect device in the background and read or change your Liked Songs. Playback commands require Spotify Premium. If Spotify was already connected, disconnect and reconnect once to grant playback controls.")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }

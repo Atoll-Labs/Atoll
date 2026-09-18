@@ -3171,8 +3171,18 @@ struct Media: View {
     @Default(.lockScreenGlassCustomizationMode) private var lockScreenGlassCustomizationMode
     @Default(.lockScreenMusicAlbumParallaxEnabled) private var lockScreenMusicAlbumParallaxEnabled
     @Default(.lockScreenMusicFullscreenArtworkEnabled) private var lockScreenMusicFullscreenArtworkEnabled
+    @Default(.lockScreenFullscreenArtworkMode) private var lockScreenFullscreenArtworkMode
     @Default(.showStandardMediaControls) private var showStandardMediaControls
     @Default(.autoHideInactiveNotchMediaPlayer) private var autoHideInactiveNotchMediaPlayer
+    @Default(.enableMusicShelf) private var enableMusicShelf
+    @Default(.musicShelfEdge) private var musicShelfEdge
+    @Default(.musicShelfRevealOnHover) private var musicShelfRevealOnHover
+    @Default(.musicShelfAutoHide) private var musicShelfAutoHide
+    @Default(.musicShelfCloseAfterPlaying) private var musicShelfCloseAfterPlaying
+    @Default(.musicShelfCatalogSearch) private var musicShelfCatalogSearch
+    @Default(.musicShelfShowNowPlayingControls) private var musicShelfShowNowPlayingControls
+    @Default(.musicShelfRecentLimit) private var musicShelfRecentLimit
+    @Default(.enableShortcuts) private var enableShortcuts
     @Default(.showCalendar) private var showCalendar
     @Default(.enableLyrics) private var enableLyrics
     @Default(.pinLyricsWhenClosed) private var pinLyricsWhenClosed
@@ -3255,6 +3265,80 @@ struct Media: View {
 
             if mediaController == .cider {
                 CiderFavoritingSettingsSection()
+            }
+
+            Section {
+                Defaults.Toggle(key: .enableMusicShelf) {
+                    HStack(spacing: 7) {
+                        Text("Enable Music Shelf")
+                        customBadge(text: "New")
+                    }
+                }
+                .settingsHighlight(id: highlightID("Enable Music Shelf"))
+
+                if enableMusicShelf {
+                    SettingsSegmentedPicker(
+                        "Screen edge",
+                        selection: $musicShelfEdge,
+                        items: Array(MusicShelfEdge.allCases)
+                    ) { $0.localizedName }
+
+                    Defaults.Toggle(key: .musicShelfRevealOnHover) {
+                        Text("Reveal when the pointer touches the edge")
+                    }
+
+                    Defaults.Toggle(key: .musicShelfAutoHide) {
+                        Text("Hide after moving away")
+                    }
+                    .disabled(!musicShelfRevealOnHover)
+
+                    Defaults.Toggle(key: .musicShelfCloseAfterPlaying) {
+                        Text("Close after selecting a track")
+                    }
+
+                    Defaults.Toggle(key: .musicShelfCatalogSearch) {
+                        Text("Search music and match results on Spotify")
+                    }
+
+                    Defaults.Toggle(key: .musicShelfShowNowPlayingControls) {
+                        Text("Show playback controls in the shelf")
+                    }
+
+                    Stepper(value: $musicShelfRecentLimit, in: 6...40, step: 1) {
+                        HStack {
+                            Text("Recent albums")
+                            Spacer()
+                            Text("\(musicShelfRecentLimit)")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    KeyboardShortcuts.Recorder("Open Music Shelf:", name: .toggleMusicShelf)
+                        .disabled(!enableShortcuts)
+
+                    HStack {
+                        Button {
+                            MusicShelfManager.shared.show()
+                        } label: {
+                            Label("Open Music Shelf", systemImage: "square.stack.3d.up.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button(role: .destructive) {
+                            MusicShelfManager.shared.clearHistory()
+                        } label: {
+                            Text("Clear recent albums")
+                        }
+
+                        Spacer()
+                    }
+                }
+            } header: {
+                Text("Music Shelf")
+            } footer: {
+                Text("A compact, edge-based music browser. Scroll through the cover wheel, swipe between albums, artists, playlists, and history, or search a public music catalog and match tracks on Spotify. Spotify Free uses the already-running desktop player in the background; Spotify Connect controls require Premium.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section {
@@ -3598,17 +3682,24 @@ struct Media: View {
                     }
                     .disabled(!enableLockScreenMediaWidget)
                     .settingsHighlight(id: highlightID("Fullscreen artwork on right-click"))
-                    Defaults.Toggle(key: .lockScreenUseArtworkLayoutOverFullscreenCanvas) {
-                        Text("Use album art layout over fullscreen canvas")
-                    }
+                    LockScreenFullscreenModePicker(selection: $lockScreenFullscreenArtworkMode)
                     .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
-                    .settingsHighlight(id: highlightID("Use album art layout over fullscreen canvas"))
-                    Defaults.Toggle(key: .lockScreenKeepAlbumArtVisibleDuringFullscreenArtwork) {
-                        Text("Keep album art visible during fullscreen artwork")
+                    .settingsHighlight(id: highlightID("Fullscreen style"))
+                    if lockScreenFullscreenArtworkMode == .liveArtwork {
+                        Defaults.Toggle(key: .lockScreenUseArtworkLayoutOverFullscreenCanvas) {
+                            Text("Use album art layout over fullscreen canvas")
+                        }
+                        .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
+                        .settingsHighlight(id: highlightID("Use album art layout over fullscreen canvas"))
+                        Defaults.Toggle(key: .lockScreenKeepAlbumArtVisibleDuringFullscreenArtwork) {
+                            Text("Keep album art visible during fullscreen artwork")
+                        }
+                        .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
+                        .settingsHighlight(id: highlightID("Keep album art visible during fullscreen artwork"))
                     }
-                    .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
-                    .settingsHighlight(id: highlightID("Keep album art visible during fullscreen artwork"))
-                    Text("Right-click the album art on the lock screen to set it as the wallpaper. Right-click again or click the background to restore the original wallpaper. If a canvas is available, Atoll can also keep the same album art + player layout on top of the live canvas.")
+                    Text(lockScreenFullscreenArtworkMode == .ambientColors
+                         ? "Right-click the album art to project its main colors across the lock screen without replacing your wallpaper. Artwork and playback controls stay centered when lyrics are unavailable, and move beside the lyrics when they are available."
+                         : "Right-click the album art on the lock screen to set it as the wallpaper. Right-click again or click the background to restore the original wallpaper. If a canvas is available, Atoll can also keep the same album art + player layout on top of the live canvas.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -5650,6 +5741,7 @@ struct LockScreenSettings: View {
     @Default(.lockScreenTimerWidgetUsesBlur) private var timerGlassModeIsGlass
     @Default(.enableLockScreenMediaWidget) private var enableLockScreenMediaWidget
     @Default(.lockScreenMusicFullscreenArtworkEnabled) private var lockScreenMusicFullscreenArtworkEnabled
+    @Default(.lockScreenFullscreenArtworkMode) private var lockScreenFullscreenArtworkMode
     @Default(.enableLockScreenTimerWidget) private var enableLockScreenTimerWidget
     @Default(.enableLockScreenWeatherWidget) private var enableLockScreenWeatherWidget
     @Default(.enableLockScreenFocusWidget) private var enableLockScreenFocusWidget
@@ -6004,17 +6096,24 @@ struct LockScreenSettings: View {
                         }
                         .disabled(!enableLockScreenMediaWidget)
                         .settingsHighlight(id: highlightID("Fullscreen artwork on right-click"))
-                        Defaults.Toggle(key: .lockScreenUseArtworkLayoutOverFullscreenCanvas) {
-                            Text("Use album art layout over fullscreen canvas")
-                        }
+                        LockScreenFullscreenModePicker(selection: $lockScreenFullscreenArtworkMode)
                         .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
-                        .settingsHighlight(id: highlightID("Use album art layout over fullscreen canvas"))
-                        Defaults.Toggle(key: .lockScreenKeepAlbumArtVisibleDuringFullscreenArtwork) {
-                            Text("Keep album art visible during fullscreen artwork")
+                        .settingsHighlight(id: highlightID("Fullscreen style"))
+                        if lockScreenFullscreenArtworkMode == .liveArtwork {
+                            Defaults.Toggle(key: .lockScreenUseArtworkLayoutOverFullscreenCanvas) {
+                                Text("Use album art layout over fullscreen canvas")
+                            }
+                            .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
+                            .settingsHighlight(id: highlightID("Use album art layout over fullscreen canvas"))
+                            Defaults.Toggle(key: .lockScreenKeepAlbumArtVisibleDuringFullscreenArtwork) {
+                                Text("Keep album art visible during fullscreen artwork")
+                            }
+                            .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
+                            .settingsHighlight(id: highlightID("Keep album art visible during fullscreen artwork"))
                         }
-                        .disabled(!enableLockScreenMediaWidget || !lockScreenMusicFullscreenArtworkEnabled)
-                        .settingsHighlight(id: highlightID("Keep album art visible during fullscreen artwork"))
-                        Text("Right-click the album art on the lock screen to set it as the wallpaper. Right-click again or click the background to restore the original wallpaper. If a canvas is available, Atoll can also keep the same album art + player layout on top of the live canvas.")
+                        Text(lockScreenFullscreenArtworkMode == .ambientColors
+                             ? "Right-click the album art to project its main colors across the lock screen without replacing your wallpaper. Artwork and playback controls stay centered when lyrics are unavailable, and move beside the lyrics when they are available."
+                             : "Right-click the album art on the lock screen to set it as the wallpaper. Right-click again or click the background to restore the original wallpaper. If a canvas is available, Atoll can also keep the same album art + player layout on top of the live canvas.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -6519,6 +6618,271 @@ private struct LockScreenIconStyleCard: View {
         if isSelected { return Color.accentColor }
         if isHovering { return Color.primary.opacity(0.1) }
         return Color.clear
+    }
+}
+
+private struct LockScreenFullscreenModePicker: View {
+    @Binding var selection: LockScreenFullscreenArtworkMode
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Fullscreen style")
+                .font(.system(size: 13, weight: .semibold))
+
+            HStack(alignment: .top, spacing: 14) {
+                ForEach(LockScreenFullscreenArtworkMode.allCases) { mode in
+                    LockScreenFullscreenModeCard(
+                        mode: mode,
+                        isSelected: selection == mode
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selection = mode
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct LockScreenFullscreenModeCard: View {
+    let mode: LockScreenFullscreenArtworkMode
+    let isSelected: Bool
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 11) {
+                preview
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 126)
+
+                HStack(spacing: 7) {
+                    Image(systemName: mode == .liveArtwork ? "play.rectangle.fill" : "paintpalette.fill")
+                        .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                    Text(mode.localizedName)
+                        .font(.system(size: 14, weight: .bold))
+                    Spacer(minLength: 0)
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isSelected ? Color.accentColor : .secondary.opacity(0.55))
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(mode.cardFeatures.enumerated()), id: \.offset) { _, feature in
+                        HStack(alignment: .firstTextBaseline, spacing: 7) {
+                            Image(systemName: feature.symbol)
+                                .font(.system(size: 10, weight: .semibold))
+                                .frame(width: 14)
+                                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                            Text(feature.text)
+                                .font(.system(size: 10.5, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+            .padding(13)
+            .frame(maxWidth: .infinity, minHeight: 242, alignment: .topLeading)
+            .background {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(cardBackground)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(
+                        isSelected ? Color.accentColor : Color(nsColor: .separatorColor).opacity(isHovering ? 0.8 : 0.45),
+                        lineWidth: isSelected ? 2.5 : 1
+                    )
+            }
+            .scaleEffect(isHovering ? 1.01 : 1)
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.16)) {
+                isHovering = hovering
+            }
+        }
+        .accessibilityLabel(mode.localizedName)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var preview: some View {
+        LockScreenMacDisplayPreview(mode: mode)
+    }
+
+    private var cardBackground: Color {
+        if isSelected { return Color.accentColor.opacity(0.11) }
+        if isHovering { return Color.primary.opacity(0.055) }
+        return Color(nsColor: .controlBackgroundColor).opacity(0.72)
+    }
+}
+
+/// Uses the user's current wallpaper and current artwork inside a recognisable
+/// Mac display frame, so these are honest previews of the two presentations
+/// instead of abstract illustration tiles.
+private struct LockScreenMacDisplayPreview: View {
+    let mode: LockScreenFullscreenArtworkMode
+
+    @ObservedObject private var musicManager = MusicManager.shared
+
+    private var desktopImage: NSImage? {
+        guard let screen = NSScreen.main,
+              let url = NSWorkspace.shared.desktopImageURL(for: screen)
+        else { return nil }
+        return NSImage(contentsOf: url)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let screenHeight = max(62, min(geometry.size.height - 12, (geometry.size.width - 14) / 1.6))
+            let screenWidth = screenHeight * 1.6
+
+            VStack(spacing: 0) {
+                ZStack(alignment: .top) {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(white: 0.24), Color(white: 0.08)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+
+                    screenContent
+                        .frame(width: max(1, screenWidth - 10), height: max(1, screenHeight - 10))
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .padding(5)
+
+                    Capsule()
+                        .fill(.black.opacity(0.9))
+                        .frame(width: 34, height: 6)
+                        .padding(.top, 5)
+                }
+                .frame(width: screenWidth, height: screenHeight)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(.white.opacity(0.16), lineWidth: 0.8)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .shadow(color: .black.opacity(0.35), radius: 6, x: 0, y: 4)
+
+                LinearGradient(
+                    colors: [.gray.opacity(0.8), .gray.opacity(0.35)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: 20, height: 8)
+
+                Capsule()
+                    .fill(.gray.opacity(0.62))
+                    .frame(width: 66, height: 4)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .center)
+        }
+    }
+
+    private var screenContent: some View {
+        GeometryReader { geometry in
+            ZStack {
+                wallpaper
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
+
+                if mode == .liveArtwork {
+                    Image(nsImage: musicManager.albumArt)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                    Color.black.opacity(0.16)
+                } else {
+                    LinearGradient(
+                        colors: [
+                            Color(nsColor: musicManager.avgColor).opacity(0.86),
+                            Color(nsColor: musicManager.secondaryColor).opacity(0.72),
+                            .black.opacity(0.78)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    VStack(spacing: 2) {
+                        Text(context.date.formatted(date: .omitted, time: .shortened))
+                            .font(.system(size: 17, weight: .light, design: .rounded))
+                            .monospacedDigit()
+                        Text(context.date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                            .font(.system(size: 5.2, weight: .medium))
+                        Spacer()
+
+                        if mode == .ambientColors {
+                            HStack(spacing: 5) {
+                                Image(nsImage: musicManager.albumArt)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 25, height: 25)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Capsule().fill(.white.opacity(0.9)).frame(width: 42, height: 3)
+                                    Capsule().fill(.white.opacity(0.55)).frame(width: 29, height: 2.5)
+                                }
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 6, weight: .bold))
+                            }
+                            .padding(5)
+                            .background(.black.opacity(0.32), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        }
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.top, 10)
+                    .padding(.bottom, 6)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .shadow(color: .black.opacity(0.45), radius: 4, x: 0, y: 2)
+                }
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
+        }
+    }
+
+    @ViewBuilder
+    private var wallpaper: some View {
+        if let desktopImage {
+            Image(nsImage: desktopImage)
+                .resizable()
+                .scaledToFill()
+        } else {
+            LinearGradient(
+                colors: [.blue.opacity(0.72), .indigo.opacity(0.82), .black],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+}
+
+private extension LockScreenFullscreenArtworkMode {
+    var cardFeatures: [(symbol: String, text: String)] {
+        switch self {
+        case .liveArtwork:
+            return [
+                ("photo.on.rectangle", String(localized: "Artwork or animated canvas")),
+                ("rectangle.on.rectangle", String(localized: "Temporarily changes the wallpaper")),
+                ("arrow.uturn.backward", String(localized: "Restores the original on exit"))
+            ]
+        case .ambientColors:
+            return [
+                ("paintpalette", String(localized: "Full-screen album color projection")),
+                ("lock.shield", String(localized: "Leaves the wallpaper untouched")),
+                ("clock", String(localized: "Custom clock and full lyrics"))
+            ]
+        }
     }
 }
 

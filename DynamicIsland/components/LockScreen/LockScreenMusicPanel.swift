@@ -81,6 +81,7 @@ struct LockScreenMusicPanel: View {
     @Default(.lockScreenMusicAlbumParallaxEnabled) private var lockScreenParallaxEnabled
     @Default(.lockScreenMusicPanelWidth) private var collapsedPanelWidth
     @Default(.lockScreenMusicFullscreenArtworkEnabled) private var fullscreenArtworkEnabled
+    @Default(.lockScreenFullscreenArtworkMode) private var fullscreenArtworkMode
     @Default(.lockScreenKeepAlbumArtVisibleDuringFullscreenArtwork) private var keepAlbumArtVisibleDuringFullscreenArtwork
     @Default(.lockScreenMusicFullscreenVideoArtwork) private var fullscreenVideoArtwork
     @Default(.lockScreenWidgetAppearance) private var widgetAppearance
@@ -667,11 +668,16 @@ struct LockScreenMusicPanel: View {
             }
         }
 
-        FullScreenArtworkWindowManager.shared.show(
-            artwork: artwork,
-            videoURL: fullscreenVideoArtwork ? videoURL : nil,
-            allowLiveWallpaper: fullscreenVideoArtwork
-        )
+        switch fullscreenArtworkMode {
+        case .liveArtwork:
+            FullScreenArtworkWindowManager.shared.show(
+                artwork: artwork,
+                videoURL: fullscreenVideoArtwork ? videoURL : nil,
+                allowLiveWallpaper: fullscreenVideoArtwork
+            )
+        case .ambientColors:
+            FullScreenArtworkWindowManager.shared.showAmbientColorProjection(artwork: artwork)
+        }
     }
 
     private func registerInteraction() {

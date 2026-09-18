@@ -1087,6 +1087,14 @@ extension Defaults.Keys {
     static let musicControlWindowEnabled = Key<Bool>("musicControlWindowEnabled", default: false)
     static let showStandardMediaControls = Key<Bool>("showStandardMediaControls", default: true)
     static let autoHideInactiveNotchMediaPlayer = Key<Bool>("autoHideInactiveNotchMediaPlayer", default: true)
+    static let enableMusicShelf = Key<Bool>("enableMusicShelf", default: false)
+    static let musicShelfEdge = Key<MusicShelfEdge>("musicShelfEdge", default: .left)
+    static let musicShelfRevealOnHover = Key<Bool>("musicShelfRevealOnHover", default: true)
+    static let musicShelfAutoHide = Key<Bool>("musicShelfAutoHide", default: true)
+    static let musicShelfCloseAfterPlaying = Key<Bool>("musicShelfCloseAfterPlaying", default: false)
+    static let musicShelfCatalogSearch = Key<Bool>("musicShelfCatalogSearch", default: true)
+    static let musicShelfShowNowPlayingControls = Key<Bool>("musicShelfShowNowPlayingControls", default: true)
+    static let musicShelfRecentLimit = Key<Int>("musicShelfRecentLimit", default: 18)
     static let cachedMusicLiveActivityPreference = Key<Bool?>("cachedMusicLiveActivityPreference", default: nil)
     static let cachedLockScreenMediaWidgetPreference = Key<Bool?>("cachedLockScreenMediaWidgetPreference", default: nil)
     static let cachedMusicControlWindowPreference = Key<Bool?>("cachedMusicControlWindowPreference", default: nil)
@@ -1143,6 +1151,10 @@ extension Defaults.Keys {
     static let lockScreenPanelUsesBlur = Key<Bool>("lockScreenPanelUsesBlur", default: true)
     static let lockScreenMusicMergedAirPlayOutput = Key<Bool>("lockScreenMusicMergedAirPlayOutput", default: true)
     static let lockScreenMusicFullscreenArtworkEnabled = Key<Bool>("lockScreenMusicFullscreenArtworkEnabled", default: true)
+    static let lockScreenFullscreenArtworkMode = Key<LockScreenFullscreenArtworkMode>(
+        "lockScreenFullscreenArtworkMode",
+        default: .liveArtwork
+    )
     static let lockScreenKeepAlbumArtVisibleDuringFullscreenArtwork = Key<Bool>("lockScreenKeepAlbumArtVisibleDuringFullscreenArtwork", default: false)
     static let lockScreenMusicFullscreenVideoArtwork = Key<Bool>("lockScreenMusicFullscreenVideoArtwork", default: true)
     static let lockScreenUseArtworkLayoutOverFullscreenCanvas = Key<Bool>("lockScreenShowCenteredAlbumArtOverFullscreenCanvas", default: true)

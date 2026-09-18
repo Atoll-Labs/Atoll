@@ -61,6 +61,10 @@ final class LockScreenWeatherPanelManager {
     }
 
     private func render(snapshot: LockScreenWeatherSnapshot, makeVisible: Bool) {
+        guard !FullScreenArtworkWindowManager.shared.isShowingAmbientColorProjection else {
+            hide()
+            return
+        }
         guard let screen = currentScreen() else { return }
         if !makeVisible, window == nil {
             return

@@ -333,8 +333,16 @@ class LockScreenPanelManager {
 
     private func targetFrame(for screenFrame: NSRect, panelSize: CGSize) -> NSRect {
         let defaultCollapsedFrame = collapsedFrame(for: screenFrame)
+        let fullscreenArtworkManager = FullScreenArtworkWindowManager.shared
 
-        if FullScreenArtworkWindowManager.shared.isShowingSpotifyCanvasFallback {
+        if fullscreenArtworkManager.isShowingAmbientColorProjection {
+            return fullscreenArtworkManager.ambientColorProjectionPanelFrame(
+                screenFrame: screenFrame,
+                panelSize: panelSize
+            )
+        }
+
+        if fullscreenArtworkManager.isShowingSpotifyCanvasFallback {
             return spotifyCanvasFallbackPanelFrame(
                 screenFrame: screenFrame,
                 defaultCollapsedFrame: defaultCollapsedFrame,

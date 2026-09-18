@@ -73,6 +73,10 @@ final class LockScreenReminderWidgetManager: ObservableObject {
         }
     }
 
+    func refreshVisibilityForCurrentLockState() {
+        handleLockStateChange(isLocked: LockScreenManager.shared.currentLockStatus)
+    }
+
     private func observeDefaults() {
         Defaults.publisher(.enableLockScreenReminderWidget, options: [])
             .sink { [weak self] change in
@@ -128,4 +132,3 @@ final class LockScreenReminderWidgetManager: ObservableObject {
     }
 
 }
-
